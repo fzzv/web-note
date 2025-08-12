@@ -1,0 +1,271 @@
+# 02_basics：Go 基础知识学习笔记
+
+> 配套示例代码：`code/go/day1/02_basics`
+> 建议先通读，再对照示例运行与改动。
+
+## 学习目标
+- 了解变量/常量与基础类型，掌握显式类型转换与零值概念
+- 熟悉控制流（`if/for/switch`）与函数多返回值、命名返回值
+- 初步掌握指针、结构体与方法（值接收者 vs 指针接收者）
+- 理解数组与切片（`len/cap`、扩容、深拷贝）以及 `map` 基本使用
+
+---
+
+## 变量与常量
+- 变量：`var name type` 或短变量声明 `:=`（仅函数内部可用）
+- 常量：`const`，可配合 `iota` 生成枚举
+- 零值：未显式初始化的变量会被赋为类型的零值（如 `0`、`""`、`false`、`nil`）
+
+> iota 是什么？
+>
+> 在 Go 语言中，iota 是一个预声明的标识符，它在**const 声明块中**被用作一个自增的计数器，从 0 开始。
+>
+> - 每当 const 关键字出现时，iota 的值就会被重置为 0。
+>
+> - 在 const 声明块中，每新声明一行常量，iota 的值就会自动递增 1。
+
+```go
+// 变量
+var x int = 42
+y := 7            // 自动推断类型（只能在函数内部）
+
+// 常量与 iota
+const (
+    _ = iota       // 0（占位）
+    KB = 1 << (10 * iota) // 1<<10
+    MB               // 1<<20
+    GB               // 1<<30
+)
+
+// 零值
+var s string // ""
+var b bool   // false
+var p *int   // nil
+```
+
+- 类型转换：Go 不允许隐式转换，需显式写出转换
+```go
+var i int = 10
+var f float64 = float64(i) + 3.14
+```
+
+---
+
+## 基础类型速览
+- 布尔：`bool`
+- 整型：`int`、`int8/16/32/64`、`uint`、`uint8/16/32/64`、`uintptr`
+- 浮点：`float32`、`float64`
+- 复数：`complex64`、`complex128`
+- 字符：`byte`（即 `uint8`）、`rune`（即 `int32`，表示 Unicode 码点）
+- 字符串：`string`（不可变）
+
+字符串与 `rune`：
+```go
+s := "你好, Go"
+for idx, r := range s { // 按 Unicode 码点遍历
+    fmt.Printf("idx=%d rune=%c\n", idx, r)
+}
+// 输出结果：
+idx=0 rune=你
+idx=3 rune=好
+idx=6 rune=,
+idx=7 rune=
+idx=8 rune=G
+idx=9 rune=o
+```
+
+---
+
+## 控制流
+- `if` 支持“短变量声明”语句；`for` 是唯一循环关键字；`switch` 默认自动 `break`
+
+```go
+// if with short statement
+if v := compute(); v > 10 {
+    fmt.Println("big", v)
+} else {
+    fmt.Println("small", v)
+}
+
+// for：三种写法
+for i := 0; i < 3; i++ { /* ... */ }
+for i < 10 { /* while 风格 */ }
+for { /* 死循环，配合 break/return */ }
+
+// switch
+switch day := 7; day {
+case 1, 2, 3:
+    fmt.Println("work")
+case 7:
+    fmt.Println("rest")
+default:
+    fmt.Println("other")
+}
+```
+
+`defer`：延迟执行，常用于资源释放（先进后出）
+```go
+f, err := os.Open("file.txt")
+if err != nil { /* handle */ }
+defer f.Close() // 确保退出前关闭文件
+```
+
+---
+
+## 函数
+- 多返回值是常态，错误通过额外的 `error` 返回值承载
+- 可使用命名返回值（不滥用）；可变参数使用 `...T`
+
+```go
+func addAndDiff(a, b int) (sum int, diff int) {
+    sum = a + b
+    diff = a - b
+    return // 使用命名返回值时可直接 return
+}
+
+func sum(values ...int) int {
+    s := 0
+    for _, v := range values { s += v }
+    return s
+}
+
+func read(path string) ([]byte, error) {
+    b, err := os.ReadFile(path)
+    if err != nil { return nil, err }
+    return b, nil
+}
+```
+
+错误处理惯用法：
+```go
+b, err := read("cfg.json")
+if err != nil {
+    // 处理/返回/包装错误
+    log.Println("read failed:", err)
+    return
+}
+```
+
+---
+
+## 指针、结构体与方法
+- 指针：`&` 取地址，`*` 解引用；无指针运算
+- 结构体：使用字面量或构造函数初始化
+- 方法接收者：值接收者（拷贝、适用于小对象与只读方法）、指针接收者（在方法内修改原对象）
+
+```go
+type User struct {  // 结构体
+    ID   int
+    Name string
+    Age  int
+}
+
+func (u User) Greeting() string {            // 值接收者 它不会修改原始结构体 可以称之为“只读”方法
+    return fmt.Sprintf("Hi, I'm %s", u.Name)
+}
+
+func (u *User) Rename(name string) {         // 指针接收者 它会修改原始结构体
+    u.Name = name
+}
+```
+
+> 导出规则：标识符首字母大写即导出（对包外可见），否则仅包内可见。
+
+---
+
+## 数组 vs 切片
+- 数组：长度是类型的一部分，`[3]int` 与 `[4]int` 是不同类型，少用
+- 切片：动态视图，包含指向底层数组的指针、长度与容量
+
+创建与扩容：
+```go
+s := []int{1,2,3}
+s = append(s, 4, 5)
+fmt.Println(len(s), cap(s))
+
+// 预分配，降低扩容次数
+buf := make([]byte, 0, 1024)
+```
+
+共享与深拷贝：
+```go
+base := []int{1,2,3}
+alias := base           // 共享同一底层数组
+alias[0] = 99           // 会影响 base
+
+// 深拷贝，避免联动
+safe := append([]int(nil), base...)
+```
+
+切片“坑点”：
+- 由 `s[a:b]` 获取的子切片仍共享底层数组；适当使用 `append` 到新切片或 `copy`
+- `range` 遍历时若要捕获变量地址，需小心循环变量复用
+
+---
+
+## Map（哈希表）
+- 非并发安全；并发写需要加锁或使用 `sync.Map`
+- 读取返回值模式：`v, ok := m[key]`
+
+```go
+m := make(map[string]int)
+m["go"] = 2009
+if v, ok := m["go"]; ok { fmt.Println(v) }
+
+delete(m, "rust") // 删除键
+```
+
+> Map 的遍历顺序未定义，不要依赖顺序。
+
+---
+
+## 内置函数速查
+- `len`、`cap`、`make`（slice/map/chan）、`new`（零值指针）、`append`、`copy`、`delete`
+
+| 函数            | 描述                                             | 返回值               | 适用类型                       | Go vs JS/Python                                       |
+| --------------- | ------------------------------------------------ | -------------------- | ------------------------------ | ----------------------------------------------------- |
+| len             | 获取集合的长度或字符串的字符数。                 | int                  | 数组、切片、映射、字符串、通道 | 类似于 JS/Python 的 .length 或 len()。                |
+| cap             | 获取切片或通道的容量，即底层数组的可用空间。     | int                  | 切片、通道                     | Go 特有，用于管理切片的内存。                         |
+| new             | 为类型分配内存，并返回一个指向该类型零值的指针。 | *Type                | 任何类型                       | 类似于 JS 中用 new 关键字创建对象，但这里是返回指针。 |
+| make            | 为切片、映射或通道分配并初始化内存。             | Slice/Map/Channel    | 切片、映射、通道               | Go 特有，用于创建引用类型。                           |
+| append          | 将元素追加到切片末尾，如果容量不足则自动扩容。   | 新的切片             | 切片                           | 类似于 JS 的 .push()，但返回新切片。                  |
+| copy            | 将一个切片的内容复制到另一个切片。               | int (复制的元素个数) | 切片                           | Go 特有，用于创建真正的副本，而非引用。               |
+| delete          | 从映射中删除一个键值对。                         | (none)               | 映射                           | 类似于 JS 的 delete object[key]。                     |
+| panic           | 停止当前 goroutine 的正常执行，触发 panic 流程。 | (none)               | string 或 interface{}          | 类似于 JS 中的 throw new Error()。                    |
+| recover         | 捕获 panic，使程序从 panic 中恢复。              | interface{}          | (none)                         | Go 特有，通常与 defer 结合使用。                      |
+| print / println | 基础的输出函数，不属于 fmt 包，主要用于调试。    | (none)               | 任何类型                       | 类似于 JS 的 console.log()。                          |
+| complex         | 创建复数。                                       | complex64/complex128 | 两个浮点数                     | Go 特有，用于科学计算。                               |
+
+---
+
+## 包与模块
+- 包名一般与目录名一致；入口包为 `package main` 且必须包含 `func main()`
+- 模块初始化：
+```bash
+# 在模块根目录
+go mod init your/module
+```
+- 常用命令：`go fmt ./...`、`go vet ./...`、`go test ./...`、`go build`、`go run`
+- 导入别名：`import alias "path/to/pkg"`
+
+参考：
+- [Tour of Go](https://go.dev/tour)
+- [Effective Go](https://go.dev/doc/effective_go)
+
+---
+
+## 常见坑与建议
+- 切片扩容导致底层数组更换，`append` 后的旧切片/别名可能失效或不再联动
+- `for` 循环中的变量捕获：在 goroutine 闭包中使用循环变量前先重新绑定 `v := v`
+- `map` 不是并发安全，禁止并发写；`range` 顺序不稳定
+- 忘记关闭资源：`resp.Body.Close()`、`file.Close()`、`ticker.Stop()`
+- 显式处理 `error`，`panic` 仅用于不可恢复错误（如配置严重缺失）
+
+---
+
+## 建议练习
+- 实现 `sumLoop` 与 `sumFormula`，对比性能与可读性
+- 写一个 `wordCount` 统计单词频次（配合 `strings.Fields`）
+- 修改 `User`：增加 `IsAdult()` 方法与构造函数参数校验
+
+> 做完练习后，运行 `go run ./02_basics` 与其他示例，验证行为是否符合预期。 
