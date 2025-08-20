@@ -121,6 +121,18 @@ export const node =() => {
   ]
 }
 
+export const kysely = () => {
+  return [
+    {
+      text: 'Kysely',
+      items: [
+        { text: '使用kysely进行简单的curd', link: '/nest/kysely/使用kysely进行简单的curd' },
+        { text: 'kysely中常用的method', link: '/nest/kysely/kysely中常用的method' },
+      ]
+    },
+  ]
+}
+
 export const java = () => {
   return [
     {
