@@ -12,7 +12,7 @@ import {
   docker,
   canvas,
   database,
-  kysely,
+  nest,
 } from './sidebar'
 
 export default {
@@ -42,7 +42,7 @@ export default {
       '/frontend-engineering/webpack': webpack(),
       '/frontend-engineering/vite': vite(),
       '/database': database(),
-      '/nest/kysely': kysely()
+      '/nest': nest(),
     },
     outline: {
       level: 'deep',

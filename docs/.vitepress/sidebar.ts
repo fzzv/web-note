@@ -110,7 +110,7 @@ export const canvas = () => {
   ]
 }
 
-export const node =() => {
+export const node = () => {
   return [
     {
       text: 'Node基础',
@@ -121,8 +121,19 @@ export const node =() => {
   ]
 }
 
-export const kysely = () => {
+export const nest = () => {
   return [
+    {
+      text: 'NestJS',
+      items: [
+        { text: 'NestJS基础', link: '/nest/nest基础' },
+        { text: '装饰器', link: '/nest/装饰器' },
+        { text: '依赖注入和控制反转', link: '/nest/依赖注入和控制反转' },
+        { text: 'SOLID原则', link: '/nest/solid原则' },
+        { text: 'TypeORM', link: '/nest/TypeORM' },
+        { text: '小案例', link: '/nest/小案例' },
+      ]
+    },
     {
       text: 'Kysely',
       items: [

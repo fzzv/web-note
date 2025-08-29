@@ -40,7 +40,7 @@ export const nav = () => {
         { text: 'Node',
           items: [
             { text: 'Node基础', link: '/node/1.REPL'},
-            { text: 'Kysely', link: '/nest/kysely/使用kysely进行简单的curd' },
+            { text: 'NestJS', link: '/nest/nest基础' },
           ]
         },
         {
