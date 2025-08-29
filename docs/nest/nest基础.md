@@ -1,5 +1,7 @@
 # nest 基础
 
+nest 核心其实就是 express + 装饰器，express 是用来处理请求的，装饰器是用来处理路由的。
+
 ## 创建项目
 
 可以使用nest提供的脚手架进行创建项目
@@ -28,6 +30,14 @@ src
 - service 是处理业务逻辑的，比如操作数据库。
 - dto 是封装请求参数的。
 - entities 是封装对应数据库表的实体的。
+
+## Nest的依赖包
+
+- @nestjs/core Nest.js核心模块，提供构建、启动和管理Nest.js应用程序的基础设施
+- @nestjs/common 包含了构建Nest.js应用程序基础设施和常用装饰器，像控制器、服务、中间件、守卫、拦截器、管道、异常过滤器等
+- rxjs 用于构建异步和事件驱动程序的库。
+- reflect-metadata 实现元编程的库，提供元数据反射API，可以在运行时检查和操作对象的元数据
+- @nestjs/platform-express Nest的Express平台适配器，提供中间件、路由等功能
 
 ## 脚手架的常见命令
 
