@@ -1,0 +1,73 @@
+# FileProcessor 配置文件
+# 日志级别: debug, info, warn, error
+log_level: info
+
+# 输出目录
+output_dir: ./output
+
+# 最大并发工作线程数
+max_workers: 4
+
+# 缓冲区大小（字节）
+buffer_size: 4096
+
+# 是否显示进度条
+progress_bar: true
+
+# 是否创建备份文件
+backup_files: false
+
+# 是否忽略隐藏文件
+ignore_hidden: true
+
+# 文件过滤设置
+filters:
+  # 默认包含的文件模式
+  default_include: "*"
+  
+  # 默认排除的文件模式
+  default_exclude: "*.tmp,*.log,*.bak"
+  
+  # 最大文件大小（字节）
+  max_file_size: 104857600  # 100MB
+
+# 搜索设置
+search:
+  # 默认上下文行数
+  default_context: 2
+  
+  # 是否默认显示行号
+  show_line_numbers: true
+  
+  # 是否默认区分大小写
+  case_sensitive: false
+
+# 替换设置
+replace:
+  # 是否默认创建备份
+  create_backup: true
+  
+  # 备份文件后缀
+  backup_suffix: ".bak"
+  
+  # 是否默认试运行
+  dry_run: false
+
+# 重命名设置
+rename:
+  # 是否默认试运行
+  dry_run: true
+  
+  # 是否递归处理
+  recursive: false
+
+# 性能设置
+performance:
+  # 读取缓冲区大小
+  read_buffer_size: 8192
+  
+  # 写入缓冲区大小
+  write_buffer_size: 8192
+  
+  # 工作队列大小
+  queue_size: 100

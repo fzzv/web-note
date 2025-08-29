@@ -1,0 +1,94 @@
+# golangci-lint 配置文件
+# 用于代码质量检查
+
+run:
+  # 超时时间
+  timeout: 5m
+  
+  # 包含测试文件
+  tests: true
+  
+  # 跳过自动生成的文件
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+
+# 启用的检查器
+linters:
+  enable:
+    - gofmt          # 检查代码格式
+    - goimports      # 检查导入格式
+    - govet          # Go 官方检查器
+    - errcheck       # 检查未处理的错误
+    - staticcheck    # 静态分析
+    - unused         # 检查未使用的代码
+    - gosimple       # 简化代码建议
+    - ineffassign    # 检查无效赋值
+    - typecheck      # 类型检查
+    - gocritic       # Go 代码评审
+    - revive         # 替代 golint
+    - gosec          # 安全检查
+    - misspell       # 拼写检查
+    - unconvert      # 不必要的类型转换
+    - unparam        # 未使用的参数
+    - whitespace     # 空白字符检查
+
+# 检查器设置
+linters-settings:
+  # gocritic 设置
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - unnamedResult
+      - hugeParam
+
+  # revive 设置
+  revive:
+    rules:
+      - name: exported
+        disabled: true
+      - name: package-comments
+        disabled: true
+
+  # gosec 设置
+  gosec:
+    excludes:
+      - G204  # 子进程启动
+      - G304  # 文件路径
+
+  # errcheck 设置
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+# 问题设置
+issues:
+  # 排除默认的排除规则
+  exclude-use-default: false
+  
+  # 最大问题数量
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  
+  # 排除特定问题
+  exclude-rules:
+    # 排除测试文件中的某些检查
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck
+    
+    # 排除 main 函数中的某些检查
+    - path: main\.go
+      text: "main function"
+      linters:
+        - revive
+
+# 输出设置
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
