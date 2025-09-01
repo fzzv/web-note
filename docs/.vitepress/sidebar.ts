@@ -116,6 +116,9 @@ export const node = () => {
       text: 'Node基础',
       items: [
         { text: '1.REPL', link: '/node/1.REPL' },
+        { text: 'htmx', link: '/node/htmx' },
+        { text: 'handlebars', link: '/node/handlebars' },
+        { text: 'winston', link: '/node/winston' },
       ]
     },
   ]

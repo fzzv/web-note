@@ -49,4 +49,16 @@ export default {
       label: '目录'
     }
   },
+  // 使用 v-pre 属性来避免代码块的解析
+  markdown: {
+    config(md) {
+      const defaultCodeInline = md.renderer.rules.code_inline!
+      // 重写代码块的解析规则
+      md.renderer.rules.code_inline = (tokens, idx, options, env, self) => {
+        // 添加 v-pre 属性
+        tokens[idx].attrSet('v-pre', '')
+        return defaultCodeInline(tokens, idx, options, env, self)
+      }
+    }
+  }
 }
