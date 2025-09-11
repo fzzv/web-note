@@ -135,6 +135,7 @@ export const nest = () => {
         { text: 'SOLID原则', link: '/nest/solid原则' },
         { text: 'TypeORM', link: '/nest/TypeORM' },
         { text: '小案例', link: '/nest/小案例' },
+        { text: 'cms项目', link: '/nest/cms项目' },
       ]
     },
     {
