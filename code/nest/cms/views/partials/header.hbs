@@ -1,0 +1,26 @@
+<!-- 导航栏，使用navbar类来定义基本样式，navbar-expand-lg使其在大屏幕上展开，bg-light设置背景为浅色 -->
+<nav class="navbar navbar-expand-lg bg-light">
+  <!-- 流体容器，使导航栏在大屏幕上全宽展开 -->
+  <div class="container-fluid">
+    <!-- 导航栏品牌，链接到首页 -->
+    <a class="navbar-brand" href="#">CMS</a>
+    <!-- 折叠导航栏内容，navbar-collapse用于折叠和展开导航栏 -->
+    <div class="collapse navbar-collapse">
+      <!-- 导航栏菜单，使用ms-auto类使其自动右对齐 -->
+      <ul class="navbar-nav ms-auto">
+        <!-- 导航项，包含下拉菜单 -->
+        <li class="nav-item dropdown">
+          <!-- 下拉菜单的触发链接，使用dropdown-toggle类使其具有下拉功能，data-bs-toggle属性用于触发Bootstrap的下拉菜单插件 -->
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+            欢迎
+          </a>
+          <!-- 下拉菜单内容，使用dropdown-menu类定义 -->
+          <ul class="dropdown-menu">
+            <!-- 下拉菜单项，使用dropdown-item类定义 -->
+            <li><a class="dropdown-item">退出登录</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>

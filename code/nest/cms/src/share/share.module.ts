@@ -1,0 +1,29 @@
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './entities/user.entity';
+import { ConfigModule } from '@nestjs/config';
+import { ConfigurationService } from './services/configuration.service';
+
+@Global()
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigurationService],
+      useFactory: (configService: ConfigurationService) => ({
+        type: 'mysql',
+        ...configService.mysqlConfig,
+        entities: [User],
+        synchronize: true,
+        autoLoadEntities: true,
+        logging: false
+      }),
+    }),
+  ],
+  providers: [ConfigurationService],
+  exports: [ConfigurationService],
+})
+export class ShareModule {}
+
