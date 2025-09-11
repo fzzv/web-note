@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { engine } from 'express-handlebars';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   // 使用 NestFactory 创建一个 NestExpressApplication 实例
@@ -40,6 +42,28 @@ async function bootstrap() {
       },
     }),
   );
+  // 配置全局管道
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  // 配置 Swagger
+  const config = new DocumentBuilder()
+    // 设置标题
+    .setTitle('CMS API')
+    // 设置描述
+    .setDescription('CMS API Description')
+    // 设置版本
+    .setVersion('1.0')
+    // 设置标签
+    .addTag('CMS')
+    // 设置Cookie认证
+    .addCookieAuth('connect.sid')
+    // 设置Bearer认证
+    .addBearerAuth({ type: 'http', scheme: 'bearer' })
+    // 构建配置
+    .build();
+  // 使用配置对象创建 Swagger 文档
+  const document = SwaggerModule.createDocument(app, config);
+  // 设置 Swagger 模块的路径和文档对象，将 Swagger UI 绑定到 '/api-doc' 路径上
+  SwaggerModule.setup('api-doc', app, document);
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
