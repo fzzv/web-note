@@ -17,7 +17,7 @@ export class ConfigurationService {
     return this.configService.get<string>('MYSQL_USER')!;
   }
   get mysqlPass(): string {
-    return this.configService.get<string>('MYSQL_PASS')!;
+    return this.configService.get<string>('MYSQL_PASSWORD')!;
   }
   get mysqlConfig() {
     return {

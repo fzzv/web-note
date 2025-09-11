@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { ConfigModule } from '@nestjs/config';
 import { ConfigurationService } from './services/configuration.service';
+import { UserService } from './services/user.service';
 
 @Global()
 @Module({
@@ -22,8 +23,8 @@ import { ConfigurationService } from './services/configuration.service';
       }),
     }),
   ],
-  providers: [ConfigurationService],
-  exports: [ConfigurationService],
+  providers: [ConfigurationService, UserService],
+  exports: [ConfigurationService, UserService],
 })
 export class ShareModule {}
 
