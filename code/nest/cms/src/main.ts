@@ -12,7 +12,7 @@ import { useContainer } from 'class-validator';
 async function bootstrap() {
   // 使用 NestFactory 创建一个 NestExpressApplication 实例
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  // 使用 useContainer 配置依赖注入容器
+  // 使用 useContainer 配置依赖注入容器 让自定义校验器可以支持依赖注入
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   // 配置静态资源目录
   app.useStaticAssets(join(__dirname, '..', 'public'));

@@ -12,31 +12,31 @@ export class CreateUserDto {
   @Validate(IsUsernameUniqueConstraint, { message: '用户名已存在' })
   // @StartsWith('user_', { message: '用户名必须以 "user_" 开头' })
   // @IsUsernameUnique({ message: '用户名已存在' })
-  readonly username: string;
+  username: string;
 
   @ApiProperty({ description: '密码', example: 'securePassword123' })
   @IsString()
-  readonly password: string;
+  password: string;
 
   @ApiPropertyOptional({ description: '手机号', example: '13124567890' })
   @IsOptionalString()
-  readonly mobile?: string;
+  mobile?: string;
 
   @ApiPropertyOptional({ description: '邮箱地址', example: 'john.doe@example.com' })
   @IsOptionalEmail()
-  readonly email?: string;
+  email?: string;
 
   @ApiPropertyOptional({ description: '用户状态', example: 1 })
   @IsOptionalNumber()
-  readonly status?: number;
+  status?: number;
 
   @ApiPropertyOptional({ description: '是否为超级管理员', example: true })
   @IsOptionalBoolean()
-  readonly is_super?: boolean;
+  is_super?: boolean;
 }
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   @ApiProperty({ description: '用户ID', example: 1 })
   @IsOptionalNumber()
-  readonly id: number;
+  id: number;
 }

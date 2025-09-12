@@ -1251,33 +1251,33 @@ export class CreateUserDto {
     message: `用户名必须以 "user_" 开头`,
   })
   @Validate(IsUsernameUniqueConstraint, { message: '用户名已存在' })
-  readonly username: string;
+  username: string;
 
   @ApiProperty({ description: '密码', example: 'securePassword123' })
   @IsString()
-  readonly password: string;
+  password: string;
 
   @ApiPropertyOptional({ description: '手机号', example: '13124567890' })
   @IsOptionalString()
-  readonly mobile?: string;
+  mobile?: string;
 
   @ApiPropertyOptional({ description: '邮箱地址', example: 'john.doe@example.com' })
   @IsOptionalEmail()
-  readonly email?: string;
+  email?: string;
 
   @ApiPropertyOptional({ description: '用户状态', example: 1 })
   @IsOptionalNumber()
-  readonly status?: number;
+  status?: number;
 
   @ApiPropertyOptional({ description: '是否为超级管理员', example: true })
   @IsOptionalBoolean()
-  readonly is_super?: boolean;
+  is_super?: boolean;
 }
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   @ApiProperty({ description: '用户ID', example: 1 })
   @IsOptionalNumber()
-  readonly id: number;
+  id: number;
 }
 ```
 
@@ -1425,4 +1425,188 @@ export class UserController {
 }
 
 ```
+
+## 编辑用户
+
+### 中间件
+
+```ts
+import { NextFunction, Request, Response } from "express";
+
+/**
+ * HTML 的 <form> 标签默认只支持 GET 和 POST
+ * 但 RESTful API 常常需要 PUT、PATCH、DELETE 等方法
+ * 为了绕过这个限制，前端可以在表单里加一个隐藏字段 _method，把要真正使用的 HTTP 方法放进去。
+ * example:
+ * <form action="/users/1" method="POST">
+ *   <input type="hidden" name="_method" value="DELETE">
+ *   <button type="submit">Delete User</button>
+ * </form>
+ */
+function methodOverride(req: Request, res: Response, next: NextFunction) {
+  if (req.body && typeof req.body === 'object' && '_method' in req.body) {
+    req.method = req.body._method.toUpperCase();
+    delete req.body._method;
+  }
+  next();
+}
+
+export default methodOverride;
+```
+
+配置中间件
+
+```ts
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'; // [!code ++]
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
+import { ApiModule } from './api/api.module';
+import { ShareModule } from './share/share.module';
+import methodOverride from './share/middlewares/method-override'; // [!code ++]
+
+@Module({
+  imports: [AdminModule, ApiModule, ShareModule],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule implements NestModule { // [!code ++]
+  configure(consumer: MiddlewareConsumer) { // [!code ++]
+    consumer.apply(methodOverride).forRoutes('*'); // [!code ++]
+  } // [!code ++]
+}
+```
+
+### user-list.hbs
+
+```handlebars
+<h1>用户列表</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>操作</th> // [!code ++]
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td> // [!code ++]
+        <a href="/admin/user/edit/{{this.id}}">编辑</a> // [!code ++]
+      </td> // [!code ++]
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+```
+
+### user-form.hbs
+
+```handlebars
+<h1>{{#if user.id}}编辑用户{{else}}添加用户{{/if}}</h1> // [!code ++]
+<form action="{{#if user.id}}/admin/user/{{user.id}}{{else}}/admin/user{{/if}}" method="POST"> // [!code ++]
+  {{#if user.id}} // [!code ++]
+    <input type="hidden" name="_method" value="PUT"> // [!code ++]
+  {{/if}} // [!code ++]
+  <div class="mb-3">
+    <label for="username" class="form-label">用户名</label>
+    <input type="text" class="form-control" id="username" name="username" value="{{user.username}}"> // [!code ++]
+  </div>
+  <div class="mb-3">
+    <label for="username" class="form-label">密码</label>
+    <input type="text" class="form-control" id="password" name="password" value="">
+  </div>
+  <div class="mb-3">
+    <label for="email" class="form-label">邮箱</label>
+    <input type="email" class="form-control" id="email" name="email" value="{{user.email}}"> // [!code ++]
+  </div>
+  <div class="mb-3">
+    <label for="status" class="form-label">状态</label>
+    <select class="form-control" id="status" name="status">
+      <option value="1" {{#if user.status}}selected{{/if}}>激活</option> // [!code ++]
+      <option value="0" {{#unless user.status}}selected{{/unless}}>未激活</option> // [!code ++]
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">保存</button>
+</form>
+```
+
+### user.controller
+
+```ts
+import { Body, Controller, Get, NotFoundException, Param, Post, Put, Redirect, Render } from '@nestjs/common'; // [!code ++]
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UtilityService } from '../../share/services/utility.service';
+import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto'; // [!code ++]
+
+@ApiTags('admin/user')
+@Controller('admin/user')
+export class UserController {
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list')
+  async findAll() {
+    const users = await this.userService.findAll();
+    return { users };
+  }
+
+  @Get('create')
+  @ApiOperation({ summary: '添加用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' })
+  @Render('user/user-form')
+  async create() {
+    return { user: {} };
+  }
+
+  @Post()
+  @Redirect('/admin/user')
+  @ApiOperation({ summary: '添加用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' })
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    console.log(createUserDto, 'createUserDto')
+    const hashedPassword = await this.utilityService.hashPassword(createUserDto.password);
+    await this.userService.create({ ...createUserDto, password: hashedPassword });
+    return { url: '/admin/user', success: true, message: '用户添加成功' };
+  }
+
+  @Get('edit/:id') // [!code ++]
+  @ApiOperation({ summary: '编辑用户(管理后台)' }) // [!code ++]
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' }) // [!code ++]
+  @Render('user/user-form') // [!code ++]
+  async edit(@Param('id') id: string) { // [!code ++]
+    const user = await this.userService.findOne({ where: { id: Number(id) } }); // [!code ++]
+    if (!user) { // [!code ++]
+      throw new NotFoundException('用户不存在'); // [!code ++]
+    } // [!code ++]
+    return { user }; // [!code ++]
+  } // [!code ++]
+
+  @Put(':id') // [!code ++]
+  @Redirect('/admin/user') // [!code ++]
+  @ApiOperation({ summary: '编辑用户(管理后台)' }) // [!code ++]
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' }) // [!code ++]
+  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) { // [!code ++]
+    if (updateUserDto.password) { // [!code ++]
+      updateUserDto.password = await this.utilityService.hashPassword(updateUserDto.password); // [!code ++]
+    } else { // [!code ++]
+      delete updateUserDto.password; // [!code ++]
+    } // [!code ++]
+    await this.userService.update(Number(id), updateUserDto); // [!code ++]
+    return { url: '/admin/user', success: true, message: '用户更新成功' }; // [!code ++]
+  } // [!code ++]
+}
+```
+
+
 

@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, Redirect, Render } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Post, Put, Redirect, Render } from '@nestjs/common';
 import { UserService } from '../../share/services/user.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UtilityService } from '../../share/services/utility.service';
-import { CreateUserDto } from 'src/share/dtos/user.dto';
+import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto';
 
 @ApiTags('admin/user')
 @Controller('admin/user')
@@ -39,5 +39,31 @@ export class UserController {
     const hashedPassword = await this.utilityService.hashPassword(createUserDto.password);
     await this.userService.create({ ...createUserDto, password: hashedPassword });
     return { url: '/admin/user', success: true, message: '用户添加成功' };
+  }
+
+  @Get('edit/:id')
+  @ApiOperation({ summary: '编辑用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
+  @Render('user/user-form')
+  async edit(@Param('id') id: string) {
+    const user = await this.userService.findOne({ where: { id: Number(id) } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    return { user };
+  }
+
+  @Put(':id')
+  @Redirect('/admin/user')
+  @ApiOperation({ summary: '编辑用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
+  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    if (updateUserDto.password) {
+      updateUserDto.password = await this.utilityService.hashPassword(updateUserDto.password);
+    } else {
+      delete updateUserDto.password;
+    }
+    await this.userService.update(Number(id), updateUserDto);
+    return { url: '/admin/user', success: true, message: '用户更新成功' };
   }
 }
