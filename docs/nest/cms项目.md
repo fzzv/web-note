@@ -1537,7 +1537,7 @@ export class AppModule implements NestModule { // [!code ++]
 ### user.controller
 
 ```ts
-import { Body, Controller, Get, NotFoundException, Param, Post, Put, Redirect, Render } from '@nestjs/common'; // [!code ++]
+import { Body, Controller, Get, NotFoundException, Param, Post, Put, ParseIntPipe, Redirect, Render } from '@nestjs/common'; // [!code ++]
 import { UserService } from '../../share/services/user.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UtilityService } from '../../share/services/utility.service';
@@ -1584,8 +1584,8 @@ export class UserController {
   @ApiOperation({ summary: '编辑用户(管理后台)' }) // [!code ++]
   @ApiResponse({ status: 200, description: '成功返回编辑用户页面' }) // [!code ++]
   @Render('user/user-form') // [!code ++]
-  async edit(@Param('id') id: string) { // [!code ++]
-    const user = await this.userService.findOne({ where: { id: Number(id) } }); // [!code ++]
+  async edit(@Param('id', ParseIntPipe) id: number) { // [!code ++]
+    const user = await this.userService.findOne({ where: { id } }); // [!code ++]
     if (!user) { // [!code ++]
       throw new NotFoundException('用户不存在'); // [!code ++]
     } // [!code ++]
@@ -1596,13 +1596,13 @@ export class UserController {
   @Redirect('/admin/user') // [!code ++]
   @ApiOperation({ summary: '编辑用户(管理后台)' }) // [!code ++]
   @ApiResponse({ status: 200, description: '成功返回编辑用户页面' }) // [!code ++]
-  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) { // [!code ++]
+  async updateUser(@Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto) { // [!code ++]
     if (updateUserDto.password) { // [!code ++]
       updateUserDto.password = await this.utilityService.hashPassword(updateUserDto.password); // [!code ++]
     } else { // [!code ++]
       delete updateUserDto.password; // [!code ++]
     } // [!code ++]
-    await this.userService.update(Number(id), updateUserDto); // [!code ++]
+    await this.userService.update(id, updateUserDto); // [!code ++]
     return { url: '/admin/user', success: true, message: '用户更新成功' }; // [!code ++]
   } // [!code ++]
 }
@@ -1658,7 +1658,7 @@ export class UserController {
 ### user.controller.ts
 
 ```ts
-import { Body, Controller, Get, NotFoundException, Param, Post, Put, Redirect, Render } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Post, Put, ParseIntPipe, Redirect, Render } from '@nestjs/common';
 import { UserService } from '../../share/services/user.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UtilityService } from '../../share/services/utility.service';
@@ -1705,8 +1705,8 @@ export class UserController {
   @ApiOperation({ summary: '编辑用户(管理后台)' })
   @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
   @Render('user/user-form')
-  async edit(@Param('id') id: string) {
-    const user = await this.userService.findOne({ where: { id: Number(id) } });
+  async edit(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.userService.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException('用户不存在');
     }
@@ -1717,13 +1717,13 @@ export class UserController {
   @Redirect('/admin/user')
   @ApiOperation({ summary: '编辑用户(管理后台)' })
   @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
-  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  async updateUser(@Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto) {
     if (updateUserDto.password) {
       updateUserDto.password = await this.utilityService.hashPassword(updateUserDto.password);
     } else {
       delete updateUserDto.password;
     }
-    await this.userService.update(Number(id), updateUserDto);
+    await this.userService.update(id, updateUserDto);
     return { url: '/admin/user', success: true, message: '用户更新成功' };
   }
 
@@ -1731,12 +1731,150 @@ export class UserController {
   @ApiOperation({ summary: '获取用户详情(管理后台)' }) // [!code ++]
   @ApiResponse({ status: 200, description: '成功返回用户详情' }) // [!code ++]
   @Render('user/user-detail') // [!code ++]
-  async findOne(@Param('id') id: string) { // [!code ++]
-    const user = await this.userService.findOne({ where: { id: Number(id) } }); // [!code ++]
+  async findOne(@Param('id', ParseIntPipe) id: number) { // [!code ++]
+    const user = await this.userService.findOne({ where: { id } }); // [!code ++]
     if (!user) { // [!code ++]
       throw new NotFoundException('用户不存在'); // [!code ++]
     } // [!code ++]
     return { user }; // [!code ++]
+  } // [!code ++]
+}
+```
+
+## 删除用户
+
+### user-list.hbs
+
+```handlebars
+<h1>用户列表</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td>
+        <a href="/admin/user/{{this.id}}">查看</a>
+        <a href="/admin/user/edit/{{this.id}}">编辑</a>
+        <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a> // [!code ++]
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+<script> // [!code ++]
+  function deleteUser(id) { // [!code ++]
+    if (confirm('确定要删除该用户吗？')) { // [!code ++]
+      $.ajax({ // [!code ++]
+        url: '/admin/user/' + id, // [!code ++]
+        type: 'DELETE', // [!code ++]
+        success: function (res) { // [!code ++]
+          if (res.success) { // [!code ++]
+            window.location.reload() // [!code ++]
+          } // [!code ++]
+        } // [!code ++]
+      }) // [!code ++]
+    } // [!code ++]
+  } // [!code ++]
+</script> // [!code ++]
+```
+
+### user.controller.ts
+
+```ts
+import { Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Post, Put, Redirect, Render } from '@nestjs/common'; // [!code ++]
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UtilityService } from '../../share/services/utility.service';
+import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto';
+
+@ApiTags('admin/user')
+@Controller('admin/user')
+export class UserController {
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list')
+  async findAll() {
+    const users = await this.userService.findAll();
+    return { users };
+  }
+
+  @Get('create')
+  @ApiOperation({ summary: '添加用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' })
+  @Render('user/user-form')
+  async create() {
+    return { user: {} };
+  }
+
+  @Post()
+  @Redirect('/admin/user')
+  @ApiOperation({ summary: '添加用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' })
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    const hashedPassword = await this.utilityService.hashPassword(createUserDto.password);
+    await this.userService.create({ ...createUserDto, password: hashedPassword });
+    return { url: '/admin/user', success: true, message: '用户添加成功' };
+  }
+
+  @Get('edit/:id')
+  @ApiOperation({ summary: '编辑用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
+  @Render('user/user-form')
+  async edit(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.userService.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    return { user };
+  }
+
+  @Put(':id')
+  @Redirect('/admin/user')
+  @ApiOperation({ summary: '编辑用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
+  async updateUser(@Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto) {
+    if (updateUserDto.password) {
+      updateUserDto.password = await this.utilityService.hashPassword(updateUserDto.password);
+    } else {
+      delete updateUserDto.password;
+    }
+    await this.userService.update(id, updateUserDto);
+    return { url: '/admin/user', success: true, message: '用户更新成功' };
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: '获取用户详情(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户详情' })
+  @Render('user/user-detail')
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.userService.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    return { user };
+  }
+
+  @Delete(':id') // [!code ++]
+  @ApiOperation({ summary: '删除用户(管理后台)' }) // [!code ++]
+  @ApiResponse({ status: 200, description: '成功返回删除用户页面' }) // [!code ++]
+  async deleteUser(@Param('id', ParseIntPipe) id: number) { // [!code ++]
+    await this.userService.delete(id); // [!code ++]
+    return { success: true, message: '用户删除成功' }; // [!code ++]
   } // [!code ++]
 }
 ```

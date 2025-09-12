@@ -15,8 +15,24 @@
       <td>
         <a href="/admin/user/{{this.id}}">查看</a>
         <a href="/admin/user/edit/{{this.id}}">编辑</a>
+        <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a>
       </td>
     </tr>
     {{/each}}
   </tbody>
 </table>
+<script>
+  function deleteUser(id) {
+    if (confirm('确定要删除该用户吗？')) {
+      $.ajax({
+        url: '/admin/user/' + id,
+        type: 'DELETE',
+        success: function (res) {
+          if (res.success) {
+            window.location.reload()
+          }
+        }
+      })
+    }
+  }
+</script>
