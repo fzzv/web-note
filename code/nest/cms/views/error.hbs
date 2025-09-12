@@ -1,0 +1,8 @@
+<h1>发生错误</h1>
+<p>{{message}}</p>
+<p>3秒后将自动跳转回上一个页面...</p>
+<script>
+  setTimeout(function () {
+    window.history.back();
+  }, 3000);
+</script>

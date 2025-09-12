@@ -4,6 +4,8 @@ import { User } from './entities/user.entity';
 import { ConfigModule } from '@nestjs/config';
 import { ConfigurationService } from './services/configuration.service';
 import { UserService } from './services/user.service';
+import { UtilityService } from './services/utility.service';
+import { IsUsernameUniqueConstraint } from './validators/user-validators';
 
 @Global()
 @Module({
@@ -23,8 +25,8 @@ import { UserService } from './services/user.service';
       }),
     }),
   ],
-  providers: [ConfigurationService, UserService],
-  exports: [ConfigurationService, UserService],
+  providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint],
+  exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint],
 })
 export class ShareModule {}
 

@@ -1032,3 +1032,397 @@ export class UserController {
 }
 ```
 
+## 新增用户
+
+### utility.service
+
+安装
+
+```bash
+npm install bcrypt
+```
+
+`utility.service.ts`
+
+```ts
+import { Injectable } from '@nestjs/common';
+// 导入 bcrypt 库，用于处理密码哈希和验证
+import bcrypt from 'bcrypt';
+// 使用 Injectable 装饰器将类标记为可注入的服务
+@Injectable()
+export class UtilityService {
+  // 定义一个异步方法，用于生成密码的哈希值
+  async hashPassword(password: string): Promise<string> {
+    // 生成一个盐值，用于增强哈希的安全性
+    const salt = await bcrypt.genSalt();
+    // 使用生成的盐值对密码进行哈希，并返回哈希结果
+    return bcrypt.hash(password, salt);
+  }
+  // 定义一个异步方法，用于比较输入的密码和存储的哈希值是否匹配
+  async comparePassword(password: string, hash: string): Promise<boolean> {
+    // 使用 bcrypt 的 compare 方法比较密码和哈希值，返回比较结果（true 或 false）
+    return bcrypt.compare(password, hash);
+  }
+}
+```
+
+### error.hbs
+
+```handlebars
+<h1>发生错误</h1>
+<p>{{message}}</p>
+<p>3秒后将自动跳转回上一个页面...</p>
+<script>
+  setTimeout(function () {
+    window.history.back();
+  }, 3000);
+</script>
+```
+
+### user-form.hbs
+
+```handlebars
+<h1>添加用户</h1>
+<form action="/admin/user" method="POST">
+  <div class="mb-3">
+    <label for="username" class="form-label">用户名</label>
+    <input type="text" class="form-control" id="username" name="username" value="">
+  </div>
+  <div class="mb-3">
+    <label for="username" class="form-label">密码</label>
+    <input type="text" class="form-control" id="password" name="password" value="">
+  </div>
+  <div class="mb-3">
+    <label for="email" class="form-label">邮箱</label>
+    <input type="email" class="form-control" id="email" name="email" value="">
+  </div>
+  <div class="mb-3">
+    <label for="status" class="form-label">状态</label>
+    <select class="form-control" id="status" name="status">
+      <option value="1">激活</option>
+      <option value="0">未激活</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">保存</button>
+</form>
+```
+
+### user-validators
+
+修改`user-validators.ts`  `IsUsernameUniqueConstraint` 从数据库中读取用户
+
+```ts
+import { Injectable } from "@nestjs/common";
+import { registerDecorator, ValidationArguments, ValidationOptions, ValidatorConstraint, ValidatorConstraintInterface, } from "class-validator";
+import { User } from "../entities/user.entity";
+import { InjectRepository } from "@nestjs/typeorm"; // [!code ++]
+import { Repository } from "typeorm"; // [!code ++]
+
+// 定义一个自定义验证器，名为 'startsWith'，不需要异步验证
+@ValidatorConstraint({ name: 'startsWith', async: false })
+// 使用 Injectable 装饰器使这个类可被依赖注入
+@Injectable()
+// 定义 StartsWithConstraint 类并实现 ValidatorConstraintInterface 接口
+export class StartsWithConstraint implements ValidatorConstraintInterface {
+  // 定义验证逻辑，检查值是否以指定的前缀开头
+  validate(value: any, args: ValidationArguments) {
+    const [prefix] = args.constraints;
+    return typeof value === 'string' && value.startsWith(prefix);
+  }
+  // 定义默认消息，当验证失败时返回的错误信息
+  defaultMessage(args: ValidationArguments) {
+    const [prefix] = args.constraints;
+    return `${args.property} must start with ${prefix}`;
+  }
+}
+
+// 定义一个自定义验证器，名为 'isUsernameUnique'，需要异步验证
+@ValidatorConstraint({ name: 'isUsernameUnique', async: true })
+// 使用 Injectable 装饰器使这个类可被依赖注入
+@Injectable()
+// 定义 IsUsernameUniqueConstraint 类并实现 ValidatorConstraintInterface 接口
+export class IsUsernameUniqueConstraint implements ValidatorConstraintInterface {
+  constructor( // [!code ++]
+    @InjectRepository(User) private readonly repository: Repository<User> // [!code ++]
+  ) { } // [!code ++]
+  // 定义验证逻辑，检查用户名是否唯一
+  async validate(value: any, args: ValidationArguments) {
+    const existingUsernames = ['ADMIN', 'USER', 'GUEST']; // 模拟已存在的用户名列表 // [!code --]
+    return !existingUsernames.includes(value); // [!code --]
+    const user = await this.repository.findOne({ where: { username: value } }); // [!code ++]
+    return !user; // [!code ++]
+  }
+  // 定义默认消息，当验证失败时返回的错误信息
+  defaultMessage(args: ValidationArguments) {
+    return `${args.property} must be unique`;
+  }
+}
+```
+
+使用 useContainer 配置依赖注入容器
+
+```ts
+import { NestFactory } from '@nestjs/core';
+import session from 'express-session';
+import cookieParser from 'cookie-parser';
+import { join } from 'node:path';
+import { engine } from 'express-handlebars';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
+import { useContainer } from 'class-validator'; // [!code ++]
+
+async function bootstrap() {
+  // 使用 NestFactory 创建一个 NestExpressApplication 实例
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // 使用 useContainer 配置依赖注入容器
+  useContainer(app.select(AppModule), { fallbackOnErrors: true }); // [!code ++]
+  // 配置静态资源目录
+  app.useStaticAssets(join(__dirname, '..', 'public'));
+  // 设置视图文件的基本目录
+  app.setBaseViewsDir(join(__dirname, '..', 'views'));
+  // 设置视图引擎为 hbs（Handlebars）
+  app.set('view engine', 'hbs');
+  // 配置 Handlebars 引擎
+  app.engine('hbs', engine({
+    // 设置文件扩展名为 .hbs
+    extname: '.hbs',
+    // 配置运行时选项
+    runtimeOptions: {
+      // 允许默认情况下访问原型属性
+      allowProtoPropertiesByDefault: true,
+      // 允许默认情况下访问原型方法
+      allowProtoMethodsByDefault: true,
+    },
+  }));
+  // 配置 cookie 解析器
+  app.use(cookieParser());
+  // 配置 session
+  app.use(
+    session({
+      secret: 'secret-key',
+      resave: true, // 是否每次都重新保存
+      saveUninitialized: true, // 是否保存未初始化的会话
+      cookie: {
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7天
+      },
+    }),
+  );
+  // 配置全局管道
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  // 配置 Swagger
+  const config = new DocumentBuilder()
+    // 设置标题
+    .setTitle('CMS API')
+    // 设置描述
+    .setDescription('CMS API Description')
+    // 设置版本
+    .setVersion('1.0')
+    // 设置标签
+    .addTag('CMS')
+    // 设置Cookie认证
+    .addCookieAuth('connect.sid')
+    // 设置Bearer认证
+    .addBearerAuth({ type: 'http', scheme: 'bearer' })
+    // 构建配置
+    .build();
+  // 使用配置对象创建 Swagger 文档
+  const document = SwaggerModule.createDocument(app, config);
+  // 设置 Swagger 模块的路径和文档对象，将 Swagger UI 绑定到 '/api-doc' 路径上
+  SwaggerModule.setup('api-doc', app, document);
+  await app.listen(process.env.PORT ?? 3000);
+}
+bootstrap();
+```
+
+`dto/user.dto.ts`
+
+```ts
+import { IsString, Validate } from "class-validator";
+import { StartsWithConstraint, IsUsernameUniqueConstraint } from "../validators/user-validators";
+import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger"
+import { IsOptionalString, IsOptionalEmail, IsOptionalNumber, IsOptionalBoolean } from "../decorators/alidation-and-transform.decorators";
+
+export class CreateUserDto {
+  @ApiProperty({ description: '用户名，必须唯一且以指定前缀开头', example: 'user_john_doe' })
+  @IsString()
+  @Validate(StartsWithConstraint, ['user_'], {
+    message: `用户名必须以 "user_" 开头`,
+  })
+  @Validate(IsUsernameUniqueConstraint, { message: '用户名已存在' })
+  readonly username: string;
+
+  @ApiProperty({ description: '密码', example: 'securePassword123' })
+  @IsString()
+  readonly password: string;
+
+  @ApiPropertyOptional({ description: '手机号', example: '13124567890' })
+  @IsOptionalString()
+  readonly mobile?: string;
+
+  @ApiPropertyOptional({ description: '邮箱地址', example: 'john.doe@example.com' })
+  @IsOptionalEmail()
+  readonly email?: string;
+
+  @ApiPropertyOptional({ description: '用户状态', example: 1 })
+  @IsOptionalNumber()
+  readonly status?: number;
+
+  @ApiPropertyOptional({ description: '是否为超级管理员', example: true })
+  @IsOptionalBoolean()
+  readonly is_super?: boolean;
+}
+
+export class UpdateUserDto extends PartialType(CreateUserDto) {
+  @ApiProperty({ description: '用户ID', example: 1 })
+  @IsOptionalNumber()
+  readonly id: number;
+}
+```
+
+### share.module.ts
+
+```ts
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './entities/user.entity';
+import { ConfigModule } from '@nestjs/config';
+import { ConfigurationService } from './services/configuration.service';
+import { UserService } from './services/user.service';
+import { UtilityService } from './services/utility.service'; // [!code ++]
+import { IsUsernameUniqueConstraint } from './validators/user-validators'; // [!code ++]
+
+@Global()
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigurationService],
+      useFactory: (configService: ConfigurationService) => ({
+        type: 'mysql',
+        ...configService.mysqlConfig,
+        entities: [User],
+        synchronize: true,
+        autoLoadEntities: true,
+        logging: false
+      }),
+    }),
+  ],
+  providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint], // [!code ++]
+  exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint], // [!code ++]
+})
+export class ShareModule {}
+```
+
+### 自定义异常过滤器 admin-exception.filter
+
+```ts
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, BadRequestException } from '@nestjs/common';
+// 导入 express 的 Response 对象，用于构建 HTTP 响应
+import { Response } from 'express';
+// 使用 @Catch 装饰器捕获所有 HttpException 异常
+@Catch(HttpException)
+export class AdminExceptionFilter implements ExceptionFilter {
+  // 实现 catch 方法，用于处理捕获的异常
+  catch(exception: HttpException, host: ArgumentsHost) {
+    // 获取当前 HTTP 请求上下文
+    const ctx = host.switchToHttp();
+    // 获取 HTTP 响应对象
+    const response = ctx.getResponse<Response>();
+    // 获取异常的 HTTP 状态码
+    const status = exception.getStatus();
+    // 初始化错误信息，默认为异常的消息
+    let errorMessage = exception.message;
+    // 如果异常是 BadRequestException 类型，进一步处理错误信息
+    if (exception instanceof BadRequestException) {
+      // 获取异常的响应体
+      const responseBody: any = exception.getResponse();
+      // 检查响应体是否是对象并且包含 message 属性
+      if (typeof responseBody === 'object' && responseBody.message) {
+        // 如果 message 是数组，则将其拼接成字符串，否则直接使用 message
+        errorMessage = Array.isArray(responseBody.message)
+          ? responseBody.message.join(', ')
+          : responseBody.message;
+      }
+    }
+    // 使用响应对象构建并发送错误页面，包含错误信息和重定向 URL
+    response.status(status).render('error', {
+      message: errorMessage,
+      redirectUrl: ctx.getRequest().url,
+    });
+  }
+}
+```
+
+注入过滤器
+
+```ts
+import { Module } from '@nestjs/common';
+import { DashboardController } from './controllers/dashboard.controller';
+import { UserController } from './controllers/user.controller';
+import { AdminExceptionFilter } from './filters/admin-exception.filter'; // [!code ++]
+
+@Module({
+  controllers: [DashboardController, UserController],
+  providers: [{ // [!code ++]
+    provide: 'APP_FILTER', // [!code ++]
+    useClass: AdminExceptionFilter, // [!code ++]
+  }], // [!code ++]
+})
+export class AdminModule {}
+```
+
+### user.controller.ts
+
+增加新增用户表单页面和新增用户接口
+
+```ts
+import { Body, Controller, Get, Post, Redirect, Render } from '@nestjs/common';
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UtilityService } from '../../share/services/utility.service'; // [!code ++]
+import { CreateUserDto } from 'src/share/dtos/user.dto'; // [!code ++]
+
+@ApiTags('admin/user')
+@Controller('admin/user')
+export class UserController {
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService // [!code ++]
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list')
+  async findAll() {
+    const users = await this.userService.findAll();
+    return { users };
+  }
+
+  @Get('create') // [!code ++]
+  @ApiOperation({ summary: '添加用户(管理后台)' }) // [!code ++]
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' }) // [!code ++]
+  @Render('user/user-form') // [!code ++]
+  async create() { // [!code ++]
+    return { user: {} }; // [!code ++]
+  } // [!code ++]
+
+  @Post() // [!code ++]
+  @Redirect('/admin/user') // [!code ++]
+  @ApiOperation({ summary: '添加用户(管理后台)' }) // [!code ++]
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' }) // [!code ++]
+  async createUser(@Body() createUserDto: CreateUserDto) { // [!code ++]
+    console.log(createUserDto, 'createUserDto') // [!code ++]
+    const hashedPassword = await this.utilityService.hashPassword(createUserDto.password); // [!code ++]
+    await this.userService.create({ ...createUserDto, password: hashedPassword }); // [!code ++]
+    return { url: '/admin/user', success: true, message: '用户添加成功' }; // [!code ++]
+  } // [!code ++]
+}
+
+```
+

@@ -1,5 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { registerDecorator, ValidationArguments, ValidationOptions, ValidatorConstraint, ValidatorConstraintInterface, } from "class-validator";
+import { User } from "../entities/user.entity";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 
 // 定义一个自定义验证器，名为 'startsWith'，不需要异步验证
 @ValidatorConstraint({ name: 'startsWith', async: false })
@@ -25,10 +28,15 @@ export class StartsWithConstraint implements ValidatorConstraintInterface {
 @Injectable()
 // 定义 IsUsernameUniqueConstraint 类并实现 ValidatorConstraintInterface 接口
 export class IsUsernameUniqueConstraint implements ValidatorConstraintInterface {
+  constructor(
+    @InjectRepository(User) private readonly repository: Repository<User>
+  ) { }
   // 定义验证逻辑，检查用户名是否唯一
   async validate(value: any, args: ValidationArguments) {
-    const existingUsernames = ['ADMIN', 'USER', 'GUEST']; // 模拟已存在的用户名列表
-    return !existingUsernames.includes(value);
+    // const existingUsernames = ['ADMIN', 'USER', 'GUEST']; // 模拟已存在的用户名列表
+    // return !existingUsernames.includes(value);
+    const user = await this.repository.findOne({ where: { username: value } });
+    return !user;
   }
   // 定义默认消息，当验证失败时返回的错误信息
   defaultMessage(args: ValidationArguments) {

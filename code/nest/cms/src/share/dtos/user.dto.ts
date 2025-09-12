@@ -1,5 +1,5 @@
 import { IsString, Validate } from "class-validator";
-import { StartsWithConstraint, StartsWith, IsUsernameUnique } from "../validators/user-validators";
+import { StartsWithConstraint, StartsWith, IsUsernameUnique, IsUsernameUniqueConstraint } from "../validators/user-validators";
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger"
 import { IsOptionalString, IsOptionalEmail, IsOptionalNumber, IsOptionalBoolean } from "../decorators/alidation-and-transform.decorators";
 
@@ -7,10 +7,11 @@ export class CreateUserDto {
   @ApiProperty({ description: '用户名，必须唯一且以指定前缀开头', example: 'user_john_doe' })
   @IsString()
   @Validate(StartsWithConstraint, ['user_'], {
-    message: `Username must start with "user_".`,
+    message: `用户名必须以 "user_" 开头`,
   })
-  @StartsWith('user_', { message: '用户名必须以 "user_" 开头' })
-  @IsUsernameUnique({ message: '用户名已存在' })
+  @Validate(IsUsernameUniqueConstraint, { message: '用户名已存在' })
+  // @StartsWith('user_', { message: '用户名必须以 "user_" 开头' })
+  // @IsUsernameUnique({ message: '用户名已存在' })
   readonly username: string;
 
   @ApiProperty({ description: '密码', example: 'securePassword123' })

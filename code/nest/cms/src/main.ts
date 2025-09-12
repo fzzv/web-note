@@ -7,10 +7,13 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { useContainer } from 'class-validator';
 
 async function bootstrap() {
   // 使用 NestFactory 创建一个 NestExpressApplication 实例
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // 使用 useContainer 配置依赖注入容器
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
   // 配置静态资源目录
   app.useStaticAssets(join(__dirname, '..', 'public'));
   // 设置视图文件的基本目录
