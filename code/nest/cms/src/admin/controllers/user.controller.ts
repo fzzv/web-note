@@ -66,4 +66,16 @@ export class UserController {
     await this.userService.update(Number(id), updateUserDto);
     return { url: '/admin/user', success: true, message: '用户更新成功' };
   }
+
+  @Get(':id')
+  @ApiOperation({ summary: '获取用户详情(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户详情' })
+  @Render('user/user-detail')
+  async findOne(@Param('id') id: string) {
+    const user = await this.userService.findOne({ where: { id: Number(id) } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    return { user };
+  }
 }

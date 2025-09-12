@@ -1608,5 +1608,136 @@ export class UserController {
 }
 ```
 
+## 查看用户信息
 
+### user-detail.hbs
+
+```handlebars
+<h1>用户详情</h1>
+<div class="mb-3">
+  <label class="form-label">用户名:</label>
+  <p class="form-control-plaintext">{{user.username}}</p>
+</div>
+<div class="mb-3">
+  <label class="form-label">邮箱:</label>
+  <p class="form-control-plaintext">{{user.email}}</p>
+</div>
+<div class="mb-3">
+  <label class="form-label">状态:</label>
+  <p class="form-control-plaintext">{{#if user.status}}激活{{else}}未激活{{/if}}</p>
+</div>
+<a href="/admin/user/edit/{{user.id}}" class="btn btn-warning">编辑</a>
+<a href="/admin/user" class="btn btn-secondary">返回列表</a>
+```
+
+```handlebars
+<h1>用户列表</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td>
+        <a href="/admin/user/{{this.id}}">查看</a> // [!code ++]
+        <a href="/admin/user/edit/{{this.id}}">编辑</a>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+```
+
+### user.controller.ts
+
+```ts
+import { Body, Controller, Get, NotFoundException, Param, Post, Put, Redirect, Render } from '@nestjs/common';
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UtilityService } from '../../share/services/utility.service';
+import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto';
+
+@ApiTags('admin/user')
+@Controller('admin/user')
+export class UserController {
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list')
+  async findAll() {
+    const users = await this.userService.findAll();
+    return { users };
+  }
+
+  @Get('create')
+  @ApiOperation({ summary: '添加用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' })
+  @Render('user/user-form')
+  async create() {
+    return { user: {} };
+  }
+
+  @Post()
+  @Redirect('/admin/user')
+  @ApiOperation({ summary: '添加用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' })
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    console.log(createUserDto, 'createUserDto')
+    const hashedPassword = await this.utilityService.hashPassword(createUserDto.password);
+    await this.userService.create({ ...createUserDto, password: hashedPassword });
+    return { url: '/admin/user', success: true, message: '用户添加成功' };
+  }
+
+  @Get('edit/:id')
+  @ApiOperation({ summary: '编辑用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
+  @Render('user/user-form')
+  async edit(@Param('id') id: string) {
+    const user = await this.userService.findOne({ where: { id: Number(id) } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    return { user };
+  }
+
+  @Put(':id')
+  @Redirect('/admin/user')
+  @ApiOperation({ summary: '编辑用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
+  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    if (updateUserDto.password) {
+      updateUserDto.password = await this.utilityService.hashPassword(updateUserDto.password);
+    } else {
+      delete updateUserDto.password;
+    }
+    await this.userService.update(Number(id), updateUserDto);
+    return { url: '/admin/user', success: true, message: '用户更新成功' };
+  }
+
+  @Get(':id') // [!code ++]
+  @ApiOperation({ summary: '获取用户详情(管理后台)' }) // [!code ++]
+  @ApiResponse({ status: 200, description: '成功返回用户详情' }) // [!code ++]
+  @Render('user/user-detail') // [!code ++]
+  async findOne(@Param('id') id: string) { // [!code ++]
+    const user = await this.userService.findOne({ where: { id: Number(id) } }); // [!code ++]
+    if (!user) { // [!code ++]
+      throw new NotFoundException('用户不存在'); // [!code ++]
+    } // [!code ++]
+    return { user }; // [!code ++]
+  } // [!code ++]
+}
+```
 
