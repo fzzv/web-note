@@ -984,3 +984,51 @@ export class User {
 }
 ```
 
+## 用户列表
+
+`views/user/user-list.hbs`
+
+```handlebars
+<h1>用户列表</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>用户名</th>
+      <th>邮箱</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+```
+
+修改 `admin/controllers/user.controller.ts` 控制器渲染用户列表
+
+```ts
+import { Controller, Get, Render } from '@nestjs/common';
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+
+@ApiTags('admin/user')
+@Controller('admin/user')
+export class UserController {
+
+  constructor(private readonly userService: UserService) {}
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list') // [!code ++]
+  async findAll() {
+    const users = await this.userService.findAll();
+    return { users };
+  }
+}
+```
+
