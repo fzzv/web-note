@@ -1879,3 +1879,239 @@ export class UserController {
 }
 ```
 
+## 修改用户状态
+
+### user-list.hbs
+
+```handlebars
+<h1>用户列表</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>状态</th> // [!code ++]
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td> // [!code ++]
+        <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}"> // [!code ++]
+          {{#if this.status}} // [!code ++]
+          <i class="bi bi-check-circle-fill text-success"></i> // [!code ++]
+          {{else}} // [!code ++]
+          <i class="bi bi-x-circle-fill text-danger"></i> // [!code ++]
+          {{/if}} // [!code ++]
+        </span> // [!code ++]
+      </td> // [!code ++]
+      <td>
+        <a href="/admin/user/{{this.id}}">查看</a>
+        <a href="/admin/user/edit/{{this.id}}">编辑</a>
+        <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+<script>
+  $(function () { // [!code ++]
+    $('.status-toggle').on('click', function () { // [!code ++]
+      const $this = $(this); // [!code ++]
+      const userId = $this.data('id'); // [!code ++]
+      const currentStatus = $this.data('status'); // [!code ++]
+      const newStatus = currentStatus === 1 ? 0 : 1; // [!code ++]
+      $.ajax({ // [!code ++]
+        url: `/admin/user/${userId}`, // [!code ++]
+        type: 'PUT', // [!code ++]
+        contentType: 'application/json', // [!code ++]
+        headers: { // [!code ++]
+          'accept': 'application/json' // [!code ++]
+        }, // [!code ++]
+        data: JSON.stringify({ status: newStatus }), // [!code ++]
+        success: function (response) { // [!code ++]
+          if (response.success) { // [!code ++]
+            $this.data('status', newStatus); // [!code ++]
+            $this.html(`<i class="bi ${newStatus ? "bi-check-circle-fill" : "bi-x-circle-fill"} ${newStatus ? "text-success" : "text-danger"}"></i>`); // [!code ++]
+          } // [!code ++]
+        }, // [!code ++]
+        error: function (error) { // [!code ++]
+          const { responseJSON } = error; // [!code ++]
+          alert(responseJSON.message); // [!code ++]
+        } // [!code ++]
+      }); // [!code ++]
+    }); // [!code ++]
+  }); // [!code ++]
+  function deleteUser(id) {
+    if (confirm('确定要删除该用户吗？')) {
+      $.ajax({
+        url: '/admin/user/' + id,
+        type: 'DELETE',
+        success: function (res) {
+          if (res.success) {
+            window.location.reload()
+          }
+        }
+      })
+    }
+  }
+</script>
+```
+
+### admin-exception.filter
+
+```ts
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, BadRequestException } from '@nestjs/common';
+// 导入 express 的 Response 对象，用于构建 HTTP 响应
+import { Response } from 'express'; // [!code ++]
+// 使用 @Catch 装饰器捕获所有 HttpException 异常
+@Catch(HttpException)
+export class AdminExceptionFilter implements ExceptionFilter {
+  // 实现 catch 方法，用于处理捕获的异常
+  catch(exception: HttpException, host: ArgumentsHost) {
+    // 获取当前 HTTP 请求上下文
+    const ctx = host.switchToHttp();
+    // 获取当前 HTTP 请求对象
+    const request = ctx.getRequest<Request>(); // [!code ++]
+    // 获取 HTTP 响应对象
+    const response = ctx.getResponse<Response>();
+    // 获取异常的 HTTP 状态码
+    const status = exception.getStatus();
+    // 初始化错误信息，默认为异常的消息
+    let errorMessage = exception.message;
+    // 如果异常是 BadRequestException 类型，进一步处理错误信息
+    if (exception instanceof BadRequestException) {
+      // 获取异常的响应体
+      const responseBody: any = exception.getResponse();
+      // 检查响应体是否是对象并且包含 message 属性
+      if (typeof responseBody === 'object' && responseBody.message) {
+        // 如果 message 是数组，则将其拼接成字符串，否则直接使用 message
+        errorMessage = Array.isArray(responseBody.message)
+          ? responseBody.message.join(', ')
+          : responseBody.message;
+      }
+    }
+    // 如果请求头中包含 'application/json'，则返回 JSON 响应
+    if (request.headers['accept'] === 'application/json') { // [!code ++]
+      response.status(status).json({ // [!code ++]
+        statusCode: status, // [!code ++]
+        message: errorMessage // [!code ++]
+      }); // [!code ++]
+    } else { // [!code ++]
+      // 使用响应对象构建并发送错误页面，包含错误信息和重定向 URL
+      response.status(status).render('error', {
+        message: errorMessage,
+        redirectUrl: ctx.getRequest().url,
+      });
+    } // [!code ++]
+  }
+}
+```
+
+### user-controller
+
+```ts
+import { Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Headers, Post, Put, Redirect, Render, Res, UseFilters } from '@nestjs/common';
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UtilityService } from '../../share/services/utility.service';
+import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto';
+import { AdminExceptionFilter } from '../filters/admin-exception.filter'; // [!code ++]
+import type { Response } from 'express'; // [!code ++]
+
+@ApiTags('admin/user')
+@UseFilters(AdminExceptionFilter) // [!code ++]
+@Controller('admin/user')
+export class UserController {
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list')
+  async findAll() {
+    const users = await this.userService.findAll();
+    return { users };
+  }
+
+  @Get('create')
+  @ApiOperation({ summary: '添加用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' })
+  @Render('user/user-form')
+  async create() {
+    return { user: {} };
+  }
+
+  @Post()
+  @Redirect('/admin/user')
+  @ApiOperation({ summary: '添加用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回添加用户页面' })
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    const hashedPassword = await this.utilityService.hashPassword(createUserDto.password);
+    await this.userService.create({ ...createUserDto, password: hashedPassword });
+    return { url: '/admin/user', success: true, message: '用户添加成功' };
+  }
+
+  @Get('edit/:id')
+  @ApiOperation({ summary: '编辑用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
+  @Render('user/user-form')
+  async edit(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.userService.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    return { user };
+  }
+
+  @Put(':id')
+  @Redirect('admin/user')  // [!code --]
+  @ApiOperation({ summary: '编辑用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
+  async updateUser(
+    @Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto, 
+    @Res() res: Response, @Headers('accept') accept: string
+  ) {
+    if (updateUserDto.password) {
+      updateUserDto.password = await this.utilityService.hashPassword(updateUserDto.password);
+    } else {
+      delete updateUserDto.password;
+    }
+    await this.userService.update(id, updateUserDto);
+    return { url: '/admin/user', success: true, message: '用户更新成功' }; // [!code --]
+    if (accept.includes('application/json')) { // [!code ++]
+      return res.json({ success: true, message: '用户更新成功' }); // [!code ++]
+    } else { // [!code ++]
+      return res.redirect('/admin/user'); // [!code ++]
+    } // [!code ++]
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: '获取用户详情(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户详情' })
+  @Render('user/user-detail')
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.userService.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    return { user };
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: '删除用户(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回删除用户页面' })
+  async deleteUser(@Param('id', ParseIntPipe) id: number) {
+    await this.userService.delete(id);
+    return { success: true, message: '用户删除成功' };
+  }
+}
+```
+

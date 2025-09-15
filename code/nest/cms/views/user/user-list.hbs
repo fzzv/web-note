@@ -4,6 +4,7 @@
     <tr>
       <th>用户名</th>
       <th>邮箱</th>
+      <th>状态</th>
       <th>操作</th>
     </tr>
   </thead>
@@ -12,6 +13,15 @@
     <tr>
       <td>{{this.username}}</td>
       <td>{{this.email}}</td>
+      <td>
+        <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}">
+          {{#if this.status}}
+          <i class="bi bi-check-circle-fill text-success"></i>
+          {{else}}
+          <i class="bi bi-x-circle-fill text-danger"></i>
+          {{/if}}
+        </span>
+      </td>
       <td>
         <a href="/admin/user/{{this.id}}">查看</a>
         <a href="/admin/user/edit/{{this.id}}">编辑</a>
@@ -22,6 +32,33 @@
   </tbody>
 </table>
 <script>
+  $(function () {
+    $('.status-toggle').on('click', function () {
+      const $this = $(this);
+      const userId = $this.data('id');
+      const currentStatus = $this.data('status');
+      const newStatus = currentStatus === 1 ? 0 : 1;
+      $.ajax({
+        url: `/admin/user/${userId}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'accept': 'application/json'
+        },
+        data: JSON.stringify({ status: newStatus }),
+        success: function (response) {
+          if (response.success) {
+            $this.data('status', newStatus);
+            $this.html(`<i class="bi ${newStatus ? "bi-check-circle-fill" : "bi-x-circle-fill"} ${newStatus ? "text-success" : "text-danger"}"></i>`);
+          }
+        },
+        error: function (error) {
+          const { responseJSON } = error;
+          alert(responseJSON.message);
+        }
+      });
+    });
+  });
   function deleteUser(id) {
     if (confirm('确定要删除该用户吗？')) {
       $.ajax({

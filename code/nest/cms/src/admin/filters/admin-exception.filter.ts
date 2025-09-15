@@ -8,6 +8,8 @@ export class AdminExceptionFilter implements ExceptionFilter {
   catch(exception: HttpException, host: ArgumentsHost) {
     // 获取当前 HTTP 请求上下文
     const ctx = host.switchToHttp();
+    // 获取当前 HTTP 请求对象
+    const request = ctx.getRequest<Request>();
     // 获取 HTTP 响应对象
     const response = ctx.getResponse<Response>();
     // 获取异常的 HTTP 状态码
@@ -26,10 +28,18 @@ export class AdminExceptionFilter implements ExceptionFilter {
           : responseBody.message;
       }
     }
-    // 使用响应对象构建并发送错误页面，包含错误信息和重定向 URL
-    response.status(status).render('error', {
-      message: errorMessage,
-      redirectUrl: ctx.getRequest().url,
-    });
+    // 如果请求头中包含 'application/json'，则返回 JSON 响应
+    if (request.headers['accept'] === 'application/json') {
+      response.status(status).json({
+        statusCode: status,
+        message: errorMessage
+      });
+    } else {
+      // 使用响应对象构建并发送错误页面，包含错误信息和重定向 URL
+      response.status(status).render('error', {
+        message: errorMessage,
+        redirectUrl: ctx.getRequest().url,
+      });
+    }
   }
 }

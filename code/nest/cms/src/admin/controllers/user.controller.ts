@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Post, Put, Redirect, Render } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Headers, Post, Put, Redirect, Render, Res, UseFilters } from '@nestjs/common';
 import { UserService } from '../../share/services/user.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UtilityService } from '../../share/services/utility.service';
 import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto';
+import { AdminExceptionFilter } from '../filters/admin-exception.filter';
+import type { Response } from 'express';
 
 @ApiTags('admin/user')
+@UseFilters(AdminExceptionFilter)
 @Controller('admin/user')
 export class UserController {
 
@@ -53,17 +56,23 @@ export class UserController {
   }
 
   @Put(':id')
-  @Redirect('/admin/user')
   @ApiOperation({ summary: '编辑用户(管理后台)' })
   @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
-  async updateUser(@Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto) {
+  async updateUser(
+    @Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto, 
+    @Res() res: Response, @Headers('accept') accept: string
+  ) {
     if (updateUserDto.password) {
       updateUserDto.password = await this.utilityService.hashPassword(updateUserDto.password);
     } else {
       delete updateUserDto.password;
     }
     await this.userService.update(id, updateUserDto);
-    return { url: '/admin/user', success: true, message: '用户更新成功' };
+    if (accept.includes('application/json')) {
+      return res.json({ success: true, message: '用户更新成功' });
+    } else {
+      return res.redirect('/admin/user');
+    }
   }
 
   @Get(':id')
