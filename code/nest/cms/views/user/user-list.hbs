@@ -2,6 +2,7 @@
 <table class="table">
   <thead>
     <tr>
+      <th>序号</th>
       <th>用户名</th>
       <th>邮箱</th>
       <th>状态</th>
@@ -11,6 +12,11 @@
   <tbody>
     {{#each users}}
     <tr>
+      <td>
+        <span class="sort-text" data-id="{{this.id}}">{{this.sort}}</span>
+        <input type="number" class="form-control sort-input d-none" style="width:80px" data-id="{{this.id}}"
+          value="{{this.sort}}">
+      </td>
       <td>{{this.username}}</td>
       <td>{{this.email}}</td>
       <td>
@@ -33,6 +39,39 @@
 </table>
 <script>
   $(function () {
+    $('.sort-text').on('dblclick', function () {
+      const userId = $(this).data('id');
+      $(this).addClass('d-none');
+      $(`.sort-input[data-id="${userId}"]`).removeClass('d-none').focus();
+    });
+
+    $('.sort-input').on('blur', function () {
+      const userId = $(this).data('id');
+      const newSort = $(this).val();
+      $(this).addClass('d-none');
+      $(`.sort-text[data-id="${userId}"]`).removeClass('d-none').text(newSort);
+      $.ajax({
+        url: `/admin/user/${userId}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'accept': 'application/json'
+        },
+        data: JSON.stringify({ sort: newSort }),
+        success: function (response) {
+          if (response.success) {
+            $(`.sort-text[data-id="${userId}"]`).text(newSort);
+          }
+        }
+      });
+    });
+
+    $('.sort-input').on('keypress', function (e) {
+      if (e.which == 13) {
+        $(this).blur();
+      }
+    });
+
     $('.status-toggle').on('click', function () {
       const $this = $(this);
       const userId = $this.data('id');

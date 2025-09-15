@@ -2023,7 +2023,120 @@ import { AdminExceptionFilter } from '../filters/admin-exception.filter'; // [!c
 import type { Response } from 'express'; // [!code ++]
 
 @ApiTags('admin/user')
-@UseFilters(AdminExceptionFilter) // [!code ++]
+@UseFilters(AdminExceptionFilter)<h1>用户列表</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>排序</th>
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>
+        <span class="sort-text" data-id="{{this.id}}">{{this.sort}}</span>
+        <input type="number" class="form-control sort-input d-none" style="width:80px" data-id="{{this.id}}"
+          value="{{this.sort}}">
+      </td>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td>
+        <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}">
+          {{#if this.status}}
+          <i class="bi bi-check-circle-fill text-success"></i>
+          {{else}}
+          <i class="bi bi-x-circle-fill text-danger"></i>
+          {{/if}}
+        </span>
+      </td>
+      <td>
+        <a href="/admin/user/{{this.id}}">查看</a>
+        <a href="/admin/user/edit/{{this.id}}">编辑</a>
+        <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+<script>
+  $(function () {
+    $('.sort-text').on('dblclick', function () {
+      const userId = $(this).data('id');
+      $(this).addClass('d-none');
+      $(`.sort-input[data-id="${userId}"]`).removeClass('d-none').focus();
+    });
+
+    $('.sort-input').on('blur', function () {
+      const userId = $(this).data('id');
+      const newSort = $(this).val();
+      $(this).addClass('d-none');
+      $(`.sort-text[data-id="${userId}"]`).removeClass('d-none').text(newSort);
+      $.ajax({
+        url: `/admin/user/${userId}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'accept': 'application/json'
+        },
+        data: JSON.stringify({ sort: newSort }),
+        success: function (response) {
+          if (response.success) {
+            $(`.sort-text[data-id="${userId}"]`).text(newSort);
+          }
+        }
+      });
+    });
+
+    $('.sort-input').on('keypress', function (e) {
+      if (e.which == 13) {
+        $(this).blur();
+      }
+    });
+    $('.status-toggle').on('click', function () {
+      const $this = $(this);
+      const userId = $this.data('id');
+      const currentStatus = $this.data('status');
+      const newStatus = currentStatus === 1 ? 0 : 1;
+      $.ajax({
+        url: `/admin/user/${userId}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'accept': 'application/json'
+        },
+        data: JSON.stringify({ status: newStatus }),
+        success: function (response) {
+          if (response.success) {
+            $this.data('status', newStatus);
+            $this.html(`<i class="bi ${newStatus ? "bi-check-circle-fill" : "bi-x-circle-fill"} ${newStatus ? "text-success" : "text-danger"}"></i>`);
+          }
+        },
+        error: function (error) {
+          const { responseJSON } = error;
+          alert(responseJSON.message);
+        }
+      });
+    });
+  });
+  function deleteUser(id) {
+    if (confirm('确定要删除该用户吗？')) {
+      $.ajax({
+        url: '/admin/user/' + id,
+        type: 'DELETE',
+        success: function (res) {
+          if (res.success) {
+            window.location.reload()
+          }
+        }
+      })
+    }
+  }
+</script>
+
 @Controller('admin/user')
 export class UserController {
 
@@ -2113,5 +2226,126 @@ export class UserController {
     return { success: true, message: '用户删除成功' };
   }
 }
+```
+
+## 用户排序
+
+### user-list
+
+```handlebars
+<h1>用户列表</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>序号</th> // [!code ++]
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td> // [!code ++]
+        <span class="sort-text" data-id="{{this.id}}">{{this.sort}}</span> // [!code ++]
+        <input type="number" class="form-control sort-input d-none" style="width:80px" data-id="{{this.id}}"
+          value="{{this.sort}}"> // [!code ++]
+      </td> // [!code ++]
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td>
+        <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}">
+          {{#if this.status}}
+          <i class="bi bi-check-circle-fill text-success"></i>
+          {{else}}
+          <i class="bi bi-x-circle-fill text-danger"></i>
+          {{/if}}
+        </span>
+      </td>
+      <td>
+        <a href="/admin/user/{{this.id}}">查看</a>
+        <a href="/admin/user/edit/{{this.id}}">编辑</a>
+        <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+<script>
+  $(function () {
+    $('.sort-text').on('dblclick', function () { // [!code ++]
+      const userId = $(this).data('id'); // [!code ++]
+      $(this).addClass('d-none'); // [!code ++]
+      $(`.sort-input[data-id="${userId}"]`).removeClass('d-none').focus(); // [!code ++]
+    }); // [!code ++]
+
+    $('.sort-input').on('blur', function () { // [!code ++]
+      const userId = $(this).data('id'); // [!code ++]
+      const newSort = $(this).val(); // [!code ++]
+      $(this).addClass('d-none'); // [!code ++]
+      $(`.sort-text[data-id="${userId}"]`).removeClass('d-none').text(newSort); // [!code ++]
+      $.ajax({ // [!code ++]
+        url: `/admin/user/${userId}`, // [!code ++]
+        type: 'PUT', // [!code ++]
+        contentType: 'application/json', // [!code ++]
+        headers: { // [!code ++]
+          'accept': 'application/json' // [!code ++]
+        }, // [!code ++]
+        data: JSON.stringify({ sort: newSort }), // [!code ++]
+        success: function (response) { // [!code ++]
+          if (response.success) { // [!code ++]
+            $(`.sort-text[data-id="${userId}"]`).text(newSort); // [!code ++]
+          } // [!code ++]
+        } // [!code ++]
+      }); // [!code ++]
+    }); // [!code ++]
+
+    $('.sort-input').on('keypress', function (e) { // [!code ++]
+      if (e.which == 13) { // [!code ++]
+        $(this).blur(); // [!code ++]
+      } // [!code ++]
+    }); // [!code ++]
+    
+    $('.status-toggle').on('click', function () {
+      const $this = $(this);
+      const userId = $this.data('id');
+      const currentStatus = $this.data('status');
+      const newStatus = currentStatus === 1 ? 0 : 1;
+      $.ajax({
+        url: `/admin/user/${userId}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'accept': 'application/json'
+        },
+        data: JSON.stringify({ status: newStatus }),
+        success: function (response) {
+          if (response.success) {
+            $this.data('status', newStatus);
+            $this.html(`<i class="bi ${newStatus ? "bi-check-circle-fill" : "bi-x-circle-fill"} ${newStatus ? "text-success" : "text-danger"}"></i>`);
+          }
+        },
+        error: function (error) {
+          const { responseJSON } = error;
+          alert(responseJSON.message);
+        }
+      });
+    });
+  });
+  function deleteUser(id) {
+    if (confirm('确定要删除该用户吗？')) {
+      $.ajax({
+        url: '/admin/user/' + id,
+        type: 'DELETE',
+        success: function (res) {
+          if (res.success) {
+            window.location.reload()
+          }
+        }
+      })
+    }
+  }
+</script>
 ```
 
