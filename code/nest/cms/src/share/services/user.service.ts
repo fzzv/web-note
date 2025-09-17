@@ -24,4 +24,18 @@ export class UserService extends MysqlBaseService<User> {
     });
     return users;
   }
+
+  async findAllWithPagination(page: number = 1, limit: number = 10, search: string = ''): Promise<{ users: User[], total: number }> {
+    const where = search ? [
+      { username: Like(`%${search}%`) },
+      { email: Like(`%${search}%`) }
+    ] : {};
+
+    const [users, total] = await this.userRepository.findAndCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { users, total };
+  }
 }

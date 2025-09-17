@@ -5,6 +5,7 @@ import { UtilityService } from '../../share/services/utility.service';
 import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto';
 import { AdminExceptionFilter } from '../filters/admin-exception.filter';
 import type { Response } from 'express';
+import { ParseOptionalIntPipe } from 'src/share/pipes/parse-optional-int.pipe';
 
 @ApiTags('admin/user')
 @UseFilters(AdminExceptionFilter)
@@ -14,15 +15,16 @@ export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly utilityService: UtilityService
-  ) {}
+  ) { }
 
   @Get()
   @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
   @ApiResponse({ status: 200, description: '成功返回用户列表' })
   @Render('user/user-list')
-  async findAll(@Query('search') search: string = '') {
-    const users = await this.userService.findAll(search);
-    return { users };
+  async findAll(@Query('search') search: string = '', @Query('page', new ParseOptionalIntPipe(1)) page: number, @Query('limit', new ParseOptionalIntPipe(10)) limit: number) {
+    const { users, total } = await this.userService.findAllWithPagination(page, limit, search);
+    const pageCount = Math.ceil(total / limit);
+    return { users, search, page, limit, pageCount };
   }
 
   @Get('create')
@@ -59,7 +61,7 @@ export class UserController {
   @ApiOperation({ summary: '编辑用户(管理后台)' })
   @ApiResponse({ status: 200, description: '成功返回编辑用户页面' })
   async updateUser(
-    @Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto, 
+    @Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto,
     @Res() res: Response, @Headers('accept') accept: string
   ) {
     if (updateUserDto.password) {

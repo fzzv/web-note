@@ -2466,3 +2466,321 @@ export class UserService extends MysqlBaseService<User> {
 </table>
 ```
 
+## 分页
+
+### helpers
+
+`eq`
+
+```ts
+export function eq(a: any, b: any) {
+  return a === b;
+}
+```
+
+`dec`
+
+```ts
+export function dec(value: number | string) {
+  return Number(value) - 1;
+}
+```
+
+`inc`
+
+```ts
+export function dec(value: number | string) {
+  return Number(value) + 1;
+}
+```
+
+`range`
+
+```ts
+export function range(start: number, end: number) {
+  let result: number[] = [];
+  for (let i = start; i <= end; i++) {
+      result.push(i);
+  }
+  return result;
+}
+```
+
+`index`
+
+```ts
+export * from './eq';
+export * from './inc';
+export * from './dec';
+export * from './range';
+```
+
+`src/main.ts`
+
+```ts
+import { NestFactory } from '@nestjs/core';
+import session from 'express-session';
+import cookieParser from 'cookie-parser';
+import { join } from 'node:path';
+import { engine } from 'express-handlebars';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
+import { useContainer } from 'class-validator';
+import * as helpers from './share/helpers'; // [!code ++]
+
+async function bootstrap() {
+  // 使用 NestFactory 创建一个 NestExpressApplication 实例
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // 使用 useContainer 配置依赖注入容器 让自定义校验器可以支持依赖注入
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
+  // 配置静态资源目录
+  app.useStaticAssets(join(__dirname, '..', 'public'));
+  // 设置视图文件的基本目录
+  app.setBaseViewsDir(join(__dirname, '..', 'views'));
+  // 设置视图引擎为 hbs（Handlebars）
+  app.set('view engine', 'hbs');
+  // 配置 Handlebars 引擎
+  app.engine('hbs', engine({
+    // 设置文件扩展名为 .hbs
+    extname: '.hbs',
+    helpers, // [!code ++]
+    // 配置运行时选项
+    runtimeOptions: {
+      // 允许默认情况下访问原型属性
+      allowProtoPropertiesByDefault: true,
+      // 允许默认情况下访问原型方法
+      allowProtoMethodsByDefault: true,
+    },
+  }));
+  // 配置 cookie 解析器
+  app.use(cookieParser());
+  // 配置 session
+  app.use(
+    session({
+      secret: 'secret-key',
+      resave: true, // 是否每次都重新保存
+      saveUninitialized: true, // 是否保存未初始化的会话
+      cookie: {
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7天
+      },
+    }),
+  );
+  // 配置全局管道
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  // 配置 Swagger
+  const config = new DocumentBuilder()
+    // 设置标题
+    .setTitle('CMS API')
+    // 设置描述
+    .setDescription('CMS API Description')
+    // 设置版本
+    .setVersion('1.0')
+    // 设置标签
+    .addTag('CMS')
+    // 设置Cookie认证
+    .addCookieAuth('connect.sid')
+    // 设置Bearer认证
+    .addBearerAuth({ type: 'http', scheme: 'bearer' })
+    // 构建配置
+    .build();
+  // 使用配置对象创建 Swagger 文档
+  const document = SwaggerModule.createDocument(app, config);
+  // 设置 Swagger 模块的路径和文档对象，将 Swagger UI 绑定到 '/api-doc' 路径上
+  SwaggerModule.setup('api-doc', app, document);
+  await app.listen(process.env.PORT ?? 3000);
+}
+bootstrap();
+```
+
+### parse-optional-int.pipe
+
+```ts
+import { Injectable, PipeTransform, ArgumentMetadata, BadRequestException } from '@nestjs/common';
+
+/**
+ * 解析可选的整数参数
+ * 如果参数为空（undefined、null 或 ''），返回默认值
+ * 如果参数不是有效整数，则抛出 400 错误
+ * 否则返回解析后的整数
+ */
+@Injectable()
+export class ParseOptionalIntPipe implements PipeTransform<string, number> {
+  constructor(private readonly defaultValue: number) { }
+
+  transform(value: string, metadata: ArgumentMetadata): number {
+    // 1. 如果参数为空（undefined、null 或 ''），返回默认值
+    if (!value) {
+      return this.defaultValue;
+    }
+
+    // 2. 尝试解析为整数
+    const parsedValue = parseInt(value, 10);
+
+    // 3. 如果不是有效整数，则抛出 400 错误
+    if (isNaN(parsedValue)) {
+      throw new BadRequestException(`Validation failed. "${value}" is not an integer.`);
+    }
+
+    // 4. 否则返回解析后的整数
+    return parsedValue;
+  }
+}
+```
+
+### user.controller
+
+```ts
+import { Body, Controller, Delete, Get, NotFoundException, Query, Param, ParseIntPipe, Headers, Post, Put, Redirect, Render, Res, UseFilters } from '@nestjs/common';
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UtilityService } from '../../share/services/utility.service';
+import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto';
+import { AdminExceptionFilter } from '../filters/admin-exception.filter';
+import type { Response } from 'express';
+import { ParseOptionalIntPipe } from 'src/share/pipes/parse-optional-int.pipe'; // [!code ++]
+
+@ApiTags('admin/user')
+@UseFilters(AdminExceptionFilter)
+@Controller('admin/user')
+export class UserController {
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService
+  ) { }
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list')
+  async findAll(@Query('search') search: string = '', @Query('page', new ParseOptionalIntPipe(1)) page: number, @Query('limit', new ParseOptionalIntPipe(10)) limit: number) { // [!code ++]
+    const { users, total } = await this.userService.findAllWithPagination(page, limit, search); // [!code ++]
+    const pageCount = Math.ceil(total / limit); // [!code ++]
+    return { users, search, page, limit, pageCount }; // [!code ++]
+  } // [!code ++]
+}
+```
+
+### user.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { MysqlBaseService } from './mysql-base.service';
+import { User } from '../entities/user.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Like, Repository } from 'typeorm';
+
+@Injectable()
+export class UserService extends MysqlBaseService<User> {
+  constructor(
+    @InjectRepository(User)
+    protected userRepository: Repository<User>
+  ) {
+    super(userRepository);
+  }
+
+  async findAll(search: string = ''): Promise<User[]> {
+    const where = search ? [
+      { username: Like(`%${search}%`) },
+      { email: Like(`%${search}%`) }
+    ] : {};
+
+    const users = await this.userRepository.find({
+      where
+    });
+    return users;
+  }
+
+  async findAllWithPagination(page: number = 1, limit: number = 10, search: string = ''): Promise<{ users: User[], total: number }> { // [!code ++]
+    const where = search ? [ // [!code ++]
+      { username: Like(`%${search}%`) }, // [!code ++]
+      { email: Like(`%${search}%`) } // [!code ++]
+    ] : {}; // [!code ++]
+
+    const [users, total] = await this.userRepository.findAndCount({ // [!code ++]
+      where, // [!code ++]
+      skip: (page - 1) * limit, // [!code ++]
+      take: limit, // [!code ++]
+    }); // [!code ++]
+    return { users, total }; // [!code ++]
+  } // [!code ++]
+}
+```
+
+### user-list.hbs
+
+```handlebars
+<h1>用户列表</h1>
+<form method="GET" action="/admin/user" class="mb-3">
+  <div class="input-group">
+    <input type="text" name="search" class="form-control" placeholder="搜索用户名或邮箱" value="{{search}}">
+    <button class="btn btn-outline-secondary" type="submit">搜索</button>
+  </div>
+</form>
+<table class="table">
+  <thead>
+    <tr>
+      <th>序号</th>
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>
+        <span class="sort-text" data-id="{{this.id}}">{{this.sort}}</span>
+        <input type="number" class="form-control sort-input d-none" style="width:80px" data-id="{{this.id}}"
+          value="{{this.sort}}">
+      </td>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td>
+        <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}">
+          {{#if this.status}}
+          <i class="bi bi-check-circle-fill text-success"></i>
+          {{else}}
+          <i class="bi bi-x-circle-fill text-danger"></i>
+          {{/if}}
+        </span>
+      </td>
+      <td>
+        <a href="/admin/user/{{this.id}}">查看</a>
+        <a href="/admin/user/edit/{{this.id}}">编辑</a>
+        <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+<nav> // [!code ++]
+  <ul class="pagination"> // [!code ++]
+    <li class="page-item {{#if (eq page 1)}}disabled{{/if}}"> // [!code ++]
+      <a class="page-link" href="?page={{dec page}}&search={{search}}&limit={{limit}}">上一页</a> // [!code ++]
+    </li> // [!code ++]
+    {{#each (range 1 pageCount)}} // [!code ++]
+    <li class="page-item {{#if (eq this ../page)}}active{{/if}}"> // [!code ++]
+      <a class="page-link" href="?page={{this}}&search={{../search}}&limit={{../limit}}">{{this}}</a> // [!code ++]
+    </li> // [!code ++]
+    {{/each}} // [!code ++]
+    <li class="page-item {{#if (eq page pageCount)}}disabled{{/if}}"> // [!code ++]
+      <a class="page-link" href="?page={{inc page}}&search={{search}}&limit={{limit}}">下一页</a> // [!code ++]
+    </li> // [!code ++]
+    <li class="page-item"> // [!code ++]
+      <form method="GET" action="/admin/user" class="d-inline-block ms-3"> // [!code ++]
+        <input type="hidden" name="search" value="{{search}}"> // [!code ++]
+        <input type="hidden" name="page" value="{{page}}"> // [!code ++]
+        <div class="input-group"> // [!code ++]
+          <input type="number" name="limit" class="form-control" placeholder="每页条数" value="{{limit}}" min="1"> // [!code ++]
+          <button class="btn btn-outline-secondary" type="submit">设置</button> // [!code ++]
+        </div> // [!code ++]
+      </form> // [!code ++]
+    </li> // [!code ++]
+  </ul> // [!code ++]
+</nav> // [!code ++]
+```
+

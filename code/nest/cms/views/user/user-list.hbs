@@ -43,6 +43,31 @@
     {{/each}}
   </tbody>
 </table>
+<nav>
+  <ul class="pagination">
+    <li class="page-item {{#if (eq page 1)}}disabled{{/if}}">
+      <a class="page-link" href="?page={{dec page}}&search={{search}}&limit={{limit}}">上一页</a>
+    </li>
+    {{#each (range 1 pageCount)}}
+    <li class="page-item {{#if (eq this ../page)}}active{{/if}}">
+      <a class="page-link" href="?page={{this}}&search={{../search}}&limit={{../limit}}">{{this}}</a>
+    </li>
+    {{/each}}
+    <li class="page-item {{#if (eq page pageCount)}}disabled{{/if}}">
+      <a class="page-link" href="?page={{inc page}}&search={{search}}&limit={{limit}}">下一页</a>
+    </li>
+    <li class="page-item">
+      <form method="GET" action="/admin/user" class="d-inline-block ms-3">
+        <input type="hidden" name="search" value="{{search}}">
+        <input type="hidden" name="page" value="{{page}}">
+        <div class="input-group">
+          <input type="number" name="limit" class="form-control" placeholder="每页条数" value="{{limit}}" min="1">
+          <button class="btn btn-outline-secondary" type="submit">设置</button>
+        </div>
+      </form>
+    </li>
+  </ul>
+</nav>
 <script>
   $(function () {
     $('.sort-text').on('dblclick', function () {
