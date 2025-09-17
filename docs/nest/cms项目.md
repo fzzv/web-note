@@ -2784,3 +2784,21 @@ export class UserService extends MysqlBaseService<User> {
 </nav> // [!code ++]
 ```
 
+## 角色
+
+用户管理和角色管理页面几乎是一样的，就会有很多重复代码，可以可以使用代码生成器生成，自己也可以实现代码生成器
+
+将项目资源下载到本地
+
+```bash
+npm i cms-resource
+```
+
+生成角色管理的代码
+
+```bash
+nest g cms-resource role 角色 --collection=./node_modules/cms-resource
+```
+
+
+

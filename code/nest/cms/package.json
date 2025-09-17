@@ -29,6 +29,7 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "cms-resource": "^0.0.7",
     "cookie-parser": "^1.4.7",
     "express-handlebars": "^8.0.1",
     "express-session": "^1.18.2",

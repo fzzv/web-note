@@ -1,6 +1,7 @@
 import { applyDecorators } from "@nestjs/common";
 import { Type } from "class-transformer";
 import { IsBoolean, IsEmail, IsNumber, IsOptional, IsString } from "class-validator";
+import { ApiProperty } from '@nestjs/swagger';
 
 // 可选字符串
 export function IsOptionalString() {
@@ -20,4 +21,16 @@ export function IsOptionalNumber() {
 // 可选布尔值 并转换为布尔值
 export function IsOptionalBoolean() {
   return applyDecorators(IsOptional(), IsBoolean(), Type(() => Boolean))
+}
+
+export function IdValidators() {
+  return applyDecorators(ApiProperty({ description: '用户ID', example: 1 }),
+    IsOptional(),
+    IsNumber())
+}
+export function StatusValidators() {
+  return applyDecorators(IsNumber(), IsOptional(), Type(() => Number))
+}
+export function SortValidators() {
+  return applyDecorators(IsNumber(), IsOptional(), Type(() => Number))
 }
