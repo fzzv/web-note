@@ -2784,7 +2784,7 @@ export class UserService extends MysqlBaseService<User> {
 </nav> // [!code ++]
 ```
 
-## 角色
+## 角色管理页面
 
 用户管理和角色管理页面几乎是一样的，就会有很多重复代码，可以可以使用代码生成器生成，自己也可以实现代码生成器
 
@@ -2800,5 +2800,19 @@ npm i cms-resource
 nest g cms-resource role 角色 --collection=./node_modules/cms-resource
 ```
 
+## 资源管理页面
 
+可以自己根据项目实现一个生成器，比如 code 中的 `nest/cms-generator` 项目来生成资源管理的页面
+
+进入`nest/cms-generator`先运行下build
+
+```bash
+npm run build
+```
+
+在 cms 目录下执行命令进行生成，即可生成页面
+
+```bash
+nest g generateList access 资源 --collection=../cms-generator
+```
 
