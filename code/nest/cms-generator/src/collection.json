@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/@angular-devkit/schematics/collection-schema.json",
+  "schematics": {
+    "generateList": {
+      "description": "generateList.",
+      "factory": "./cms-generator/index#generateList"
+    },
+    "generateTree": {
+      "description": "generateTree.",
+      "factory": "./cms-generator/index#generateTree"
+    }
+  }
+}
