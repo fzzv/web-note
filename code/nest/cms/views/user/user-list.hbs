@@ -1,4 +1,10 @@
 <h1>用户列表</h1>
+<form method="GET" action="/admin/user" class="mb-3">
+  <div class="input-group">
+    <input type="text" name="search" class="form-control" placeholder="搜索用户名或邮箱" value="{{search}}">
+    <button class="btn btn-outline-secondary" type="submit">搜索</button>
+  </div>
+</form>
 <table class="table">
   <thead>
     <tr>

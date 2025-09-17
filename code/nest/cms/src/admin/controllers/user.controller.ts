@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Headers, Post, Put, Redirect, Render, Res, UseFilters } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Query, Param, ParseIntPipe, Headers, Post, Put, Redirect, Render, Res, UseFilters } from '@nestjs/common';
 import { UserService } from '../../share/services/user.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UtilityService } from '../../share/services/utility.service';
@@ -20,8 +20,8 @@ export class UserController {
   @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
   @ApiResponse({ status: 200, description: '成功返回用户列表' })
   @Render('user/user-list')
-  async findAll() {
-    const users = await this.userService.findAll();
+  async findAll(@Query('search') search: string = '') {
+    const users = await this.userService.findAll(search);
     return { users };
   }
 

@@ -2349,3 +2349,120 @@ export class UserController {
 </script>
 ```
 
+## 搜索
+
+### user.controller
+
+```ts
+import { Body, Controller, Delete, Get, NotFoundException, Query, Param, ParseIntPipe, Headers, Post, Put, Redirect, Render, Res, UseFilters } from '@nestjs/common'; // [!code ++]
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UtilityService } from '../../share/services/utility.service';
+import { CreateUserDto, UpdateUserDto } from 'src/share/dtos/user.dto';
+import { AdminExceptionFilter } from '../filters/admin-exception.filter';
+import type { Response } from 'express';
+
+@ApiTags('admin/user')
+@UseFilters(AdminExceptionFilter)
+@Controller('admin/user')
+export class UserController {
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list')
+  async findAll(@Query('search') search: string = '') { // [!code ++]
+    const users = await this.userService.findAll(search); // [!code ++]
+    return { users };
+  }
+}
+```
+
+### user.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { MysqlBaseService } from './mysql-base.service';
+import { User } from '../entities/user.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Like, Repository } from 'typeorm'; // [!code ++]
+
+@Injectable()
+export class UserService extends MysqlBaseService<User> {
+  constructor(
+    @InjectRepository(User)
+    protected userRepository: Repository<User>
+  ) {
+    super(userRepository);
+  }
+
+  async findAll(search: string = ''): Promise<User[]> { // [!code ++]
+    const where = search ? [ // [!code ++]
+      { username: Like(`%${search}%`) }, // [!code ++]
+      { email: Like(`%${search}%`) } // [!code ++]
+    ] : {}; // [!code ++]
+
+    const users = await this.userRepository.find({ // [!code ++]
+      where // [!code ++]
+    }); // [!code ++]
+    return users; // [!code ++]
+  } // [!code ++]
+}
+
+```
+
+### user-list.hbs
+
+```handlebars
+<h1>用户列表</h1>
+<form method="GET" action="/admin/user" class="mb-3"> // [!code ++]
+  <div class="input-group"> // [!code ++]
+    <input type="text" name="search" class="form-control" placeholder="搜索用户名或邮箱" value="{{search}}"> // [!code ++]
+    <button class="btn btn-outline-secondary" type="submit">搜索</button> // [!code ++]
+  </div> // [!code ++]
+</form> // [!code ++]
+<table class="table">
+  <thead>
+    <tr>
+      <th>序号</th>
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>
+        <span class="sort-text" data-id="{{this.id}}">{{this.sort}}</span>
+        <input type="number" class="form-control sort-input d-none" style="width:80px" data-id="{{this.id}}"
+          value="{{this.sort}}">
+      </td>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td>
+        <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}">
+          {{#if this.status}}
+          <i class="bi bi-check-circle-fill text-success"></i>
+          {{else}}
+          <i class="bi bi-x-circle-fill text-danger"></i>
+          {{/if}}
+        </span>
+      </td>
+      <td>
+        <a href="/admin/user/{{this.id}}">查看</a>
+        <a href="/admin/user/edit/{{this.id}}">编辑</a>
+        <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+```
+
