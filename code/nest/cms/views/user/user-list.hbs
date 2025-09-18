@@ -38,6 +38,7 @@
         <a href="/admin/user/{{this.id}}">查看</a>
         <a href="/admin/user/edit/{{this.id}}">编辑</a>
         <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a>
+        <button class="btn btn-info btn-sm" onclick="assignRoles({{this.id}})">分配角色</button>
       </td>
     </tr>
     {{/each}}
@@ -68,7 +69,74 @@
     </li>
   </ul>
 </nav>
+<div class="modal fade" id="roleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="roleModalLabel">分配角色</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="roleForm">
+          {{#each roles}}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="{{this.id}}" id="role{{this.id}}">
+            <label class="form-check-label" for="role{{this.id}}">
+              {{this.name}}
+            </label>
+          </div>
+          {{/each}}
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+        <button type="button" class="btn btn-primary" id="saveRoles">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
+  let selectedUserId;
+  function assignRoles(userId) {
+    selectedUserId = userId;
+    $.ajax({
+      url: `/admin/user/${userId}`,
+      type: 'GET',
+      headers: {
+        'accept': 'application/json'
+      },
+      success: function (user) {
+        const roles = user.roles.map(role => role.id);
+        $('#roleForm input[type="checkbox"]').each(function () {
+          $(this).prop('checked', roles.includes(parseInt($(this).val())));
+        });
+        $('#roleModal').modal('show');
+      }
+    });
+
+  }
+  $('#saveRoles').on('click', function () {
+    const roleIds = $('#roleForm input[type="checkbox"]:checked').map(function () {
+      return $(this).val();
+    }).get();
+    $.ajax({
+      url: `/admin/user/${selectedUserId}/roles`,
+      type: 'PUT',
+      headers: {
+        'accept': 'application/json'
+      },
+      contentType: 'application/json',
+      data: JSON.stringify({ roleIds }),
+      success: function (response) {
+        $('#roleModal').modal('hide');
+        location.reload();
+      },
+      error: function (error) {
+        const { responseJSON } = error;
+        alert(responseJSON.message);
+      }
+    });
+  });
   $(function () {
     $('.sort-text').on('dblclick', function () {
       const userId = $(this).data('id');
@@ -136,7 +204,11 @@
         type: 'DELETE',
         success: function (res) {
           if (res.success) {
-            window.location.reload()
+            const params = new URLSearchParams(window.location.search);
+            params.delete('page');
+            params.append('page', 1)
+            const query = params.toString();
+            window.location = window.location.pathname + '?' + query;
           }
         }
       })

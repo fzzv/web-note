@@ -1,6 +1,7 @@
 import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import { Exclude, Transform } from 'class-transformer';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
+import { Role } from './role.entity';
 
 @Entity()
 export class User {
@@ -29,6 +30,10 @@ export class User {
   @Column({ default: 1 })
   @ApiProperty({ description: '状态', example: 1, enum: [1, 2] })
   status: number;
+
+  @ManyToMany(() => Role)
+  @JoinTable()
+  roles: Role[];
 
   @Column({ default: false })
   @ApiProperty({ description: '是否超级管理员', example: false })

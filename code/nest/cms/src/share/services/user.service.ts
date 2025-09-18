@@ -1,14 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Like, Repository } from 'typeorm';
 import { MysqlBaseService } from './mysql-base.service';
 import { User } from '../entities/user.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
+import { Role } from '../entities/role.entity';
+import { UpdateUserRolesDto } from '../dtos/user.dto';
 
 @Injectable()
 export class UserService extends MysqlBaseService<User> {
   constructor(
     @InjectRepository(User)
-    protected userRepository: Repository<User>
+    protected userRepository: Repository<User>,
+    @InjectRepository(Role)
+    protected roleRepository: Repository<Role>
   ) {
     super(userRepository);
   }
@@ -37,5 +41,12 @@ export class UserService extends MysqlBaseService<User> {
       take: limit,
     });
     return { users, total };
+  }
+
+  async updateRoles(id: number, updateUserRolesDto: UpdateUserRolesDto) {
+    const user = await this.repository.findOneBy({ id });
+    if (!user) throw new Error('User not found');
+    user.roles = await this.roleRepository.findBy({ id: In(updateUserRolesDto.roleIds) });
+    await this.repository.save(user);
   }
 }

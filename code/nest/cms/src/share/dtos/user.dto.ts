@@ -1,5 +1,5 @@
-import { IsString, Validate } from "class-validator";
-import { StartsWithConstraint, StartsWith, IsUsernameUnique, IsUsernameUniqueConstraint } from "../validators/user-validators";
+import { IsOptional, IsString, Validate } from "class-validator";
+import { StartsWithConstraint, IsUsernameUniqueConstraint } from "../validators/user-validators";
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger"
 import { IsOptionalString, IsOptionalEmail, IsOptionalNumber, IsOptionalBoolean } from "../decorators/alidation-and-transform.decorators";
 
@@ -39,4 +39,15 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @ApiProperty({ description: '用户ID', example: 1 })
   @IsOptionalNumber()
   id: number;
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ description: '用户名', example: 'nick' })
+  username: string;
+  @ApiProperty({ description: '密码', example: '666666' })
+  @IsOptional()
+  password?: string;
+}
+
+export class UpdateUserRolesDto {
+  readonly roleIds: number[];
 }

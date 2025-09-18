@@ -2816,3 +2816,461 @@ npm run build
 nest g generateList access 资源 --collection=../cms-generator
 ```
 
+## 给用户分配角色
+
+### user.entity
+
+```ts
+import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
+import { Exclude, Transform } from 'class-transformer';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
+import { Role } from './role.entity'; // [!code ++]
+
+@Entity()
+export class User {
+  @PrimaryGeneratedColumn()
+  @ApiProperty({ description: '用户ID', example: 1 })
+  id: number;
+
+  @Column({ length: 50, unique: true })
+  @ApiProperty({ description: '用户名', example: 'admin' })
+  username: string;
+
+  @Column()
+  @Exclude() // 在序列化时排除密码字段，不返回给前端
+  @ApiHideProperty() // 隐藏密码字段，不在Swagger文档中显示
+  password: string;
+
+  @Column({ length: 15, nullable: true })
+  @ApiProperty({ description: '手机号', example: '13124567890', format: '手机号码会被部分隐藏' })
+  @Transform(({ value }) => value ? value.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : value)
+  mobile: string;
+
+  @Column({ length: 100, nullable: true })
+  @ApiProperty({ description: '邮箱', example: 'admin@example.com' })
+  email: string;
+
+  @Column({ default: 1 })
+  @ApiProperty({ description: '状态', example: 1, enum: [1, 2] })
+  status: number;
+
+  @ManyToMany(() => Role) // [!code ++]
+  @JoinTable() // [!code ++]
+  roles: Role[]; // [!code ++]
+
+  @Column({ default: false })
+  @ApiProperty({ description: '是否超级管理员', example: false })
+  is_super: boolean;
+
+  @Column({ default: 100 })
+  @ApiProperty({ description: '排序', example: 100 })
+  sort: number;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @ApiProperty({ description: '创建时间', example: '2021-01-01 00:00:00' })
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  @ApiProperty({ description: '更新时间', example: '2021-01-01 00:00:00' })
+  @UpdateDateColumn()
+  updatedAt: Date;
+}
+```
+
+### user.dto
+
+```ts
+import { IsOptional, IsString, Validate } from "class-validator";
+import { StartsWithConstraint, IsUsernameUniqueConstraint } from "../validators/user-validators";
+import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger"
+import { IsOptionalString, IsOptionalEmail, IsOptionalNumber, IsOptionalBoolean } from "../decorators/alidation-and-transform.decorators";
+
+export class CreateUserDto {
+  @ApiProperty({ description: '用户名，必须唯一且以指定前缀开头', example: 'user_john_doe' })
+  @IsString()
+  @Validate(StartsWithConstraint, ['user_'], {
+    message: `用户名必须以 "user_" 开头`,
+  })
+  @Validate(IsUsernameUniqueConstraint, { message: '用户名已存在' })
+  // @StartsWith('user_', { message: '用户名必须以 "user_" 开头' })
+  // @IsUsernameUnique({ message: '用户名已存在' })
+  username: string;
+
+  @ApiProperty({ description: '密码', example: 'securePassword123' })
+  @IsString()
+  password: string;
+
+  @ApiPropertyOptional({ description: '手机号', example: '13124567890' })
+  @IsOptionalString()
+  mobile?: string;
+
+  @ApiPropertyOptional({ description: '邮箱地址', example: 'john.doe@example.com' })
+  @IsOptionalEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ description: '用户状态', example: 1 })
+  @IsOptionalNumber()
+  status?: number;
+
+  @ApiPropertyOptional({ description: '是否为超级管理员', example: true })
+  @IsOptionalBoolean()
+  is_super?: boolean;
+}
+
+export class UpdateUserDto extends PartialType(CreateUserDto) {
+  @ApiProperty({ description: '用户ID', example: 1 })
+  @IsOptionalNumber()
+  id: number;
+  @IsString() // [!code ++]
+  @IsOptional() // [!code ++]
+  @ApiProperty({ description: '用户名', example: 'nick' }) // [!code ++]
+  username: string; // [!code ++]
+  @ApiProperty({ description: '密码', example: '666666' }) // [!code ++]
+  @IsOptional() // [!code ++]
+  password?: string; // [!code ++]
+}
+
+export class UpdateUserRolesDto { // [!code ++]
+  readonly roleIds: number[]; // [!code ++]
+} // [!code ++]
+```
+
+### user.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Like, Repository } from 'typeorm';
+import { MysqlBaseService } from './mysql-base.service';
+import { User } from '../entities/user.entity';
+import { Role } from '../entities/role.entity'; // [!code ++]
+import { UpdateUserRolesDto } from '../dtos/user.dto'; // [!code ++]
+
+@Injectable()
+export class UserService extends MysqlBaseService<User> {
+  constructor(
+    @InjectRepository(User)
+    protected userRepository: Repository<User>,
+    @InjectRepository(Role) // [!code ++]
+    protected roleRepository: Repository<Role> // [!code ++]
+  ) {
+    super(userRepository);
+  }
+
+  async findAll(search: string = ''): Promise<User[]> {
+    const where = search ? [
+      { username: Like(`%${search}%`) },
+      { email: Like(`%${search}%`) }
+    ] : {};
+
+    const users = await this.userRepository.find({
+      where
+    });
+    return users;
+  }
+
+  async findAllWithPagination(page: number = 1, limit: number = 10, search: string = ''): Promise<{ users: User[], total: number }> {
+    const where = search ? [
+      { username: Like(`%${search}%`) },
+      { email: Like(`%${search}%`) }
+    ] : {};
+
+    const [users, total] = await this.userRepository.findAndCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { users, total };
+  }
+
+  async updateRoles(id: number, updateUserRolesDto: UpdateUserRolesDto) { // [!code ++]
+    const user = await this.repository.findOneBy({ id }); // [!code ++]
+    if (!user) throw new Error('User not found'); // [!code ++]
+    user.roles = await this.roleRepository.findBy({ id: In(updateUserRolesDto.roleIds) }); // [!code ++]
+    await this.repository.save(user); // [!code ++]
+  } // [!code ++]
+}
+```
+
+### user.controller
+
+```ts
+import { Body, Controller, Delete, Get, NotFoundException, Query, Param, ParseIntPipe, Headers, Post, Put, Redirect, Render, Res, UseFilters } from '@nestjs/common';
+import { UserService } from '../../share/services/user.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UtilityService } from '../../share/services/utility.service';
+import { CreateUserDto, UpdateUserDto, UpdateUserRolesDto } from 'src/share/dtos/user.dto'; // [!code ++]
+import { AdminExceptionFilter } from '../filters/admin-exception.filter';
+import type { Response } from 'express';
+import { ParseOptionalIntPipe } from 'src/share/pipes/parse-optional-int.pipe';
+import { RoleService } from 'src/share/services/role.service'; // [!code ++]
+
+@ApiTags('admin/user')
+@UseFilters(AdminExceptionFilter)
+@Controller('admin/user')
+export class UserController {
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService,
+    private readonly roleService: RoleService // [!code ++]
+  ) { }
+
+  @Get()
+  @ApiOperation({ summary: '获取所有用户列表(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户列表' })
+  @Render('user/user-list')
+  async findAll(@Query('search') search: string = '', @Query('page', new ParseOptionalIntPipe(1)) page: number, @Query('limit', new ParseOptionalIntPipe(10)) limit: number) {
+    const { users, total } = await this.userService.findAllWithPagination(page, limit, search);
+    const pageCount = Math.ceil(total / limit);
+    const roles = await this.roleService.findAll(); // [!code ++]
+    return { users, search, page, limit, pageCount, roles }; // [!code ++]
+  }
+    
+  // ...
+   
+  @Get(':id')
+  @ApiOperation({ summary: '获取用户详情(管理后台)' })
+  @ApiResponse({ status: 200, description: '成功返回用户详情' })
+  async findOne(@Param('id', ParseIntPipe) id: number, @Res() res: Response, @Headers('accept') accept: string) { // [!code ++]
+    const user = await this.userService.findOne({ where: { id }, relations: ['roles'] }); // [!code ++]
+    if (!user) throw new HttpException('User not Found', 404) // [!code ++]
+    if (accept === 'application/json') { // [!code ++]
+      return res.json(user); // [!code ++]
+    } else { // [!code ++]
+      res.render('user/user-detail', { user }); // [!code ++]
+    } // [!code ++]
+  }
+  @Put(':id/roles') // [!code ++]
+  @ApiOperation({ summary: '更新用户角色(管理后台)' }) // [!code ++]
+  @ApiResponse({ status: 200, description: '成功返回更新用户角色页面' }) // [!code ++]
+  async updateRoles(@Param('id', ParseIntPipe) id: number, @Body() updateUserRolesDto: UpdateUserRolesDto) { // [!code ++]
+    await this.userService.updateRoles(id, updateUserRolesDto); // [!code ++]
+    return { success: true }; // [!code ++]
+  } // [!code ++]
+}
+```
+
+### user-list.hbs
+
+```handlebars
+<h1>用户列表</h1>
+<form method="GET" action="/admin/user" class="mb-3">
+  <div class="input-group">
+    <input type="text" name="search" class="form-control" placeholder="搜索用户名或邮箱" value="{{search}}">
+    <button class="btn btn-outline-secondary" type="submit">搜索</button>
+  </div>
+</form>
+<table class="table">
+  <thead>
+    <tr>
+      <th>序号</th>
+      <th>用户名</th>
+      <th>邮箱</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each users}}
+    <tr>
+      <td>
+        <span class="sort-text" data-id="{{this.id}}">{{this.sort}}</span>
+        <input type="number" class="form-control sort-input d-none" style="width:80px" data-id="{{this.id}}"
+          value="{{this.sort}}">
+      </td>
+      <td>{{this.username}}</td>
+      <td>{{this.email}}</td>
+      <td>
+        <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}">
+          {{#if this.status}}
+          <i class="bi bi-check-circle-fill text-success"></i>
+          {{else}}
+          <i class="bi bi-x-circle-fill text-danger"></i>
+          {{/if}}
+        </span>
+      </td>
+      <td>
+        <a href="/admin/user/{{this.id}}">查看</a>
+        <a href="/admin/user/edit/{{this.id}}">编辑</a>
+        <a href="" class="delete-user" onclick="deleteUser({{this.id}})">删除</a>
+        <button class="btn btn-info btn-sm" onclick="assignRoles({{this.id}})">分配角色</button>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+<nav>
+  <ul class="pagination">
+    <li class="page-item {{#if (eq page 1)}}disabled{{/if}}">
+      <a class="page-link" href="?page={{dec page}}&search={{search}}&limit={{limit}}">上一页</a>
+    </li>
+    {{#each (range 1 pageCount)}}
+    <li class="page-item {{#if (eq this ../page)}}active{{/if}}">
+      <a class="page-link" href="?page={{this}}&search={{../search}}&limit={{../limit}}">{{this}}</a>
+    </li>
+    {{/each}}
+    <li class="page-item {{#if (eq page pageCount)}}disabled{{/if}}">
+      <a class="page-link" href="?page={{inc page}}&search={{search}}&limit={{limit}}">下一页</a>
+    </li>
+    <li class="page-item">
+      <form method="GET" action="/admin/user" class="d-inline-block ms-3">
+        <input type="hidden" name="search" value="{{search}}">
+        <input type="hidden" name="page" value="{{page}}">
+        <div class="input-group">
+          <input type="number" name="limit" class="form-control" placeholder="每页条数" value="{{limit}}" min="1">
+          <button class="btn btn-outline-secondary" type="submit">设置</button>
+        </div>
+      </form>
+    </li>
+  </ul>
+</nav>
+<div class="modal fade" id="roleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="roleModalLabel">分配角色</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="roleForm">
+          {{#each roles}}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="{{this.id}}" id="role{{this.id}}">
+            <label class="form-check-label" for="role{{this.id}}">
+              {{this.name}}
+            </label>
+          </div>
+          {{/each}}
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+        <button type="button" class="btn btn-primary" id="saveRoles">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  let selectedUserId;
+  function assignRoles(userId) {
+    selectedUserId = userId;
+    $.ajax({
+      url: `/admin/user/${userId}`,
+      type: 'GET',
+      headers: {
+        'accept': 'application/json'
+      },
+      success: function (user) {
+        const roles = user.roles.map(role => role.id);
+        $('#roleForm input[type="checkbox"]').each(function () {
+          $(this).prop('checked', roles.includes(parseInt($(this).val())));
+        });
+        $('#roleModal').modal('show');
+      }
+    });
+
+  }
+  $('#saveRoles').on('click', function () {
+    const roleIds = $('#roleForm input[type="checkbox"]:checked').map(function () {
+      return $(this).val();
+    }).get();
+    $.ajax({
+      url: `/admin/user/${selectedUserId}/roles`,
+      type: 'PUT',
+      headers: {
+        'accept': 'application/json'
+      },
+      contentType: 'application/json',
+      data: JSON.stringify({ roleIds }),
+      success: function (response) {
+        $('#roleModal').modal('hide');
+        location.reload();
+      },
+      error: function (error) {
+        const { responseJSON } = error;
+        alert(responseJSON.message);
+      }
+    });
+  });
+  $(function () {
+    $('.sort-text').on('dblclick', function () {
+      const userId = $(this).data('id');
+      $(this).addClass('d-none');
+      $(`.sort-input[data-id="${userId}"]`).removeClass('d-none').focus();
+    });
+
+    $('.sort-input').on('blur', function () {
+      const userId = $(this).data('id');
+      const newSort = $(this).val();
+      $(this).addClass('d-none');
+      $(`.sort-text[data-id="${userId}"]`).removeClass('d-none').text(newSort);
+      $.ajax({
+        url: `/admin/user/${userId}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'accept': 'application/json'
+        },
+        data: JSON.stringify({ sort: newSort }),
+        success: function (response) {
+          if (response.success) {
+            $(`.sort-text[data-id="${userId}"]`).text(newSort);
+          }
+        }
+      });
+    });
+
+    $('.sort-input').on('keypress', function (e) {
+      if (e.which == 13) {
+        $(this).blur();
+      }
+    });
+
+    $('.status-toggle').on('click', function () {
+      const $this = $(this);
+      const userId = $this.data('id');
+      const currentStatus = $this.data('status');
+      const newStatus = currentStatus === 1 ? 0 : 1;
+      $.ajax({
+        url: `/admin/user/${userId}`,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'accept': 'application/json'
+        },
+        data: JSON.stringify({ status: newStatus }),
+        success: function (response) {
+          if (response.success) {
+            $this.data('status', newStatus);
+            $this.html(`<i class="bi ${newStatus ? "bi-check-circle-fill" : "bi-x-circle-fill"} ${newStatus ? "text-success" : "text-danger"}"></i>`);
+          }
+        },
+        error: function (error) {
+          const { responseJSON } = error;
+          alert(responseJSON.message);
+        }
+      });
+    });
+  });
+  function deleteUser(id) {
+    if (confirm('确定要删除该用户吗？')) {
+      $.ajax({
+        url: '/admin/user/' + id,
+        type: 'DELETE',
+        success: function (res) {
+          if (res.success) {
+            const params = new URLSearchParams(window.location.search);
+            params.delete('page');
+            params.append('page', 1)
+            const query = params.toString();
+            window.location = window.location.pathname + '?' + query;
+          }
+        }
+      })
+    }
+  }
+</script>
+```
+
