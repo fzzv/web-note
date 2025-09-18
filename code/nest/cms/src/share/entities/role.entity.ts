@@ -1,5 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { Access } from './access.entity';
 
 @Entity()
 export class Role {
@@ -14,6 +15,10 @@ export class Role {
   @Column({ default: 1 })
   @ApiProperty({ description: '生效状态', example: 1 })
   status: number;
+
+  @ManyToMany(() => Access)
+  @JoinTable()
+  accesses: Access[];
 
   @Column({ default: 100 })
   @ApiProperty({ description: '排序号', example: 100 })

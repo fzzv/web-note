@@ -20,3 +20,7 @@ export class UpdateRoleDto extends PartialType(CreateRoleDto) {
   @IdValidators()
   id: number;
 }
+
+export class UpdateRoleAccessesDto {
+  readonly accessIds: number[];
+}

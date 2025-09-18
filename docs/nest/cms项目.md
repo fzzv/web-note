@@ -3274,3 +3274,6 @@ export class UserController {
 </script>
 ```
 
+## 给角色分配权限
+
+代码与给用户分配角色代码相似。
