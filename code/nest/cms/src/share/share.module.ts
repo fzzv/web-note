@@ -5,11 +5,12 @@ import { ConfigModule } from '@nestjs/config';
 import { ConfigurationService } from './services/configuration.service';
 import { UserService } from './services/user.service';
 import { RoleService } from './services/role.service';
+import { AccessService } from "./services/access.service";
 import { UtilityService } from './services/utility.service';
 import { IsUsernameUniqueConstraint } from './validators/user-validators';
 import { Role } from './entities/role.entity';
 import { Access } from "./entities/access.entity";
-import { AccessService } from "./services/access.service";
+
 @Global()
 @Module({
     imports: [
@@ -21,7 +22,7 @@ import { AccessService } from "./services/access.service";
             useFactory: (configService: ConfigurationService) => ({
                 type: 'mysql',
                 ...configService.mysqlConfig,
-                entities: [User, Role],
+                entities: [User, Role, Access],
                 synchronize: true,
                 autoLoadEntities: true,
                 logging: false

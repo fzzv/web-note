@@ -13,35 +13,16 @@
     <tr>
       <td>名称</td>
       <td>状态</td>
+      <th>url</th>
+      <th>类型</th>
       <td>排序</td>
       <td>操作</td>
     </tr>
   </thead>
-  <tbody>
-    {{#each accesses}}
-      <tr>
-        <td>{{this.name}}</td>
-        <td>
-          <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}">
-            {{#if this.status}}
-            <i class="bi bi-check-circle-fill text-success"></i>
-            {{else}}
-            <i class="bi bi-x-circle-fill text-danger"></i>
-            {{/if}}
-          </span>
-        </td>
-        <td>
-          <span class="sort-text" data-id="{{this.id}}">{{this.sort}}</span>
-          <input type="number" class="form-control sort-input d-none" style="width:50%" data-id="{{this.id}}"
-            value="{{this.sort}}">
-        </td>
-        <td>
-          <a href="/admin/accesses/{{this.id}}" class="btn btn-primary btn-sm">查看</a>
-          <a href="/admin/accesses/{{this.id}}/edit" class="btn btn-warning btn-sm">修改</a>
-          <a class="btn btn-danger btn-sm" onclick="deleteAccess({{this.id}})">删除</a>
-        </td>
-      </tr>
-      {{/each}}
+  <tbody id="accessTreeTable">
+    {{#each accessTree}}
+    {{> access-node this depth=0}}
+    {{/each}}
   </tbody>
 </table>
 <nav>
@@ -71,7 +52,7 @@
   </ul>
 </nav>
 <script>
-  function deleteAccess (id) {
+  function deleteAccess(id) {
     if (confirm('确定要删除吗?')) {
       $.ajax({
         url: `/admin/accesses/${id}`,
@@ -89,6 +70,26 @@
     }
   }
   $(function () {
+    $('#accessTreeTable').on('click', '.toggle', function () {
+      const $toggle = $(this);
+      const id = $toggle.data('id');
+      const $tr = $toggle.closest('tr');
+      if ($tr.nextAll('tr[data-parent="' + id + '"]').is(':visible')) {
+        hideChildren($tr, id);
+        $toggle.html('<i class="bi bi-folder-plus"></i>');
+      } else {
+        $tr.nextAll('tr[data-parent="' + id + '"]').show();
+        $toggle.html('<i class="bi bi-folder-minus"></i>');
+      }
+    });
+    function hideChildren($tr, id) {
+      const $children = $tr.nextAll('tr[data-parent="' + id + '"]');
+      $children.each(function () {
+        const childId = $(this).data('id');
+        hideChildren($(this), childId);
+      });
+      $children.hide();
+    }
     $('.sort-text').on('dblclick', function () {
       const $this = $(this);
       const id = $this.data('id');

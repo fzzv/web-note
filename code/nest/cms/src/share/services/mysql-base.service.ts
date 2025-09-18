@@ -4,7 +4,7 @@ import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity
 
 @Injectable()
 export abstract class MysqlBaseService<T extends ObjectLiteral> {
-  constructor(private readonly repository: Repository<T>) {}
+  constructor(protected repository: Repository<T>) {}
 
   async findAll(): Promise<T[]> {
     return this.repository.find();
