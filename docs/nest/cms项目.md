@@ -3278,4 +3278,181 @@ export class UserController {
 
 内容类似，可以直接查看code中的相关代码。
 
+## 富文本编辑器
+
+导入ckeditor5的css
+
+`main.hbs`
+
+```handlebars
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CMS后台管理页面</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/css/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/css/ckeditor5.css" rel="stylesheet" /> // [!code ++]
+  <script src="/js/jquery.min.js"></script>
+  <script src="/js/bootstrap.bundle.min.js"></script>
+</head>
+
+<body>
+  {{> header}}
+  <div class="container-fluid">
+    <div class="row">
+      {{> sidebar}}
+      <!-- 右侧管理页面 -->
+      <div class="col-md-9 col-lg-10">
+        <div class="container mt-4">
+          {{{body}}}
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
+```
+
+`article-form.hbs`
+
+```handlebars
+<h1>{{#if article.id}}编辑文章{{else}}添加文章{{/if}}</h1>
+<form action="/admin/articles{{#if article.id}}/{{article.id}}{{/if}}" method="POST" id="articleForm"> // [!code ++]
+  {{#if article.id}}<input type="hidden" name="_method" value="PUT">{{/if}}
+  <div class="mb-3">
+    <label for="title" class="form-label">标题</label>
+    <input type="text" class="form-control" id="title" name="title" value="{{article.title}}">
+  </div>
+  <div class="mb-3">
+    <label for="content" class="form-label">内容</label>
+    <textarea class="form-control" id="content" name="content" rows="10">{{article.content}}</textarea> // [!code --]
+    <div id="editor"> // [!code ++]
+      {{{article.content}}} // [!code ++]
+    </div> // [!code ++]
+    <input type="hidden" name="content" id="contentInput">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">分类</label>
+    <div id="categoryTree" class="border rounded p-3"></div>
+  </div>
+  <div class="mb-3">
+    <label for="tags" class="form-label">标签</label>
+    <div class="d-flex flex-wrap">
+      {{#each tags}}
+      <div class="form-check me-3 mb-2">
+        <input class="form-check-input" type="checkbox" name="tagIds" value="{{this.id}}" {{#if (contains (mapToIds
+          ../article.tags) this.id )}}checked{{/if}}>
+        <label class="form-check-label">{{this.name}}</label>
+      </div>
+      {{/each}}
+    </div>
+  </div>
+  <div class="mb-3">
+    <label for="status" class="form-label">状态</label>
+    <select class="form-control" id="status" name="status">
+      <option value="1" {{#if article.status}}selected{{/if}}>激活</option>
+      <option value="0" {{#unless article.status}}selected{{/unless}}>未激活</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">保存</button>
+</form>
+<script type="importmap"> // [!code ++]
+  { // [!code ++]
+    "imports": { // [!code ++]
+      "ckeditor5": "/js/ckeditor5.js" // [!code ++]
+    } // [!code ++]
+  } // [!code ++]
+</script> // [!code ++]
+<script type="module"> // [!code ++]
+  import { // [!code ++]
+    ClassicEditor, // [!code ++]
+    Essentials, // [!code ++]
+    Bold, // [!code ++]
+    Italic, // [!code ++]
+    Font, // [!code ++]
+    Paragraph, // [!code ++]
+    Image, // [!code ++]
+    ImageToolbar, // [!code ++]
+    ImageUpload, // [!code ++]
+    ImageResize, // [!code ++]
+    ImageStyle, // [!code ++]
+    Plugin // [!code ++]
+  } from 'ckeditor5'; // [!code ++]
+  ClassicEditor // [!code ++]
+    .create(document.querySelector('#editor'), { // [!code ++]
+      plugins: [ // [!code ++]
+        Essentials, // [!code ++]
+        Bold, // [!code ++]
+        Italic, // [!code ++]
+        Font, // [!code ++]
+        Paragraph, // [!code ++]
+        Image, // [!code ++]
+        ImageToolbar, // [!code ++]
+        ImageStyle, // [!code ++]
+        ImageResize, // [!code ++]
+        ImageUpload // [!code ++]
+      ], // [!code ++]
+      image: { // [!code ++]
+        toolbar: ['imageTextAlternative', 'imageStyle:side', 'resizeImage:50', 'resizeImage:75', 'resizeImage:original'] // [!code ++]
+      }, // [!code ++]
+      toolbar: { // [!code ++]
+        items: [ // [!code ++]
+          'undo', 'redo', '|', 'bold', 'italic', '|', // [!code ++]
+          'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|', // [!code ++]
+          'insertImage' // [!code ++]
+        ] // [!code ++]
+      } // [!code ++]
+    }) // [!code ++]
+    .then(editor => { // [!code ++]
+      const form = document.getElementById('articleForm'); // [!code ++]
+      const contentInput = document.getElementById('contentInput'); // [!code ++]
+      form.addEventListener('submit', () => { // [!code ++]
+        contentInput.value = editor.getData(); // [!code ++]
+      }); // [!code ++]
+    }) // [!code ++]
+    .catch(error => { // [!code ++]
+      console.error(error.stack); // [!code ++]
+    }); // [!code ++]
+</script> // [!code ++]
+<script>
+  const categoryTree = {{{ json categoryTree }}};
+  const selectedCategoryIds = {{{ mapToIds article.categories }}};
+  function renderCategoryTree(categoryes) {
+    let html = '<ul class="list-unstyled">';
+    categoryes.forEach(function (category) {
+      html += `
+           <li class="mb-2">
+               <div class="d-flex align-items-center">
+                   ${category.children?.length > 0 ? '<span class="toggle me-2 cursor-pointer"><i class="bi bi-folder-minus"></i></span>' : '<span class="me-4"></span>'}
+                   <label class="form-check-label">
+                       <input type="checkbox" class="form-check-input" name="categoryIds" value="${category.id}" ${selectedCategoryIds.includes(category.id) ? 'checked' : ''}>
+                       ${category.name}
+                   </label>
+               </div>
+               ${category.children?.length > 0 ? `<div class="children ms-4" >${renderCategoryTree(category.children)}</div>` : ''}
+           </li>`;
+    });
+    html += '</ul>';
+    return html;
+  }
+  $(function () {
+    $('#categoryTree').html(renderCategoryTree(categoryTree));
+    $('body').on('click', '.toggle', function () {
+      const childrenContainer = $(this).parent().siblings('.children');
+      if (childrenContainer.is(':visible')) {
+        childrenContainer.hide();
+        $(this).html('<i class="bi bi-folder-plus"></i>');
+      } else {
+        childrenContainer.show();
+        $(this).html('<i class="bi bi-folder-minus"></i>');
+      }
+    });
+  });
+</script>
+
+```
 

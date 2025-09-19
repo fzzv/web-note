@@ -1,5 +1,5 @@
 <h1>{{#if article.id}}编辑文章{{else}}添加文章{{/if}}</h1>
-<form action="/admin/articles{{#if article.id}}/{{article.id}}{{/if}}" method="POST">
+<form action="/admin/articles{{#if article.id}}/{{article.id}}{{/if}}" method="POST" id="articleForm">
   {{#if article.id}}<input type="hidden" name="_method" value="PUT">{{/if}}
   <div class="mb-3">
     <label for="title" class="form-label">标题</label>
@@ -7,7 +7,11 @@
   </div>
   <div class="mb-3">
     <label for="content" class="form-label">内容</label>
-    <textarea class="form-control" id="content" name="content" rows="10">{{article.content}}</textarea>
+    {{!-- <textarea class="form-control" id="content" name="content" rows="10">{{article.content}}</textarea> --}}
+    <div id="editor">
+      {{{article.content}}}
+    </div>
+    <input type="hidden" name="content" id="contentInput">
   </div>
   <div class="mb-3">
     <label class="form-label">分类</label>
@@ -34,6 +38,64 @@
   </div>
   <button type="submit" class="btn btn-primary">保存</button>
 </form>
+<script type="importmap">
+  {
+    "imports": {
+      "ckeditor5": "/js/ckeditor5.js"
+    }
+  }
+</script>
+<script type="module">
+  import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Font,
+    Paragraph,
+    Image,
+    ImageToolbar,
+    ImageUpload,
+    ImageResize,
+    ImageStyle,
+    Plugin
+  } from 'ckeditor5';
+  ClassicEditor
+    .create(document.querySelector('#editor'), {
+      plugins: [
+        Essentials,
+        Bold,
+        Italic,
+        Font,
+        Paragraph,
+        Image,
+        ImageToolbar,
+        ImageStyle,
+        ImageResize,
+        ImageUpload
+      ],
+      image: {
+        toolbar: ['imageTextAlternative', 'imageStyle:side', 'resizeImage:50', 'resizeImage:75', 'resizeImage:original']
+      },
+      toolbar: {
+        items: [
+          'undo', 'redo', '|', 'bold', 'italic', '|',
+          'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+          'insertImage'
+        ]
+      }
+    })
+    .then(editor => {
+      const form = document.getElementById('articleForm');
+      const contentInput = document.getElementById('contentInput');
+      form.addEventListener('submit', () => {
+        contentInput.value = editor.getData();
+      });
+    })
+    .catch(error => {
+      console.error(error.stack);
+    });
+</script>
 <script>
   const categoryTree = {{{ json categoryTree }}};
   const selectedCategoryIds = {{{ mapToIds article.categories }}};
