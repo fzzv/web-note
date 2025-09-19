@@ -47,6 +47,6 @@ export class UserService extends MysqlBaseService<User> {
     const user = await this.repository.findOneBy({ id });
     if (!user) throw new Error('User not found');
     user.roles = await this.roleRepository.findBy({ id: In(updateUserRolesDto.roleIds) });
-    await this.repository.save(user);
+    await this.repository.update(id, user);
   }
 }

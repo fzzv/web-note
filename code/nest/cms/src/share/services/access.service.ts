@@ -39,7 +39,7 @@ export class AccessService extends MysqlBaseService<Access> {
       if (!parent) throw new Error('Parent access not found');
       access.parent = parent;
     }
-    await this.repository.save(access);
+    await this.repository.update(id, access);
     return UpdateResult.from({ raw: [], affected: 1, records: [] });
   }
 }

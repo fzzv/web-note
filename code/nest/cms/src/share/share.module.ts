@@ -10,27 +10,33 @@ import { UtilityService } from './services/utility.service';
 import { IsUsernameUniqueConstraint } from './validators/user-validators';
 import { Role } from './entities/role.entity';
 import { Access } from "./entities/access.entity";
+import { Article } from './entities/article.entity';
+import { Category } from './entities/category.entity';
+import { Tag } from './entities/tag.entity';
+import { ArticleService } from './services/article.service';
+import { CategoryService } from './services/category.service';
+import { TagService } from './services/tag.service';
 
 @Global()
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
-        TypeOrmModule.forFeature([User, Role, Access]),
+        TypeOrmModule.forFeature([User, Role, Access, Article, Category, Tag]),
         TypeOrmModule.forRootAsync({
             imports: [ConfigModule],
             inject: [ConfigurationService],
             useFactory: (configService: ConfigurationService) => ({
                 type: 'mysql',
                 ...configService.mysqlConfig,
-                entities: [User, Role, Access],
+                entities: [User, Role, Access, Article, Category, Tag],
                 synchronize: true,
                 autoLoadEntities: true,
                 logging: false
             }),
         }),
     ],
-    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService],
-    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService],
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService],
 })
 export class ShareModule {
 }

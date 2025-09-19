@@ -2988,7 +2988,7 @@ export class UserService extends MysqlBaseService<User> {
     const user = await this.repository.findOneBy({ id }); // [!code ++]
     if (!user) throw new Error('User not found'); // [!code ++]
     user.roles = await this.roleRepository.findBy({ id: In(updateUserRolesDto.roleIds) }); // [!code ++]
-    await this.repository.save(user); // [!code ++]
+    await this.repository.update(id, user); // [!code ++]
   } // [!code ++]
 }
 ```
@@ -3274,6 +3274,8 @@ export class UserController {
 </script>
 ```
 
-## 给角色分配权限
+## 给角色分配权限、文章管理、分类管理、标签管理
 
-代码与给用户分配角色代码相似。
+内容类似，可以直接查看code中的相关代码。
+
+
