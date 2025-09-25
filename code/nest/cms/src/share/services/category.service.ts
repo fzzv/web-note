@@ -36,7 +36,7 @@ export class CategoryService extends MysqlBaseService<Category> {
   }
 
   async update(id: number, updateCategoryDto: UpdateCategoryDto) {
-    const { parentId, ...dto } = updateCategoryDto;
+    const { id: _ignoreId, parentId, ...dto } = updateCategoryDto;
     const category = await this.repository.findOneBy({ id });
     console.log(category, 'categoty');
     if (!category) throw new Error('Category not found');
@@ -46,7 +46,7 @@ export class CategoryService extends MysqlBaseService<Category> {
       if (!parent) throw new Error('Parent category not found');
       category.parent = parent;
     }
-    await this.repository.update(id, category);
+    await this.repository.save(category);
     return UpdateResult.from({ raw: [], affected: 1, records: [] });
   }
 }

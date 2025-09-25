@@ -30,7 +30,7 @@ export class AccessService extends MysqlBaseService<Access> {
     return this.findOne({ where: { id: access.id } }) as Promise<Access>;
   }
   async update(id: number, updateAccessDto: UpdateAccessDto) {
-    const { parentId, ...dto } = updateAccessDto;
+    const { id: _ignoreId, parentId, ...dto } = updateAccessDto;
     const access = await this.repository.findOneBy({ id });
     if (!access) throw new Error('Access not found');
     Object.assign(access, dto);
@@ -39,7 +39,7 @@ export class AccessService extends MysqlBaseService<Access> {
       if (!parent) throw new Error('Parent access not found');
       access.parent = parent;
     }
-    await this.repository.update(id, access);
+    await this.repository.save(access);
     return UpdateResult.from({ raw: [], affected: 1, records: [] });
   }
 }

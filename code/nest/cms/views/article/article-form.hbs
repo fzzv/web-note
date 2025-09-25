@@ -58,7 +58,8 @@
     ImageUpload,
     ImageResize,
     ImageStyle,
-    Plugin
+    Plugin,
+    SimpleUploadAdapter
   } from 'ckeditor5';
   ClassicEditor
     .create(document.querySelector('#editor'), {
@@ -72,7 +73,8 @@
         ImageToolbar,
         ImageStyle,
         ImageResize,
-        ImageUpload
+        ImageUpload,
+        SimpleUploadAdapter
       ],
       image: {
         toolbar: ['imageTextAlternative', 'imageStyle:side', 'resizeImage:50', 'resizeImage:75', 'resizeImage:original']
@@ -83,6 +85,13 @@
           'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
           'insertImage'
         ]
+      },
+      simpleUpload: {
+        uploadUrl: '/admin/upload',
+        withCredentials: true,
+        headers: {
+          Authorization: 'Bearer <JSON Web Token>'
+        }
       }
     })
     .then(editor => {

@@ -46,17 +46,17 @@ export class ArticleService extends MysqlBaseService<Article> {
   }
 
   async update(id: number, updateArticleDto: UpdateArticleDto) {
-    const { categoryIds, tagIds, ...articleData } = updateArticleDto;
+    const { id: _ignoreId, categoryIds, tagIds, ...articleDto } = updateArticleDto;
     const article = await this.repository.findOne({ where: { id }, relations: ['categories', 'tags'] });
-    if (!article) throw new NotFoundException('Article not found');
-    Object.assign(article, articleData);
+    if (!article) throw new NotFoundException('Article not Found');
+    Object.assign(article, articleDto);
     if (categoryIds) {
       article.categories = await this.categoryRepository.findBy({ id: In(categoryIds) });
     }
     if (tagIds) {
       article.tags = await this.tagRepository.findBy({ id: In(tagIds) });
     }
-    await this.repository.update(id, article);
-    return UpdateResult.from({ raw: [], affected: 1, records: [] });
+    await this.repository.save(article);
+    return UpdateResult.from({ affected: 1, records: [], raw: [] });
   }
 }

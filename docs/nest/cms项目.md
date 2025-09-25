@@ -3453,6 +3453,343 @@ export class UserController {
     });
   });
 </script>
+```
 
+## 文件上传
+
+```bash
+npm i @nestjs/serve-static multer uuid
+npm i @types/multer --save-dev
+```
+
+`src/global.d.ts`
+
+定义 multer 类型
+
+```ts
+declare namespace Express {
+  interface Multer {
+    File: Express.Multer.File;
+  }
+}
+```
+
+设置静态资源目录
+
+`app.module`
+
+```ts
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
+import { ApiModule } from './api/api.module';
+import { ShareModule } from './share/share.module';
+import methodOverride from './share/middlewares/method-override';
+import { ServeStaticModule } from '@nestjs/serve-static'; // [!code ++]
+import * as path from 'path'; // [!code ++]
+
+@Module({
+  imports: [
+    ServeStaticModule.forRoot({ // [!code ++]
+      rootPath: path.join(__dirname, '..', 'uploads'), // [!code ++]
+      serveRoot: '/uploads', // [!code ++]
+    }), // [!code ++]
+    ShareModule, AdminModule, ApiModule],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(methodOverride).forRoutes('*');
+  }
+}
+```
+
+### upload.controller
+
+```ts
+import { Controller, Get, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+// 导入文件上传拦截器
+import { FileInterceptor } from '@nestjs/platform-express';
+// 导入multer的磁盘存储配置
+import { diskStorage } from 'multer';
+// 使用Node内置的randomUUID生成唯一文件名，避免ESM/CJS兼容问题
+import { randomUUID } from 'crypto';
+// 导入Node.js路径处理模块
+import * as path from 'path';
+
+/**
+ * 文件上传控制器
+ * 负责处理管理后台的文件上传功能
+ * 支持图片文件上传，包括jpg、jpeg、png、gif格式
+ */
+@Controller('admin')
+export class UploadController {
+  
+  /**
+   * 文件上传接口
+   * POST /admin/upload
+   * 
+   * 功能说明：
+   * 1. 接收客户端上传的文件
+   * 2. 验证文件类型（仅支持图片格式）
+   * 3. 生成唯一文件名避免冲突
+   * 4. 将文件保存到服务器磁盘
+   * 5. 返回文件访问URL
+   * 
+   * @param file 上传的文件对象，包含文件信息和元数据
+   * @returns 返回包含文件访问URL的响应对象
+   */
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('upload', {
+    // 配置文件存储方式为磁盘存储
+    storage: diskStorage({
+      // 设置文件保存目录为项目根目录下的uploads文件夹
+      destination: './uploads',
+      // 自定义文件名生成规则
+      filename: (_req, file, callback) => {
+        // 使用Node内置的randomUUID生成唯一标识符，保留原文件扩展名
+        // 这样可以避免文件名冲突，同时保持文件类型信息
+        const filename: string = randomUUID() + path.extname(file.originalname);
+        callback(null, filename);
+      }
+    }),
+    // 文件类型过滤器，只允许特定格式的图片文件
+    fileFilter: (req, file, callback) => {
+      // 使用正则表达式验证MIME类型
+      // 只允许jpg、jpeg、png、gif格式的图片文件
+      if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+        // 如果文件类型不支持，返回错误信息
+        return callback(new Error('不支持的文件类型'), false);
+      }
+      // 文件类型验证通过，允许上传
+      callback(null, true);
+    }
+  }))
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+    // 返回文件访问URL，客户端可以通过此URL访问上传的文件
+    // URL格式：/uploads/生成的唯一文件名
+    return { url: `/uploads/${file.filename}` };
+  }
+}
+```
+
+### admin.module
+
+```ts
+import { Module } from '@nestjs/common';
+import { DashboardController } from './controllers/dashboard.controller';
+import { UserController } from './controllers/user.controller';
+import { AdminExceptionFilter } from './filters/admin-exception.filter';
+import { RoleController } from "./controllers/role.controller";
+import { AccessController } from "./controllers/access.controller";
+import { ArticleController } from './controllers/article.controller';
+import { CategoryController } from './controllers/category.controller';
+import { TagController } from './controllers/tag.controller';
+import { UploadController } from './controllers/upload.controller'; // [!code ++]
+
+@Module({
+  controllers: [
+    DashboardController,
+    UserController,
+    RoleController,
+    AccessController,
+    ArticleController,
+    CategoryController,
+    TagController,
+    UploadController // [!code ++]
+  ],
+  providers: [{
+    provide: 'APP_FILTER',
+    useClass: AdminExceptionFilter,
+  }],
+})
+export class AdminModule { }
+
+```
+
+### article-detail.hbs
+
+```handlebars
+<h1>
+  文章详情
+</h1>
+<div class="mb-3">
+  <label class="form-label">标题:</label>
+  <p class="form-control-plaintext">{{article.title}}</p>
+</div>
+<div class="mb-3"> // [!code ++]
+  <label class="form-label">内容:</label> // [!code ++]
+  <div class="form-control-plaintext"> // [!code ++]
+    {{{article.content}}} // [!code ++]
+  </div> // [!code ++]
+</div> // [!code ++]
+<div class="mb-3">
+  <label class="form-label">分类:</label>
+  <p class="form-control-plaintext">
+    {{#each article.categories}}
+    <span class="badge bg-secondary">{{this.name}}</span>
+    {{/each}}
+  </p>
+</div>
+<div class="mb-3">
+  <label class="form-label">标签:</label>
+  <p class="form-control-plaintext">
+    {{#each article.tags}}
+    <span class="badge bg-info text-dark">{{this.name}}</span>
+    {{/each}}
+  </p>
+</div>
+<a href="/admin/articles/{{article.id}}/edit" class="btn btn-warning btn-sm">修改</a>
+<a href="/admin/articles" class="btn btn-secondary btn-sm">返回列表</a>
+</div>
+```
+
+### article-form.hbs
+
+```handlebars
+<h1>{{#if article.id}}编辑文章{{else}}添加文章{{/if}}</h1>
+<form action="/admin/articles{{#if article.id}}/{{article.id}}{{/if}}" method="POST" id="articleForm">
+  {{#if article.id}}<input type="hidden" name="_method" value="PUT">{{/if}}
+  <div class="mb-3">
+    <label for="title" class="form-label">标题</label>
+    <input type="text" class="form-control" id="title" name="title" value="{{article.title}}">
+  </div>
+  <div class="mb-3">
+    <label for="content" class="form-label">内容</label>
+    {{!-- <textarea class="form-control" id="content" name="content" rows="10">{{article.content}}</textarea> --}}
+    <div id="editor">
+      {{{article.content}}}
+    </div>
+    <input type="hidden" name="content" id="contentInput">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">分类</label>
+    <div id="categoryTree" class="border rounded p-3"></div>
+  </div>
+  <div class="mb-3">
+    <label for="tags" class="form-label">标签</label>
+    <div class="d-flex flex-wrap">
+      {{#each tags}}
+      <div class="form-check me-3 mb-2">
+        <input class="form-check-input" type="checkbox" name="tagIds" value="{{this.id}}" {{#if (contains (mapToIds
+          ../article.tags) this.id )}}checked{{/if}}>
+        <label class="form-check-label">{{this.name}}</label>
+      </div>
+      {{/each}}
+    </div>
+  </div>
+  <div class="mb-3">
+    <label for="status" class="form-label">状态</label>
+    <select class="form-control" id="status" name="status">
+      <option value="1" {{#if article.status}}selected{{/if}}>激活</option>
+      <option value="0" {{#unless article.status}}selected{{/unless}}>未激活</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">保存</button>
+</form>
+<script type="importmap">
+  {
+    "imports": {
+      "ckeditor5": "/js/ckeditor5.js"
+    }
+  }
+</script>
+<script type="module">
+  import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Font,
+    Paragraph,
+    Image,
+    ImageToolbar,
+    ImageUpload,
+    ImageResize,
+    ImageStyle,
+    Plugin,
+    SimpleUploadAdapter // [!code ++]
+  } from 'ckeditor5';
+  ClassicEditor
+    .create(document.querySelector('#editor'), {
+      plugins: [
+        Essentials,
+        Bold,
+        Italic,
+        Font,
+        Paragraph,
+        Image,
+        ImageToolbar,
+        ImageStyle,
+        ImageResize,
+        ImageUpload,
+        SimpleUploadAdapter // [!code ++]
+      ],
+      image: {
+        toolbar: ['imageTextAlternative', 'imageStyle:side', 'resizeImage:50', 'resizeImage:75', 'resizeImage:original']
+      },
+      toolbar: {
+        items: [
+          'undo', 'redo', '|', 'bold', 'italic', '|',
+          'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+          'insertImage'
+        ]
+      },
+      simpleUpload: { // [!code ++]
+        uploadUrl: '/admin/upload', // [!code ++]
+        withCredentials: true, // [!code ++]
+        headers: { // [!code ++]
+          Authorization: 'Bearer <JSON Web Token>' // [!code ++]
+        } // [!code ++]
+      } // [!code ++]
+    })
+    .then(editor => {
+      const form = document.getElementById('articleForm');
+      const contentInput = document.getElementById('contentInput');
+      form.addEventListener('submit', () => {
+        contentInput.value = editor.getData();
+      });
+    })
+    .catch(error => {
+      console.error(error.stack);
+    });
+</script>
+<script>
+  const categoryTree = {{{ json categoryTree }}};
+  const selectedCategoryIds = {{{ mapToIds article.categories }}};
+  function renderCategoryTree(categoryes) {
+    let html = '<ul class="list-unstyled">';
+    categoryes.forEach(function (category) {
+      html += `
+           <li class="mb-2">
+               <div class="d-flex align-items-center">
+                   ${category.children?.length > 0 ? '<span class="toggle me-2 cursor-pointer"><i class="bi bi-folder-minus"></i></span>' : '<span class="me-4"></span>'}
+                   <label class="form-check-label">
+                       <input type="checkbox" class="form-check-input" name="categoryIds" value="${category.id}" ${selectedCategoryIds.includes(category.id) ? 'checked' : ''}>
+                       ${category.name}
+                   </label>
+               </div>
+               ${category.children?.length > 0 ? `<div class="children ms-4" >${renderCategoryTree(category.children)}</div>` : ''}
+           </li>`;
+    });
+    html += '</ul>';
+    return html;
+  }
+  $(function () {
+    $('#categoryTree').html(renderCategoryTree(categoryTree));
+    $('body').on('click', '.toggle', function () {
+      const childrenContainer = $(this).parent().siblings('.children');
+      if (childrenContainer.is(':visible')) {
+        childrenContainer.hide();
+        $(this).html('<i class="bi bi-folder-plus"></i>');
+      } else {
+        childrenContainer.show();
+        $(this).html('<i class="bi bi-folder-minus"></i>');
+      }
+    });
+  });
+</script>
 ```
 

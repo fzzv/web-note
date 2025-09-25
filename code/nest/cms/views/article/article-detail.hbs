@@ -6,6 +6,12 @@
   <p class="form-control-plaintext">{{article.title}}</p>
 </div>
 <div class="mb-3">
+  <label class="form-label">内容:</label>
+  <div class="form-control-plaintext">
+    {{{article.content}}}
+  </div>
+</div>
+<div class="mb-3">
   <label class="form-label">分类:</label>
   <p class="form-control-plaintext">
     {{#each article.categories}}

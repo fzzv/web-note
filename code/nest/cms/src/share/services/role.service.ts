@@ -43,6 +43,6 @@ export class RoleService extends MysqlBaseService<Role> {
     const role = await this.repository.findOneBy({ id });
     if (!role) throw new Error('Role not found');
     role.accesses = await this.accessRepository.findBy({ id: In(updateRoleAccessesDto.accessIds) });
-    await this.repository.update(id, role);
+    await this.repository.save(role);
   }
 }

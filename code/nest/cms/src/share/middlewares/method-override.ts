@@ -15,7 +15,7 @@ function methodOverride(req: Request, res: Response, next: NextFunction) {
     req.method = req.body._method.toUpperCase();
     delete req.body._method;
   }
-  next();
+  return next();
 }
 
 export default methodOverride;

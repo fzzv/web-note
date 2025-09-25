@@ -7,9 +7,19 @@ import { AccessController } from "./controllers/access.controller";
 import { ArticleController } from './controllers/article.controller';
 import { CategoryController } from './controllers/category.controller';
 import { TagController } from './controllers/tag.controller';
+import { UploadController } from './controllers/upload.controller';
 
 @Module({
-  controllers: [DashboardController, UserController, RoleController, AccessController, ArticleController, CategoryController, TagController],
+  controllers: [
+    DashboardController,
+    UserController,
+    RoleController,
+    AccessController,
+    ArticleController,
+    CategoryController,
+    TagController,
+    UploadController
+  ],
   providers: [{
     provide: 'APP_FILTER',
     useClass: AdminExceptionFilter,
