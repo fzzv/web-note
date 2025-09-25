@@ -3793,3 +3793,41 @@ export class AdminModule { }
 </script>
 ```
 
+## 文件压缩
+
+使用 sharp 进行图片压缩
+
+```bash
+npm i sharp
+```
+
+`upload.controller` 
+
+```ts
+async uploadFile(@UploadedFile() file: Express.Multer.File) {
+    // 生成压缩后的文件名，扩展名为 .min.jpeg
+    const filename = `${path.basename(file.filename, path.extname(file.filename))}.min.jpeg`;
+    // 压缩后的文件路径
+    const outputFilePath = path.resolve('./uploads', filename);
+    // 先读入 buffer，避免 sharp 占用源文件句柄
+    const buffer = await fs.promises.readFile(file.path);
+    // 使用 sharp 压缩
+    await sharp(buffer)
+        .resize(800, 600, {
+        fit: sharp.fit.inside,
+        withoutEnlargement: true,
+    })
+        .toFormat('jpeg')
+        .jpeg({ quality: 80 })
+        .toFile(outputFilePath);
+    // safe unlink（删除原始上传文件）
+    try {
+        await fs.promises.unlink(file.path);
+    } catch (err) {
+        console.warn(`⚠️ 删除原文件失败: ${file.path}`, err);
+    }
+    // 返回压缩后的 URL
+    return { url: `/uploads/${filename}` };
+}
+```
+

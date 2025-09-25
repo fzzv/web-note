@@ -6,7 +6,9 @@ import { diskStorage } from 'multer';
 // 使用Node内置的randomUUID生成唯一文件名，避免ESM/CJS兼容问题
 import { randomUUID } from 'crypto';
 // 导入Node.js路径处理模块
-import * as path from 'path';
+import path from 'path';
+import sharp from 'sharp';
+import fs from 'fs';
 
 /**
  * 文件上传控制器
@@ -15,7 +17,7 @@ import * as path from 'path';
  */
 @Controller('admin')
 export class UploadController {
-  
+
   /**
    * 文件上传接口
    * POST /admin/upload
@@ -57,8 +59,28 @@ export class UploadController {
     }
   }))
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
-    // 返回文件访问URL，客户端可以通过此URL访问上传的文件
-    // URL格式：/uploads/生成的唯一文件名
-    return { url: `/uploads/${file.filename}` };
+    // 生成压缩后的文件名，扩展名为 .min.jpeg
+    const filename = `${path.basename(file.filename, path.extname(file.filename))}.min.jpeg`;
+    // 压缩后的文件路径
+    const outputFilePath = path.resolve('./uploads', filename);
+    // 先读入 buffer，避免 sharp 占用源文件句柄
+    const buffer = await fs.promises.readFile(file.path);
+    // 使用 sharp 压缩
+    await sharp(buffer)
+      .resize(800, 600, {
+        fit: sharp.fit.inside,
+        withoutEnlargement: true,
+      })
+      .toFormat('jpeg')
+      .jpeg({ quality: 80 })
+      .toFile(outputFilePath);
+    // safe unlink（删除原始上传文件）
+    try {
+      await fs.promises.unlink(file.path);
+    } catch (err) {
+      console.warn(`⚠️ 删除原文件失败: ${file.path}`, err);
+    }
+    // 返回压缩后的 URL
+    return { url: `/uploads/${filename}` };
   }
 }
