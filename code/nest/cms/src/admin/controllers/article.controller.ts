@@ -7,6 +7,7 @@ import { CategoryService } from 'src/share/services/category.service';
 import { TagService } from 'src/share/services/tag.service';
 import type { Response } from 'express';
 import { ArticleStateEnum } from 'src/share/enums/article.enum';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @UseFilters(AdminExceptionFilter)
 @Controller('admin/articles')
@@ -15,6 +16,7 @@ export class ArticleController {
     private readonly articleService: ArticleService,
     private readonly categoryService: CategoryService,
     private readonly tagService: TagService,
+    private readonly eventEmitter: EventEmitter2,
   ) { }
 
   @Get()
@@ -79,6 +81,7 @@ export class ArticleController {
   @Put(':id/submit')
   async submitForReview(@Param('id', ParseIntPipe) id: number) {
     await this.articleService.update(id, { state: ArticleStateEnum.PENDING } as UpdateArticleDto);
+    this.eventEmitter.emit('article.submitted', { articleId: id });
     return { success: true };
   }
 

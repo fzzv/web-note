@@ -10,7 +10,7 @@ export class Article {
   @ApiProperty({ description: 'ID', example: 1 })
   id: number;
 
-  @Column({ length: 50, unique: true })
+  @Column({ length: 50 })
   @ApiProperty({ description: '标题', example: '文章标题' })
   title: string;
 

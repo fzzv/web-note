@@ -4081,3 +4081,150 @@ export class UploadController {
 </script>
 ```
 
+## 发送审核通知
+
+```bash
+npm install @nestjs/event-emitter eventemitter2
+```
+
+### notification.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { ArticleService } from './article.service';
+import { UserService } from './user.service';
+
+@Injectable()
+export class NotificationService {
+  constructor(
+    private readonly articleService: ArticleService,
+    private readonly userService: UserService,
+  ) { }
+
+  @OnEvent('article.submitted')
+  async handleArticleSubmittedEvent(payload: { articleId: number }) {
+    const article = await this.articleService.findOne({ where: { id: payload.articleId }, relations: ['categories', 'tags'] });
+    const admin = await this.userService.findOne({ where: { is_super: true } });
+    if (admin) {
+      const subject = `文章审核请求: ${article?.title}`;
+      const body = `有一篇新的文章需要审核，点击链接查看详情: http://localhost:3000/admin/articles/${payload.articleId}`;
+      console.log(admin.email, subject, body);
+    }
+  }
+}
+```
+
+### shard.module
+
+```ts
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './entities/user.entity';
+import { ConfigModule } from '@nestjs/config';
+import { ConfigurationService } from './services/configuration.service';
+import { UserService } from './services/user.service';
+import { RoleService } from './services/role.service';
+import { AccessService } from "./services/access.service";
+import { UtilityService } from './services/utility.service';
+import { IsUsernameUniqueConstraint } from './validators/user-validators';
+import { Role } from './entities/role.entity';
+import { Access } from "./entities/access.entity";
+import { Article } from './entities/article.entity';
+import { Category } from './entities/category.entity';
+import { Tag } from './entities/tag.entity';
+import { ArticleService } from './services/article.service';
+import { CategoryService } from './services/category.service';
+import { TagService } from './services/tag.service';
+import { CosService } from './services/cos.service';
+import { NotificationService } from './services/notification.service'; // [!code ++]
+
+@Global()
+@Module({
+    imports: [
+        ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
+        TypeOrmModule.forFeature([User, Role, Access, Article, Category, Tag]),
+        TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigurationService],
+            useFactory: (configService: ConfigurationService) => ({
+                type: 'mysql',
+                ...configService.mysqlConfig,
+                entities: [User, Role, Access, Article, Category, Tag],
+                synchronize: true,
+                autoLoadEntities: true,
+                logging: false
+            }),
+        }),
+    ],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService], // [!code ++]
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService], // [!code ++]
+})
+export class ShareModule {
+}
+```
+
+### app.module
+
+```ts
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
+import { ApiModule } from './api/api.module';
+import { ShareModule } from './share/share.module';
+import methodOverride from './share/middlewares/method-override';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import * as path from 'path';
+import { EventEmitterModule } from '@nestjs/event-emitter'; // [!code ++]
+
+@Module({
+  imports: [
+    // 配置 EventEmitterModule 模块 // [!code ++]
+    EventEmitterModule.forRoot({ // [!code ++]
+      // 启用通配符功能，允许使用通配符来订阅事件 // [!code ++]
+      wildcard: true, // [!code ++]
+      // 设置事件名的分隔符，这里使用 '.' 作为分隔符 // [!code ++]
+      delimiter: '.', // [!code ++]
+      // 将事件发射器设置为全局模块，所有模块都可以共享同一个事件发射器实例 // [!code ++]
+      global: true // [!code ++]
+    }), // [!code ++]
+    ServeStaticModule.forRoot({
+      rootPath: path.join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
+    ShareModule, AdminModule, ApiModule],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(methodOverride).forRoutes('*');
+  }
+}
+```
+
+### article.controller
+
+```ts
+import { EventEmitter2 } from '@nestjs/event-emitter'; // [!code ++]
+
+@UseFilters(AdminExceptionFilter)
+@Controller('admin/articles')
+export class ArticleController {
+  constructor(
+    private readonly articleService: ArticleService,
+    private readonly categoryService: CategoryService,
+    private readonly tagService: TagService,
+    private readonly eventEmitter: EventEmitter2,
+  ) { }
+    
+  @Put(':id/submit')
+  async submitForReview(@Param('id', ParseIntPipe) id: number) {
+    await this.articleService.update(id, { state: ArticleStateEnum.PENDING } as UpdateArticleDto);
+    this.eventEmitter.emit('article.submitted', { articleId: id }); // [!code ++]
+    return { success: true };
+  }
+}
+```
+

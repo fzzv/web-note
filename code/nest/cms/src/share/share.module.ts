@@ -17,6 +17,7 @@ import { ArticleService } from './services/article.service';
 import { CategoryService } from './services/category.service';
 import { TagService } from './services/tag.service';
 import { CosService } from './services/cos.service';
+import { NotificationService } from './services/notification.service';
 
 @Global()
 @Module({
@@ -36,8 +37,8 @@ import { CosService } from './services/cos.service';
             }),
         }),
     ],
-    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService],
-    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService],
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService],
 })
 export class ShareModule {
 }
