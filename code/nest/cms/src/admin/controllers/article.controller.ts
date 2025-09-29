@@ -9,6 +9,7 @@ import type { Response } from 'express';
 import { ArticleStateEnum } from 'src/share/enums/article.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { WordExportService } from 'src/share/services/word-export.service';
+import { PptExportService } from 'src/share/services/ppt-export.service';
 
 @UseFilters(AdminExceptionFilter)
 @Controller('admin/articles')
@@ -18,8 +19,18 @@ export class ArticleController {
     private readonly categoryService: CategoryService,
     private readonly tagService: TagService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly wordExportService: WordExportService
+    private readonly wordExportService: WordExportService,
+    private readonly pptExportService: PptExportService
   ) { }
+
+  @Get('export-ppt')
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+  async exportPpt(@Query('keyword') keyword: string = '', @Query('page', new ParseOptionalIntPipe(1)) page: number, @Query('limit', new ParseOptionalIntPipe(10)) limit: number, @Res({ passthrough: true }) res: Response) {
+    const { articles } = await this.articleService.findAllWithPagination(page, limit, keyword);
+    const buffer = await this.pptExportService.exportToPpt(articles);
+    res.setHeader('Content-Disposition', 'attachment; filename=articles.pptx');
+    return new StreamableFile(buffer);
+  }
 
   @Get()
   @Render('article/article-list')

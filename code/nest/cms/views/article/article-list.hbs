@@ -2,6 +2,7 @@
   文章列表
 </h1>
 <a href="/admin/articles/create" class="btn btn-success mb-3">添加文章</a>
+<button id="exportPptBtn" class="btn btn-warning btn-sm mb-3">导出PPT</button>
 <form method="GET" action="/admin/articles" class="mb-3">
   <div class="input-group">
     <input type="text" name="keyword" class="form-control" placeholder="请输入搜索关键字" value="{{keyword}}">
@@ -230,6 +231,9 @@
     }
   }
   $(function () {
+    $('#exportPptBtn').click(function () {
+      window.location.href = `/admin/articles/export-ppt?page={{page}}&keyword={{keyword}}&limit={{limit}}`;
+    });
     $('.sort-text').on('dblclick', function () {
       const $this = $(this);
       const id = $this.data('id');
