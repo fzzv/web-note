@@ -16,11 +16,12 @@ import { Tag } from './entities/tag.entity';
 import { ArticleService } from './services/article.service';
 import { CategoryService } from './services/category.service';
 import { TagService } from './services/tag.service';
+import { CosService } from './services/cos.service';
 
 @Global()
 @Module({
     imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
+        ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
         TypeOrmModule.forFeature([User, Role, Access, Article, Category, Tag]),
         TypeOrmModule.forRootAsync({
             imports: [ConfigModule],
@@ -35,8 +36,8 @@ import { TagService } from './services/tag.service';
             }),
         }),
     ],
-    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService],
-    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService],
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService],
 })
 export class ShareModule {
 }

@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import sharp from 'sharp';
 import fs from 'fs';
+import { CosService } from '../../share/services/cos.service';
 
 /**
  * 文件上传控制器
@@ -17,7 +18,12 @@ import fs from 'fs';
  */
 @Controller('admin')
 export class UploadController {
+  constructor(private readonly cosService: CosService) { }
 
+  @Get('cos-signature')
+  async getCosSignature(@Query('key') key: string) {
+    return this.cosService.getAuth(key, 60);
+  }
   /**
    * 文件上传接口
    * POST /admin/upload

@@ -3831,3 +3831,253 @@ async uploadFile(@UploadedFile() file: Express.Multer.File) {
 }
 ```
 
+## 对象存储COS
+
+安装sdk
+
+```bash
+npm i cos-nodejs-sdk-v5 --save
+```
+
+配置环境变量
+
+```
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_DB=cms
+MYSQL_USER=root
+MYSQL_PASSWORD=password
+COS_SECRET_ID=COS_SECRET_ID
+COS_SECRET_KEY=COS_SECRET_KEY
+COS_BUCKET=COS_BUCKET
+COS_REGION=COS_REGION
+```
+
+### cos.service
+
+```ts
+// 导入 Injectable 装饰器，用于标记一个服务类
+import { Injectable } from '@nestjs/common';
+// 导入 ConfigService，用于获取配置文件中的配置信息
+import { ConfigService } from '@nestjs/config';
+// 导入 COS SDK
+import COS from 'cos-nodejs-sdk-v5';
+// 使用 Injectable 装饰器将 CosService 标记为可注入的服务
+@Injectable()
+export class CosService {
+  // 定义一个私有变量，用于存储 COS 实例
+  private cos: COS;
+  // 构造函数，注入 ConfigService 以获取配置信息
+  constructor(private readonly configService: ConfigService) {
+    // 初始化 COS 实例，使用配置服务中的 SecretId 和 SecretKey
+    this.cos = new COS({
+      SecretId: this.configService.get('COS_SECRET_ID'),
+      SecretKey: this.configService.get('COS_SECRET_KEY'),
+    });
+  }
+  // 获取签名认证信息的方法，默认过期时间为 60 秒
+  getAuth(key, expirationTime = 60) {
+    // 从配置服务中获取 COS 存储桶名称和区域
+    const bucket = this.configService.get('COS_BUCKET');
+    const region = this.configService.get('COS_REGION');
+    // 获取 COS 签名，用于 PUT 请求
+    const sign = this.cos.getAuth({
+      Method: 'put', // 请求方法为 PUT
+      Key: key, // 文件的对象键（路径）
+      Expires: expirationTime, // 签名的有效期
+      Bucket: bucket, // 存储桶名称
+      Region: region, // 存储桶所在区域
+    });
+    // 返回包含签名、键名、存储桶和区域的信息对象
+    return {
+      sign,
+      key: key,
+      bucket,
+      region,
+    };
+  }
+}
+```
+
+### share.module
+
+```ts
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './entities/user.entity';
+import { ConfigModule } from '@nestjs/config';
+import { ConfigurationService } from './services/configuration.service';
+import { UserService } from './services/user.service';
+import { RoleService } from './services/role.service';
+import { AccessService } from "./services/access.service";
+import { UtilityService } from './services/utility.service';
+import { IsUsernameUniqueConstraint } from './validators/user-validators';
+import { Role } from './entities/role.entity';
+import { Access } from "./entities/access.entity";
+import { Article } from './entities/article.entity';
+import { Category } from './entities/category.entity';
+import { Tag } from './entities/tag.entity';
+import { ArticleService } from './services/article.service';
+import { CategoryService } from './services/category.service';
+import { TagService } from './services/tag.service';
+import { CosService } from './services/cos.service'; // [!code ++]
+
+@Global()
+@Module({
+    imports: [
+        ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }), // [!code ++]
+        TypeOrmModule.forFeature([User, Role, Access, Article, Category, Tag]),
+        TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigurationService],
+            useFactory: (configService: ConfigurationService) => ({
+                type: 'mysql',
+                ...configService.mysqlConfig,
+                entities: [User, Role, Access, Article, Category, Tag],
+                synchronize: true,
+                autoLoadEntities: true,
+                logging: false
+            }),
+        }),
+    ],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService], // [!code ++]
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService], // [!code ++]
+})
+export class ShareModule {
+}
+```
+
+### upload.controller
+
+```ts
+import fs from 'fs';
+import { CosService } from '../../share/services/cos.service'; // [!code ++]
+
+/**
+ * 文件上传控制器
+ * 负责处理管理后台的文件上传功能
+ * 支持图片文件上传，包括jpg、jpeg、png、gif格式
+ */
+@Controller('admin')
+export class UploadController {
+  constructor(private readonly cosService: CosService) { } // [!code ++]
+
+  @Get('cos-signature') // [!code ++]
+  async getCosSignature(@Query('key') key: string) { // [!code ++]
+    return this.cosService.getAuth(key, 60); // [!code ++]
+  } // [!code ++]
+}
+```
+
+### article-form
+
+```handlebars
+<script type="module">
+  import {
+    ClassicEditor,
+    Essentials,
+    Bold,
+    Italic,
+    Font,
+    Paragraph,
+    Image,
+    ImageToolbar,
+    ImageUpload,
+    ImageResize,
+    ImageStyle,
+    Plugin,
+    SimpleUploadAdapter
+  } from 'ckeditor5';
+  // 异步函数，用于获取文件上传的签名信息 // [!code ++]
+  async function getSignature(key) { // [!code ++]
+    // 发送请求到后台接口，获取 COS 上传的签名信息 // [!code ++]
+    const response = await fetch(`/admin/cos-signature?key=${encodeURIComponent(key)}`); // [!code ++]
+    // 返回签名信息的 JSON 数据 // [!code ++]
+    return response.json(); // [!code ++]
+  } // [!code ++]
+  // 自定义的 COS 上传适配器类，用于将文件上传到腾讯云 COS // [!code ++]
+  class COSUploadAdapter { // [!code ++]
+    // 构造函数，接收一个文件加载器实例 // [!code ++]
+    constructor(loader) { // [!code ++]
+      this.loader = loader; // [!code ++]
+    } // [!code ++]
+    // 上传方法，负责将文件上传到 COS // [!code ++]
+    async upload() { // [!code ++]
+      // 等待加载器获取要上传的文件 // [!code ++]
+      const file = await this.loader.file; // [!code ++]
+      // 获取文件的上传签名信息 // [!code ++]
+      const signature = await getSignature(file.name); // [!code ++]
+      // 从签名信息中解构出存储桶、区域、文件键名和签名 // [!code ++]
+      const { bucket, region, key, sign } = signature; // [!code ++]
+      // 构造文件上传的 URL // [!code ++]
+      const url = `https://${signature.bucket}.cos.${signature.region}.myqcloud.com/${signature.key}`; // [!code ++]
+      // 发送 PUT 请求，将文件上传到 COS // [!code ++]
+      return fetch(url, { // [!code ++]
+        method: 'PUT', // 使用 PUT 方法上传文件 // [!code ++]
+        headers: { Authorization: sign }, // 设置请求头，包含签名信息 // [!code ++]
+        body: file // 请求体为文件本身 // [!code ++]
+      }).then(response => { // [!code ++]
+        // 上传成功后，返回包含文件 URL 的对象 // [!code ++]
+        return { default: url }; // [!code ++]
+      }); // [!code ++]
+    } // [!code ++]
+  } // [!code ++]
+  // 插件类，用于将 COS 上传适配器集成到 CKEditor // [!code ++]
+  class COSUploadAdapterPlugin extends Plugin { // [!code ++]
+    // 静态方法，定义插件的依赖关系 // [!code ++]
+    static get requires() { // [!code ++]
+      return [ImageUpload]; // 依赖 ImageUpload 插件 // [!code ++]
+    } // [!code ++]
+    // 插件初始化方法 // [!code ++]
+    init() { // [!code ++]
+      // 获取文件库插件，并设置创建上传适配器的函数 // [!code ++]
+      this.editor.plugins.get('FileRepository').createUploadAdapter = (loader) => new COSUploadAdapter(loader); // [!code ++]
+    } // [!code ++]
+  } // [!code ++]
+  ClassicEditor
+    .create(document.querySelector('#editor'), {
+      plugins: [
+        Essentials,
+        Bold,
+        Italic,
+        Font,
+        Paragraph,
+        Image,
+        ImageToolbar,
+        ImageStyle,
+        ImageResize,
+        ImageUpload,
+        SimpleUploadAdapter,
+        COSUploadAdapterPlugin, // [!code ++]
+      ],
+      image: {
+        toolbar: ['imageTextAlternative', 'imageStyle:side', 'resizeImage:50', 'resizeImage:75', 'resizeImage:original']
+      },
+      toolbar: {
+        items: [
+          'undo', 'redo', '|', 'bold', 'italic', '|',
+          'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+          'insertImage'
+        ]
+      },
+      simpleUpload: {
+        uploadUrl: '/admin/upload',
+        withCredentials: true,
+        headers: {
+          Authorization: 'Bearer <JSON Web Token>'
+        }
+      }
+    })
+    .then(editor => {
+      const form = document.getElementById('articleForm');
+      const contentInput = document.getElementById('contentInput');
+      form.addEventListener('submit', () => {
+        contentInput.value = editor.getData();
+      });
+    })
+    .catch(error => {
+      console.error(error.stack);
+    });
+</script>
+```
+
