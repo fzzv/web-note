@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ArticleService } from './article.service';
 import { UserService } from './user.service';
+import { MailService } from './mail.service';
 
 @Injectable()
 export class NotificationService {
   constructor(
     private readonly articleService: ArticleService,
     private readonly userService: UserService,
+    private readonly mailService: MailService,
   ) { }
 
   @OnEvent('article.submitted')
@@ -18,6 +20,7 @@ export class NotificationService {
       const subject = `文章审核请求: ${article?.title}`;
       const body = `有一篇新的文章需要审核，点击链接查看详情: http://localhost:3000/admin/articles/${payload.articleId}`;
       console.log(admin.email, subject, body);
+      this.mailService.sendEmail(admin.email, subject, body);
     }
   }
 }

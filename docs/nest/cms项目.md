@@ -4228,3 +4228,146 @@ export class ArticleController {
 }
 ```
 
+## 发送邮件
+
+```bash
+npm install nodemailer
+```
+
+使用qq邮箱进行发送，配置环境变量，设置正确的user和授权码
+
+```
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_DB=cms
+MYSQL_USER=root
+MYSQL_PASSWORD=password
+COS_SECRET_ID=COS_SECRET_ID
+COS_SECRET_KEY=COS_SECRET_KEY
+COS_BUCKET=COS_BUCKET
+COS_REGION=COS_REGION
+SMTP_HOST=smtp.qq.com // [!code ++]
+SMTP_PORT=465 // [!code ++]
+SMTP_USER=xxx@qq.com // [!code ++]
+SMTP_PASS=code // [!code ++]
+```
+
+### mail.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
+import { ConfigService } from '@nestjs/config';
+@Injectable()
+export class MailService {
+  private transporter;
+  constructor(private readonly configService: ConfigService) {
+    this.transporter = nodemailer.createTransport({
+      host: configService.get('SMTP_HOST'),
+      port: configService.get('SMTP_PORT'),
+      secure: true,
+      auth: {
+        user: configService.get('SMTP_USER'),
+        pass: configService.get('SMTP_PASS'),
+      },
+    });
+  }
+
+  async sendEmail(to: string, subject: string, body: string) {
+    const mailOptions = {
+      from: this.configService.get('SMTP_USER'), // 发件人
+      to, // 收件人
+      subject, // 主题
+      text: body, // 邮件正文
+    };
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`邮件已发送: ${info.messageId}`);
+    } catch (error) {
+      console.error(`发送邮件失败: ${error.message}`);
+    }
+  }
+}
+```
+
+### share.module
+
+```ts
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './entities/user.entity';
+import { ConfigModule } from '@nestjs/config';
+import { ConfigurationService } from './services/configuration.service';
+import { UserService } from './services/user.service';
+import { RoleService } from './services/role.service';
+import { AccessService } from "./services/access.service";
+import { UtilityService } from './services/utility.service';
+import { IsUsernameUniqueConstraint } from './validators/user-validators';
+import { Role } from './entities/role.entity';
+import { Access } from "./entities/access.entity";
+import { Article } from './entities/article.entity';
+import { Category } from './entities/category.entity';
+import { Tag } from './entities/tag.entity';
+import { ArticleService } from './services/article.service';
+import { CategoryService } from './services/category.service';
+import { TagService } from './services/tag.service';
+import { CosService } from './services/cos.service';
+import { NotificationService } from './services/notification.service';
+import { MailService } from './services/mail.service'; // [!code ++]
+
+@Global()
+@Module({
+    imports: [
+        ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
+        TypeOrmModule.forFeature([User, Role, Access, Article, Category, Tag]),
+        TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigurationService],
+            useFactory: (configService: ConfigurationService) => ({
+                type: 'mysql',
+                ...configService.mysqlConfig,
+                entities: [User, Role, Access, Article, Category, Tag],
+                synchronize: true,
+                autoLoadEntities: true,
+                logging: false
+            }),
+        }),
+    ],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService], // [!code ++]
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService], // [!code ++]
+})
+export class ShareModule {
+}
+```
+
+### notification.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { ArticleService } from './article.service';
+import { UserService } from './user.service';
+import { MailService } from './mail.service'; // [!code ++]
+
+@Injectable()
+export class NotificationService {
+  constructor(
+    private readonly articleService: ArticleService,
+    private readonly userService: UserService,
+    private readonly mailService: MailService, // [!code ++]
+  ) { }
+
+  @OnEvent('article.submitted')
+  async handleArticleSubmittedEvent(payload: { articleId: number }) {
+    const article = await this.articleService.findOne({ where: { id: payload.articleId }, relations: ['categories', 'tags'] });
+    const admin = await this.userService.findOne({ where: { is_super: true } });
+    if (admin) {
+      const subject = `文章审核请求: ${article?.title}`;
+      const body = `有一篇新的文章需要审核，点击链接查看详情: http://localhost:3000/admin/articles/${payload.articleId}`;
+      console.log(admin.email, subject, body);
+      this.mailService.sendEmail(admin.email, subject, body); // [!code ++]
+    }
+  }
+}
+```
+
