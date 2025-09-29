@@ -10,6 +10,7 @@ import { ArticleStateEnum } from 'src/share/enums/article.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { WordExportService } from 'src/share/services/word-export.service';
 import { PptExportService } from 'src/share/services/ppt-export.service';
+import { ExcelExportService } from 'src/share/services/excel-export.service';
 
 @UseFilters(AdminExceptionFilter)
 @Controller('admin/articles')
@@ -20,9 +21,33 @@ export class ArticleController {
     private readonly tagService: TagService,
     private readonly eventEmitter: EventEmitter2,
     private readonly wordExportService: WordExportService,
-    private readonly pptExportService: PptExportService
+    private readonly pptExportService: PptExportService,
+    private readonly excelExportService: ExcelExportService
   ) { }
 
+  @Get('export-excel')
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportExcel(@Query('search') search: string = '', @Query('page', new ParseOptionalIntPipe(1)) page: number, @Query('limit', new ParseOptionalIntPipe(10)) limit: number, @Res({ passthrough: true }) res: Response) {
+    const { articles } = await this.articleService.findAllWithPagination(page, limit, search);
+    const data = articles.map(article => ({
+      title: article.title,
+      categories: article.categories.map(c => c.name).join(', '),
+      tags: article.tags.map(t => t.name).join(', '),
+      state: article.state,
+      createdAt: article.createdAt,
+    }));
+    const columns = [
+      { header: '标题', key: 'title', width: 30 },
+      { header: '分类', key: 'categories', width: 20 },
+      { header: '标签', key: 'tags', width: 20 },
+      { header: '状态', key: 'state', width: 15 },
+      { header: '创建时间', key: 'createdAt', width: 20 },
+    ];
+    const buffer = await this.excelExportService.exportAsExcel(data, columns);
+    res.setHeader('Content-Disposition', `attachment; filename="articles.xlsx"`);
+    return new StreamableFile(new Uint8Array(buffer));
+  }
+  
   @Get('export-ppt')
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
   async exportPpt(@Query('keyword') keyword: string = '', @Query('page', new ParseOptionalIntPipe(1)) page: number, @Query('limit', new ParseOptionalIntPipe(10)) limit: number, @Res({ passthrough: true }) res: Response) {

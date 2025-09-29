@@ -4611,3 +4611,124 @@ async exportPpt(@Query('keyword') keyword: string = '', @Query('page', new Parse
 </script>
 ```
 
+## 导出为excel
+
+```bash
+npm i exceljs
+```
+
+### excel-export.service
+
+```ts
+// 导入 Injectable 装饰器，用于将服务类标记为可注入的依赖
+import { Injectable } from '@nestjs/common';
+// 导入 ExcelJS 库，用于创建和操作 Excel 文件
+import * as ExcelJS from 'exceljs';
+@Injectable()
+export class ExcelExportService {
+  // 异步方法，用于将数据导出为 Excel 文件
+  async exportAsExcel(data: any[], columns: { header: string, key: string, width: number }[]) {
+    // 创建一个新的 Excel 工作簿
+    const workbook = new ExcelJS.Workbook();
+    // 添加一个新的工作表，并命名为 'Data'
+    const worksheet = workbook.addWorksheet('Data');
+    // 设置工作表的列，根据传入的列定义数组
+    worksheet.columns = columns;
+    // 遍历数据数组，将每一项数据作为一行添加到工作表中
+    data.forEach(item => {
+      worksheet.addRow(item);
+    });
+    // 将工作簿内容写入缓冲区，并返回该缓冲区（用于进一步处理或保存）
+    return workbook.xlsx.writeBuffer();
+  }
+}
+```
+
+在 share.module.ts中引入excel-export.service
+
+### article.controller
+
+```ts
+@Get('export-excel')
+@Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+async exportExcel(@Query('search') search: string = '', @Query('page', new ParseOptionalIntPipe(1)) page: number, @Query('limit', new ParseOptionalIntPipe(10)) limit: number, @Res({ passthrough: true }) res: Response) {
+    const { articles } = await this.articleService.findAllWithPagination(page, limit, search);
+    const data = articles.map(article => ({
+        title: article.title,
+        categories: article.categories.map(c => c.name).join(', '),
+        tags: article.tags.map(t => t.name).join(', '),
+        state: article.state,
+        createdAt: article.createdAt,
+    }));
+    const columns = [
+        { header: '标题', key: 'title', width: 30 },
+        { header: '分类', key: 'categories', width: 20 },
+        { header: '标签', key: 'tags', width: 20 },
+        { header: '状态', key: 'state', width: 15 },
+        { header: '创建时间', key: 'createdAt', width: 20 },
+    ];
+    const buffer = await this.excelExportService.exportAsExcel(data, columns);
+    res.setHeader('Content-Disposition', `attachment; filename="articles.xlsx"`);
+    return new StreamableFile(new Uint8Array(buffer));
+}
+```
+
+### article-list
+
+```handlebars
+<button id="frontExportBtn" class="btn btn-info btn-sm mb-3">前台导出Excel</button>
+<button id="backendExportBtn" class="btn btn-info btn-sm mb-3">后台导出Excel</button>
+<script>
+  $(function () {
+    // 当用户点击 ID 为 backendExportBtn 的按钮时，触发事件处理函数
+    $('#backendExportBtn').click(function () {
+      // 将浏览器的窗口位置重定向到指定的导出 Excel 文件的 URL
+      // URL 中包含当前页面、搜索条件和限制参数
+      window.location.href = `/admin/articles/export-excel?page={{page}}&search={{search}}&limit={{limit}}`;
+    });
+    // 当用户点击 ID 为 frontExportBtn 的按钮时，触发事件处理函数
+    $('#frontExportBtn').click(function () {
+      // 初始化一个空的字符串，用于存储 CSV 文件内容
+      let csvContent = '';
+      // 遍历表格的表头行（thead 中的所有 tr），生成 CSV 文件的表头内容
+      $('#articleTable thead tr').each(function () {
+        let rowContent = ''; // 初始化空字符串，用于存储当前行的内容
+        let cells = $(this).find('th'); // 获取当前行中的所有 th 单元格
+        cells.each(function (index) {
+          if (index < cells.length - 1) { // 遍历时排除最后一列（假设不需要导出）
+            rowContent += $(this).text().trim() + ','; // 将单元格文本内容加入行内容，并用逗号分隔
+          }
+        });
+        csvContent += rowContent.slice(0, -1) + '\n'; // 移除最后一个多余的逗号并添加换行符
+      });
+      // 遍历表格的主体行（tbody 中的所有 tr），生成 CSV 文件的表格内容
+      $('#articleTable tbody tr').each(function () {
+        let rowContent = ''; // 初始化空字符串，用于存储当前行的内容
+        let cells = $(this).find('td'); // 获取当前行中的所有 td 单元格
+        cells.each(function (index) {
+          if (index < cells.length - 1) { // 遍历时排除最后一列（假设不需要导出）
+            rowContent += $(this).text().trim().replace(/,/g, '') + ','; // 将单元格文本内容加入行内容，并用逗号分隔，替换掉内容中的逗号以避免干扰 CSV 格式
+          }
+        });
+        csvContent += rowContent.slice(0, -1) + '\n'; // 移除最后一个多余的逗号并添加换行符
+      });
+      // 创建一个 Blob 对象，包含生成的 CSV 内容，类型为 text/csv，并设置字符编码为 UTF-8
+      let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      // 创建一个指向 Blob 对象的 URL
+      let url = URL.createObjectURL(blob);
+      // 创建一个隐藏的 <a> 元素，并设置其 href 属性为 Blob URL，设置下载文件名为 articles.csv
+      let link = $('<a>').attr({
+        href: url,
+        download: 'articles.csv'
+      }).appendTo('body'); // 将链接元素临时添加到文档的 body 中
+      // 模拟点击 <a> 元素以触发下载
+      link[0].click();
+      // 移除临时添加的 <a> 元素
+      link.remove();
+    });
+  }
+</script>
+```
+
+
+

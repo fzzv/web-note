@@ -3,13 +3,15 @@
 </h1>
 <a href="/admin/articles/create" class="btn btn-success mb-3">添加文章</a>
 <button id="exportPptBtn" class="btn btn-warning btn-sm mb-3">导出PPT</button>
+<button id="frontExportBtn" class="btn btn-info btn-sm mb-3">前台导出Excel</button>
+<button id="backendExportBtn" class="btn btn-info btn-sm mb-3">后台导出Excel</button>
 <form method="GET" action="/admin/articles" class="mb-3">
   <div class="input-group">
     <input type="text" name="keyword" class="form-control" placeholder="请输入搜索关键字" value="{{keyword}}">
     <button class="btn btn-outline-secondary">搜索</button>
   </div>
 </form>
-<table class="table">
+<table class="table" id="articleTable">
   <thead>
     <tr>
       <th>标题</th>
@@ -17,8 +19,8 @@
       <th>标签</th>
       <th>文章状态</th>
       <th>状态</th>
-      <td>排序</td>
-      <td>操作</td>
+      <th>排序</th>
+      <th>操作</th>
     </tr>
   </thead>
   <tbody>
@@ -231,6 +233,52 @@
     }
   }
   $(function () {
+    // 当用户点击 ID 为 backendExportBtn 的按钮时，触发事件处理函数
+    $('#backendExportBtn').click(function () {
+      // 将浏览器的窗口位置重定向到指定的导出 Excel 文件的 URL
+      // URL 中包含当前页面、搜索条件和限制参数
+      window.location.href = `/admin/articles/export-excel?page={{page}}&search={{search}}&limit={{limit}}`;
+    });
+    // 当用户点击 ID 为 frontExportBtn 的按钮时，触发事件处理函数
+    $('#frontExportBtn').click(function () {
+      // 初始化一个空的字符串，用于存储 CSV 文件内容
+      let csvContent = '';
+      // 遍历表格的表头行（thead 中的所有 tr），生成 CSV 文件的表头内容
+      $('#articleTable thead tr').each(function () {
+        let rowContent = ''; // 初始化空字符串，用于存储当前行的内容
+        let cells = $(this).find('th'); // 获取当前行中的所有 th 单元格
+        cells.each(function (index) {
+          if (index < cells.length - 1) { // 遍历时排除最后一列（假设不需要导出）
+            rowContent += $(this).text().trim() + ','; // 将单元格文本内容加入行内容，并用逗号分隔
+          }
+        });
+        csvContent += rowContent.slice(0, -1) + '\n'; // 移除最后一个多余的逗号并添加换行符
+      });
+      // 遍历表格的主体行（tbody 中的所有 tr），生成 CSV 文件的表格内容
+      $('#articleTable tbody tr').each(function () {
+        let rowContent = ''; // 初始化空字符串，用于存储当前行的内容
+        let cells = $(this).find('td'); // 获取当前行中的所有 td 单元格
+        cells.each(function (index) {
+          if (index < cells.length - 1) { // 遍历时排除最后一列（假设不需要导出）
+            rowContent += $(this).text().trim().replace(/,/g, '') + ','; // 将单元格文本内容加入行内容，并用逗号分隔，替换掉内容中的逗号以避免干扰 CSV 格式
+          }
+        });
+        csvContent += rowContent.slice(0, -1) + '\n'; // 移除最后一个多余的逗号并添加换行符
+      });
+      // 创建一个 Blob 对象，包含生成的 CSV 内容，类型为 text/csv，并设置字符编码为 UTF-8
+      let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      // 创建一个指向 Blob 对象的 URL
+      let url = URL.createObjectURL(blob);
+      // 创建一个隐藏的 <a> 元素，并设置其 href 属性为 Blob URL，设置下载文件名为 articles.csv
+      let link = $('<a>').attr({
+        href: url,
+        download: 'articles.csv'
+      }).appendTo('body'); // 将链接元素临时添加到文档的 body 中
+      // 模拟点击 <a> 元素以触发下载
+      link[0].click();
+      // 移除临时添加的 <a> 元素
+      link.remove();
+    });
     $('#exportPptBtn').click(function () {
       window.location.href = `/admin/articles/export-ppt?page={{page}}&keyword={{keyword}}&limit={{limit}}`;
     });

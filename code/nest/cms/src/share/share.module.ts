@@ -21,6 +21,7 @@ import { NotificationService } from './services/notification.service';
 import { MailService } from './services/mail.service';
 import { WordExportService } from './services/word-export.service';
 import { PptExportService } from './services/ppt-export.service';
+import { ExcelExportService } from './services/excel-export.service'
 
 @Global()
 @Module({
@@ -40,8 +41,8 @@ import { PptExportService } from './services/ppt-export.service';
             }),
         }),
     ],
-    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService],
-    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService],
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService],
 })
 export class ShareModule {
 }
