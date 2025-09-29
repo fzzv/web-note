@@ -1,4 +1,4 @@
-import { Controller, Get, Render, Post, Redirect, Body, UseFilters, Param, ParseIntPipe, Put, Delete, Headers, Res, Query, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Render, Post, Redirect, Body, UseFilters, Param, ParseIntPipe, Put, Delete, Headers, Res, Query, NotFoundException, StreamableFile, Header } from '@nestjs/common';
 import { CreateArticleDto, UpdateArticleDto } from 'src/share/dtos/article.dto';
 import { ArticleService } from 'src/share/services/article.service';
 import { AdminExceptionFilter } from '../filters/admin-exception.filter';
@@ -8,6 +8,7 @@ import { TagService } from 'src/share/services/tag.service';
 import type { Response } from 'express';
 import { ArticleStateEnum } from 'src/share/enums/article.enum';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { WordExportService } from 'src/share/services/word-export.service';
 
 @UseFilters(AdminExceptionFilter)
 @Controller('admin/articles')
@@ -17,6 +18,7 @@ export class ArticleController {
     private readonly categoryService: CategoryService,
     private readonly tagService: TagService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly wordExportService: WordExportService
   ) { }
 
   @Get()
@@ -77,7 +79,7 @@ export class ArticleController {
     if (!article) throw new NotFoundException('Article not Found');
     return { article };
   }
-  
+
   @Put(':id/submit')
   async submitForReview(@Param('id', ParseIntPipe) id: number) {
     await this.articleService.update(id, { state: ArticleStateEnum.PENDING } as UpdateArticleDto);
@@ -104,5 +106,25 @@ export class ArticleController {
   async withdrawArticle(@Param('id', ParseIntPipe) id: number) {
     await this.articleService.update(id, { state: ArticleStateEnum.WITHDRAWN } as UpdateArticleDto);
     return { success: true };
+  }
+
+  @Get(':id/export-word')
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+  async exportWord(@Param('id', ParseIntPipe) id: number, @Res({ passthrough: true }) res: Response) {
+    const article = await this.articleService.findOne({ where: { id }, relations: ['categories', 'tags'] });
+    if (!article) throw new NotFoundException('Article not found');
+
+    const htmlContent = `
+           <h1>${article.title}</h1>
+           <p><strong>状态:</strong> ${article.state}</p>
+           <p><strong>分类:</strong> ${article.categories.map(c => c.name).join(', ')}</p>
+           <p><strong>标签:</strong> ${article.tags.map(t => t.name).join(', ')}</p>
+           <hr/>
+           ${article.content}
+       `;
+
+    const buffer = await this.wordExportService.exportToWord(htmlContent);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(article.title)}.docx"`);
+    return new StreamableFile(buffer);
   }
 }
