@@ -14,7 +14,8 @@
       <th>标题</th>
       <th>分类</th>
       <th>标签</th>
-      <td>状态</td>
+      <th>文章状态</th>
+      <th>状态</th>
       <td>排序</td>
       <td>操作</td>
     </tr>
@@ -34,6 +35,27 @@
         {{/each}}
       </td>
       <td>
+        {{#if (eq this.state 'draft')}}
+        <span class="badge bg-secondary">草稿</span>
+        {{/if}}
+
+        {{#if (eq this.state 'pending')}}
+        <span class="badge bg-warning text-dark">待审核</span>
+        {{/if}}
+
+        {{#if (eq this.state 'published')}}
+        <span class="badge bg-success">已发布</span>
+        {{/if}}
+
+        {{#if (eq this.state 'rejected')}}
+        <span class="badge bg-danger">审核不通过</span>
+        {{/if}}
+
+        {{#if (eq this.state 'withdrawn')}}
+        <span class="badge bg-dark">已撤回</span>
+        {{/if}}
+      </td>
+      <td>
         <span class="status-toggle" data-id="{{this.id}}" data-status="{{this.status}}">
           {{#if this.status}}
           <i class="bi bi-check-circle-fill text-success"></i>
@@ -51,6 +73,38 @@
         <a href="/admin/articles/{{this.id}}" class="btn btn-primary btn-sm">查看</a>
         <a href="/admin/articles/{{this.id}}/edit" class="btn btn-warning btn-sm">修改</a>
         <a class="btn btn-danger btn-sm" onclick="deleteArticle({{this.id}})">删除</a>
+        {{#if (eq this.state 'draft')}}
+        <button class="btn btn-warning btn-sm" onclick="submitForReview({{this.id}})">提交审核</button>
+        {{/if}}
+        {{#if (eq this.state 'pending')}}
+        <button class="btn btn-success btn-sm" onclick="approveArticle({{this.id}})">审核通过</button>
+        <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
+          data-bs-target="#rejectModal-{{this.id}}">审核不通过</button>
+        <div class="modal fade" id="rejectModal-{{this.id}}" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">审核不通过</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="rejectionReason-{{this.id}}" class="form-label">不通过原因</label>
+                  <textarea class="form-control" id="rejectionReason-{{this.id}}" name="rejectionReason"
+                    rows="3"></textarea>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="rejectArticle({{this.id}})">提交</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {{/if}}
+        {{#if (eq this.state 'published')}}
+        <button class="btn btn-secondary btn-sm" onclick="withdrawArticle({{this.id}})">撤回</button>
+        {{/if}}
       </td>
     </tr>
     {{/each}}
@@ -83,6 +137,81 @@
   </ul>
 </nav>
 <script>
+  function submitForReview(id) {
+    if (confirm('确定要提交审核吗？')) {
+      $.ajax({
+        url: `/admin/articles/${id}/submit`,
+        type: 'PUT',
+        success: function (data) {
+          if (data.success) {
+            alert('提交审核成功');
+            location.reload();
+          }
+        },
+        error: function (error) {
+          alert('提交审核失败');
+        }
+      });
+    }
+  }
+
+  function approveArticle(id) {
+    if (confirm('确定要通过审核吗？')) {
+      $.ajax({
+        url: `/admin/articles/${id}/approve`,
+        type: 'PUT',
+        success: function (data) {
+          if (data.success) {
+            alert('审核通过');
+            location.reload();
+          }
+        },
+        error: function (error) {
+          alert('审核通过失败');
+        }
+      });
+    }
+  }
+
+  function rejectArticle(id) {
+    const rejectionReason = $(`#rejectionReason-${id}`).val();
+    if (rejectionReason.trim() === '') {
+      alert('请填写审核不通过的原因');
+      return;
+    }
+    $.ajax({
+      url: `/admin/articles/${id}/reject`,
+      type: 'PUT',
+      contentType: 'application/json',
+      data: JSON.stringify({ rejectionReason }),
+      success: function (data) {
+        if (data.success) {
+          alert('审核不通过');
+          location.reload();
+        }
+      },
+      error: function (error) {
+        alert('审核不通过失败');
+      }
+    });
+  }
+  function withdrawArticle(id) {
+    if (confirm('确定要撤回这篇文章吗？')) {
+      $.ajax({
+        url: `/admin/articles/${id}/withdraw`,
+        type: 'PUT',
+        success: function (data) {
+          if (data.success) {
+            alert('文章已撤回');
+            location.reload();
+          }
+        },
+        error: function (error) {
+          alert('撤回文章失败');
+        }
+      });
+    }
+  }
   function deleteArticle(id) {
     if (confirm('确定要删除吗?')) {
       $.ajax({

@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
 import { Category } from './category.entity';
 import { Tag } from './tag.entity';
+import { ArticleStateEnum } from '../enums/article.enum';
 
 @Entity()
 export class Article {
@@ -24,6 +25,14 @@ export class Article {
   @ManyToMany(() => Tag)
   @JoinTable()
   tags: Tag[];
+
+  @Column({ type: 'enum', enum: ArticleStateEnum, default: 'draft' })
+  @ApiProperty({ description: '文章状态', example: 'draft' })
+  state: ArticleStateEnum;
+
+  @Column({ type: 'text', nullable: true })
+  @ApiProperty({ description: '审核不通过原因', example: '内容不符合要求' })
+  rejectionReason: string;
 
   @Column({ default: 1 })
   @ApiProperty({ description: '生效状态', example: 1 })

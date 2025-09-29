@@ -1,8 +1,9 @@
 import { ApiProperty, PartialType as PartialTypeFromSwagger } from '@nestjs/swagger';
-import { IsString, IsInt, MaxLength } from 'class-validator';
+import { IsString, IsInt, MaxLength, IsOptional } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { IdValidators, StatusValidators, SortValidators } from '../decorators/alidation-and-transform.decorators';
 import { Transform } from 'class-transformer';
+import { ArticleStateEnum } from '../enums/article.enum';
 
 export class CreateArticleDto {
   @ApiProperty({ description: '标题', example: '文章标题' })
@@ -30,6 +31,15 @@ export class CreateArticleDto {
   @SortValidators()
   @ApiProperty({ description: '排序号', example: 100 })
   sort: number;
+
+  @ApiProperty({ description: '文章状态', example: 'draft' })
+  @Transform(({ value }) => ArticleStateEnum[value])
+  state: ArticleStateEnum;
+
+  @ApiProperty({ description: '审核不通过原因', required: false, example: '内容不符合要求' })
+  @IsString()
+  @IsOptional()
+  rejectionReason?: string;
 }
 
 export class UpdateArticleDto extends PartialTypeFromSwagger(PartialType(CreateArticleDto)) {

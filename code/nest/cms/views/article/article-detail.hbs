@@ -27,6 +27,96 @@
     {{/each}}
   </p>
 </div>
+<div class="mb-3">
+  <label class="form-label">状态:</label>
+  <p class="form-control-plaintext">
+    {{#if (eq article.state 'draft')}}草稿{{/if}}
+    {{#if (eq article.state 'pending')}}待审核{{/if}}
+    {{#if (eq article.state 'published')}}已发布{{/if}}
+    {{#if (eq article.state 'rejected')}}审核不通过{{/if}}
+  </p>
+</div>
+{{#if (eq article.state 'rejected')}}
+<div class="mb-3">
+  <label class="form-label">不通过原因:</label>
+  <p class="form-control-plaintext">{{article.rejectionReason}}</p>
+</div>
+{{/if}}
+{{#if (eq article.state 'pending')}}
+<div class="mb-3">
+  <button id="approveButton" class="btn btn-success">审核通过</button>
+  <button id="rejectButton" class="btn btn-danger">审核不通过</button>
+</div>
+{{/if}}
 <a href="/admin/articles/{{article.id}}/edit" class="btn btn-warning btn-sm">修改</a>
 <a href="/admin/articles" class="btn btn-secondary btn-sm">返回列表</a>
 </div>
+<div id="rejectionReasonModal" class="modal fade" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">填写审核不通过原因</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="rejectionReason" class="form-control" rows="3" placeholder="请输入不通过原因"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button id="confirmRejectionButton" type="button" class="btn btn-danger">确认不通过</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  $(function () {
+    $('#approveButton').on('click', function () {
+      if (confirm('确定要通过审核吗？')) {
+        $.ajax({
+          url: `/admin/articles/{{article.id}}/approve`,
+          type: 'PUT',
+          success: function (data) {
+            if (data.success) {
+              alert('审核通过');
+              location.reload();
+            } else {
+              alert('审核通过失败');
+            }
+          },
+          error: function () {
+            alert('审核通过失败');
+          }
+        });
+      }
+    });
+
+    $('#rejectButton').on('click', function () {
+      $('#rejectionReasonModal').modal('show');
+    });
+
+    $('#confirmRejectionButton').on('click', function () {
+      const rejectionReason = $('#rejectionReason').val().trim();
+      if (rejectionReason === '') {
+        alert('请填写审核不通过的原因');
+        return;
+      }
+      $.ajax({
+        url: `/admin/articles/{{article.id}}/reject`,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ rejectionReason: rejectionReason }),
+        success: function (data) {
+          if (data.success) {
+            alert('审核不通过');
+            location.reload();
+          } else {
+            alert('审核不通过失败');
+          }
+        },
+        error: function () {
+          alert('审核不通过失败');
+        }
+      });
+    });
+  });
+</script>

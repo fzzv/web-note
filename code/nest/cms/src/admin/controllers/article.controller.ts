@@ -6,6 +6,7 @@ import { ParseOptionalIntPipe } from 'src/share/pipes/parse-optional-int.pipe';
 import { CategoryService } from 'src/share/services/category.service';
 import { TagService } from 'src/share/services/tag.service';
 import type { Response } from 'express';
+import { ArticleStateEnum } from 'src/share/enums/article.enum';
 
 @UseFilters(AdminExceptionFilter)
 @Controller('admin/articles')
@@ -73,5 +74,32 @@ export class ArticleController {
     const article = await this.articleService.findOne({ where: { id }, relations: ['categories', 'tags'] });
     if (!article) throw new NotFoundException('Article not Found');
     return { article };
+  }
+  
+  @Put(':id/submit')
+  async submitForReview(@Param('id', ParseIntPipe) id: number) {
+    await this.articleService.update(id, { state: ArticleStateEnum.PENDING } as UpdateArticleDto);
+    return { success: true };
+  }
+
+  @Put(':id/approve')
+  async approveArticle(@Param('id', ParseIntPipe) id: number) {
+    await this.articleService.update(id, { state: ArticleStateEnum.PUBLISHED, rejectionReason: undefined } as UpdateArticleDto);
+    return { success: true };
+  }
+
+  @Put(':id/reject')
+  async rejectArticle(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('rejectionReason') rejectionReason: string
+  ) {
+    await this.articleService.update(id, { state: ArticleStateEnum.REJECTED, rejectionReason } as UpdateArticleDto);
+    return { success: true };
+  }
+
+  @Put(':id/withdraw')
+  async withdrawArticle(@Param('id', ParseIntPipe) id: number) {
+    await this.articleService.update(id, { state: ArticleStateEnum.WITHDRAWN } as UpdateArticleDto);
+    return { success: true };
   }
 }
