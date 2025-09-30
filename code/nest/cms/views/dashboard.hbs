@@ -5,6 +5,7 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between">
         <span>快捷操作</span>
+        <span id="weather-info">正在获取天气信息...</span>
       </div>
       <div class="card-body">
         <div class="row text-center">
@@ -169,4 +170,18 @@
    };
   // 将配置的选项应用到用户增长趋势图表上
   userGrowthChart.setOption(userGrowthOption);
+</script>
+<script type="text/javascript">
+  $(function () {
+    $.ajax({
+      url: '/admin/dashboard/weather',
+      method: 'GET',
+      success: function (data) {
+        $('#weather-info').text(data.weather);
+      },
+      error: function () {
+        $('#weather-info').text('获取天气信息失败');
+      }
+    });
+  });
 </script>

@@ -5127,3 +5127,118 @@ export class AdminModule { }
 </form>
 ```
 
+## 天气预报
+
+使用的是https://www.weatherapi.com/
+
+```bash
+npm i axios geoip-lite
+```
+
+添加环境变量
+
+```
+WEATHER_API_URL=http://api.weatherapi.com/v1/current.json
+IP_API_URL=https://api.ipify.org?format=json
+WEATHER_API_KEY=WEATHER_API_KEY
+```
+
+### weather.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import geoip from 'geoip-lite';
+
+@Injectable()
+export class WeatherService {
+  constructor(private readonly configService: ConfigService) { }
+
+  async getExternalIP() {
+    try {
+      const ipApiUrl = this.configService.get<string>('IP_API_URL')!;
+      const response = await axios.get(ipApiUrl);
+      return response.data.ip;
+    } catch (error) {
+      console.error('Error fetching external IP:', error);
+      return 'N/A';
+    }
+  }
+
+  async getWeather() {
+    const ip = await this.getExternalIP();
+    const geo = geoip.lookup(ip);
+    const location = geo ? `${geo.city}, ${geo.country}` : 'Unknown';
+    let weather = '无法获取天气信息';
+    try {
+      if (geo) {
+        const apiKey = this.configService.get<string>('WEATHER_API_KEY');
+        const weatherApiUrl = this.configService.get<string>('WEATHER_API_URL');
+        const response = await axios.get(`${weatherApiUrl}?lang=zh&key=${apiKey}&q=${location}`);
+        weather = `${response.data.current.temp_c}°C, ${response.data.current.condition.text}`;
+      }
+    } catch (error) {
+      console.error('获取天气信息失败:', error.message);
+    }
+    return weather;
+  }
+}
+```
+
+在share.service中注入
+
+### dashboard.controller
+
+```ts
+import { Controller, Get, Render } from '@nestjs/common';
+import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { DashboardService } from '../../share/services/dashboard.service';
+import { WeatherService } from '../../share/services/weather.service'; // [!code ++]
+
+@ApiTags('admin/dashboard')
+@Controller('admin')
+export class DashboardController {
+
+  constructor(private readonly dashboardService: DashboardService, private readonly weatherService: WeatherService) { } // [!code ++]
+
+  @Get('dashboard')
+  @ApiCookieAuth()
+  @ApiOperation({ summary: '管理后台仪表盘' })
+  @ApiResponse({ status: 200, description: '成功返回仪表盘页面' })
+  @Render('dashboard')
+  async dashboard() {
+    return await this.dashboardService.getDashboardData();
+  }
+
+  @Get('dashboard/weather') // [!code ++]
+  async getWeather() { // [!code ++]
+    const weather = await this.weatherService.getWeather(); // [!code ++]
+    return { weather }; // [!code ++]
+  } // [!code ++]
+}
+```
+
+### dashboard.hbs
+
+```handlebars
+<div class="card-header d-flex justify-content-between">
+    <span>快捷操作</span>
+    <span id="weather-info">正在获取天气信息...</span> // [!code ++]
+</div>
+<script type="text/javascript"> // [!code ++]
+  $(function () { // [!code ++]
+    $.ajax({ // [!code ++]
+      url: '/admin/dashboard/weather', // [!code ++]
+      method: 'GET', // [!code ++]
+      success: function (data) { // [!code ++]
+        $('#weather-info').text(data.weather); // [!code ++]
+      }, // [!code ++]
+      error: function () { // [!code ++]
+        $('#weather-info').text('获取天气信息失败'); // [!code ++]
+      } // [!code ++]
+    }); // [!code ++]
+  }); // [!code ++]
+</script> // [!code ++]
+```
+
