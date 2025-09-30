@@ -65,4 +65,11 @@ export class ConfigurationService {
       password: this.redisPassword
     }
   }
+
+  get jwtSecret(): string {
+    return this.configService.get<string>('JWT_SECRET')!;
+  }
+  get expiresIn(): string {
+    return this.configService.get<string>('JWT_EXPIRES_IN')!;
+  }
 }

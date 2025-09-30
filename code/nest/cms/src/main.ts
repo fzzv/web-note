@@ -19,6 +19,8 @@ async function bootstrap() {
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   // 配置静态资源目录
   app.useStaticAssets(join(__dirname, '..', 'public'));
+  // 配置前端静态资源目录
+  app.useStaticAssets(join(__dirname, '..', 'front'));
   // 设置视图文件的基本目录
   app.setBaseViewsDir(join(__dirname, '..', 'views'));
   // 设置视图引擎为 hbs（Handlebars）

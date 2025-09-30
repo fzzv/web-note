@@ -7,5 +7,6 @@ declare namespace Express {
     session: {
       user: any;
     };
+    user: any;
   }
 }
