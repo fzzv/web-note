@@ -109,3 +109,64 @@
     </div>
   </div>
 </div>
+
+<!-- 内容统计图表 -->
+<div class="row mb-4">
+  <!-- 左侧的图表容器，用于显示文章发布趋势图表 -->
+  <div class="col-md-6">
+    <!-- 文章发布趋势图表的容器，宽度为100%，高度为400像素 -->
+    <div id="articleTrendChart" style="width: 100%;height:400px;"></div>
+  </div>
+  <!-- 右侧的图表容器，用于显示用户增长趋势图表 -->
+  <div class="col-md-6">
+    <!-- 用户增长趋势图表的容器，宽度为100%，高度为400像素 -->
+    <div id="userGrowthChart" style="width: 100%;height:400px;"></div>
+  </div>
+</div>
+<script type="text/javascript">
+  // 初始化文章发布趋势图表
+  var articleTrendChart = echarts.init(document.getElementById('articleTrendChart'));
+  // 配置文章发布趋势图表的选项
+  var articleTrendOption = {
+    title: {
+      text: '文章发布趋势' // 图表标题
+    },
+    tooltip: {}, // 工具提示
+    xAxis: {
+      type: 'category', // X轴类型为类目型
+      data: {{{ json articleTrend.dates }}} // X轴数据，使用模板引擎生成的日期数组
+       },
+  yAxis: {
+    type: 'value' // Y轴类型为数值型
+  },
+  series: [{
+    data: {{{ json articleTrend.counts }}}, // 图表数据，使用模板引擎生成的文章发布数量数组
+    type: 'line' // 数据系列的图表类型为折线图
+       }]
+   };
+  // 将配置的选项应用到文章发布趋势图表上
+  articleTrendChart.setOption(articleTrendOption);
+
+  // 初始化用户增长趋势图表
+  var userGrowthChart = echarts.init(document.getElementById('userGrowthChart'));
+  // 配置用户增长趋势图表的选项
+  var userGrowthOption = {
+    title: {
+      text: '用户增长趋势' // 图表标题
+    },
+    tooltip: {}, // 工具提示
+    xAxis: {
+      type: 'category', // X轴类型为类目型
+      data: {{{ json userGrowth.dates }}} // X轴数据，使用模板引擎生成的日期数组
+       },
+  yAxis: {
+    type: 'value' // Y轴类型为数值型
+  },
+  series: [{
+    data: {{{ json userGrowth.counts }}}, // 图表数据，使用模板引擎生成的用户增长数量数组
+    type: 'bar' // 数据系列的图表类型为柱状图
+       }]
+   };
+  // 将配置的选项应用到用户增长趋势图表上
+  userGrowthChart.setOption(userGrowthOption);
+</script>

@@ -34,4 +34,15 @@ export abstract class MysqlBaseService<T extends ObjectLiteral> {
       take: limit
     });
   }
+  async getTrend(tableName): Promise<{ dates: string[]; counts: number[] }> {
+    const result = await this.repository.query(`
+             SELECT DATE_FORMAT(createdAt, '%Y-%m-%d') as date, COUNT(*) as count
+             FROM ${tableName}
+             GROUP BY date
+             ORDER BY date ASC
+         `);
+    const dates = result.map(row => row.date);
+    const counts = result.map(row => row.count);
+    return { dates, counts };
+  }
 }
