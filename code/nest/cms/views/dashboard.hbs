@@ -1,1 +1,46 @@
-<h1>{{title}}</h1>
+<h1>{{ title }}</h1>
+<!-- 快捷操作栏 -->
+<div class="row mb-4">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">
+        <span>快捷操作</span>
+      </div>
+      <div class="card-body">
+        <div class="row text-center">
+          <!-- 快捷操作按钮 -->
+          <div class="col-md-2">
+            <a href="/admin/articles" class="btn btn-outline-primary btn-block">
+              <i class="bi bi-file-text"></i> 文章管理
+            </a>
+          </div>
+          <div class="col-md-2">
+            <a href="/admin/categories/create" class="btn btn-outline-success btn-block">
+              <i class="bi bi-folder-plus"></i> 新增分类
+            </a>
+          </div>
+          <div class="col-md-2">
+            <a href="/admin/tags/create" class="btn btn-outline-info btn-block">
+              <i class="bi bi-tag"></i> 新增标签
+            </a>
+          </div>
+          <div class="col-md-2">
+            <a href="/admin/users/create" class="btn btn-outline-warning btn-block">
+              <i class="bi bi-person-plus"></i> 添加用户
+            </a>
+          </div>
+          <div class="col-md-2">
+            <a href="/admin/accesses/create" class="btn btn-outline-danger btn-block">
+              <i class="bi bi-folder-plus"></i> 添加资源
+            </a>
+          </div>
+          <div class="col-md-2">
+            <a href="/admin/settings" class="btn btn-outline-secondary btn-block">
+              <i class="bi bi-gear"></i> 系统设置
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
