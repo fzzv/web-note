@@ -18,21 +18,65 @@
   <header class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
       <a class="navbar-brand" href="#">CMS首页</a>
-      <div class="d-flex" hx-get="/api/auth/profile" hx-trigger="load" hx-ext="client-side-templates"
-        handlebars-template="profile-template" hx-swap="outerHTML">
+      <div id="profile-container" class="d-flex" hx-get="/api/auth/profile" hx-trigger="load"
+        hx-ext="client-side-templates" handlebars-template="profile-template" hx-swap="innerHTML">
       </div>
     </div>
   </header>
   <script id="profile-template" type="text/x-handlebars-template">
-    <span>欢迎, {{user.username}}</span>
-  </script>
+       <span>欢迎, {{user.username}}</span>
+   </script>
   <script>
+    async function refreshAccessToken() {
+      try {
+        const response = await fetch(' /api/auth/refresh-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            refresh_token: localStorage.getItem('refresh_token')
+          })
+        });
+        const data = await response.json(); if (data.success) {
+          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem('refresh_token', data.refresh_token);
+        } else {
+          console.error('刷新access_token失败');
+          window.location.href = '/login.html';
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error('刷新access_token时出错', error);
+        window.location.href = '/login.html';
+        return false;
+      }
+    }
     $('body').on('htmx:configRequest', function (event) {
       const accessToken = localStorage.getItem('access_token');
       if (accessToken) {
         event.detail.headers['Authorization'] = `Bearer ${accessToken}`;
       }
-    }); 
+    });
+    $('#profile-container').on('htmx:afterOnLoad', async function (event) {
+      if (event.detail.xhr.status === 401) {
+        const success = await refreshAccessToken();
+        if (success) {
+          const accessToken = localStorage.getItem('access_token');
+          fetch(`/api/auth/profile`, { headers: { Authorization: `Bearer ${accessToken}` } })
+            .then(response => response.json())
+            .then(data => {
+              const templateSource = document.getElementById('profile-template').innerHTML;
+              const template = Handlebars.compile(templateSource);
+              const html = template({
+                user: data.user
+              });
+              $('#profile-container').html(html);
+              htmx.process(document.getElementById('profile-container'));
+            })
+            .catch(error => console.error('Error fetching profile:', error));
+        }
+      }
+    });
   </script>
 </body>
 

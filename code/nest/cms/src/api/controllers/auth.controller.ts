@@ -53,12 +53,29 @@ export class AuthController {
       secret: this.configurationService.jwtSecret,
       expiresIn: '30m',
     });
+    // 创建刷新令牌，设置过期时间为 7 天
+    const refresh_token = this.jwtService.sign({ id: user.id, username: user.username }, {
+      secret: this.configurationService.jwtSecret,
+      expiresIn: '7d',
+    });
     // 返回令牌信息
-    return { access_token };
+    return { access_token, refresh_token };
   }
   @UseGuards(AuthGuard)
   @Get('profile')
   getProfile(@Request() req: ExpressRequest, @Res() res: Response) {
     return res.json({ user: req.user });
+  }
+
+  @Post('refresh-token')
+  async refreshToken(@Body() body, @Res() res: Response) {
+    const { refresh_token } = body;
+    try {
+      const decoded = this.jwtService.verify(refresh_token, { secret: this.configurationService.jwtSecret });
+      const tokens = this.createJwtTokens(decoded);
+      return res.json({ success: true, ...tokens });
+    } catch (error) {
+      return res.status(401).json({ success: false, message: 'Refresh token无效或已过期' });
+    }
   }
 }

@@ -5767,3 +5767,274 @@ async function bootstrap() {
 bootstrap();
 ```
 
+## refresh-token
+
+`api/controllers/auth.controller.ts`
+
+```ts
+// 导入所需的装饰器、模块和服务
+import { Controller, Post, Body, Res, Request, UseGuards, Get } from '@nestjs/common';
+import type { Response, Request as ExpressRequest } from 'express';
+import { UserService } from '../../share/services/user.service';
+import { UtilityService } from '../../share/services/utility.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigurationService } from 'src/share/services/configuration.service';
+import { AuthGuard } from '../guards/auth.guard';
+
+// 声明控制器，路由前缀为 'api/auth'
+@Controller('api/auth')
+export class AuthController {
+  // 构造函数，注入服务类
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService,
+    private readonly jwtService: JwtService,
+    private readonly configurationService: ConfigurationService,
+  ) { }
+  // 定义一个 POST 请求处理器，路径为 'login'
+  @Post('login')
+  async login(@Body() body, @Res() res: Response) {
+    // 从请求体中获取用户名和密码
+    const { username, password } = body;
+    // 验证用户
+    const user = await this.validateUser(username, password);
+    // 如果用户验证通过
+    if (user) {
+      // 创建 JWT 令牌
+      const tokens = this.createJwtTokens(user);
+      // 返回成功响应，包含令牌信息
+      return res.json({ success: true, ...tokens });
+    }
+    // 如果验证失败，返回 401 状态码和错误信息
+    return res.status(401).json({ success: false, message: '用户名或密码错误' });
+  }
+  // 验证用户的私有方法
+  private async validateUser(username: string, password: string) {
+    // 查找用户，并获取其关联的角色和权限
+    const user = await this.userService.findOne({ where: { username }, relations: ['roles', 'roles.accesses'] });
+    // 如果用户存在并且密码匹配
+    if (user && await this.utilityService.comparePassword(password, user.password)) {
+      // 返回用户信息
+      return user;
+    }
+    // 否则返回 null
+    return null;
+  }
+  // 创建 JWT 令牌的私有方法
+  private createJwtTokens(user: any) {
+    // 创建访问令牌，设置过期时间为 30 分钟
+    const access_token = this.jwtService.sign({ id: user.id, username: user.username }, {
+      secret: this.configurationService.jwtSecret,
+      expiresIn: '30m',
+    });
+    // 创建刷新令牌，设置过期时间为 7 天
+    const refresh_token = this.jwtService.sign({ id: user.id, username: user.username }, { // [!code ++]
+      secret: this.configurationService.jwtSecret, // [!code ++]
+      expiresIn: '7d', // [!code ++]
+    }); // [!code ++]
+    // 返回令牌信息
+    return { access_token, refresh_token }; // [!code ++]
+  }
+  @UseGuards(AuthGuard)
+  @Get('profile')
+  getProfile(@Request() req: ExpressRequest, @Res() res: Response) {
+    return res.json({ user: req.user });
+  }
+
+  @Post('refresh-token') // [!code ++]
+  async refreshToken(@Body() body, @Res() res: Response) { // [!code ++]
+    const { refresh_token } = body; // [!code ++]
+    try { // [!code ++]
+      const decoded = this.jwtService.verify(refresh_token, { secret: this.configurationService.jwtSecret }); // [!code ++]
+      const tokens = this.createJwtTokens(decoded); // [!code ++]
+      return res.json({ success: true, ...tokens }); // [!code ++]
+    } catch (error) { // [!code ++]
+      return res.status(401).json({ success: false, message: 'Refresh token无效或已过期' }); // [!code ++]
+    } // [!code ++]
+  } // [!code ++]
+}
+```
+
+`index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CMS首页</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/css/bootstrap-icons.min.css" rel="stylesheet">
+  <script src="/js/jquery.min.js"></script>
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/htmx.min.js"></script>
+  <script src="/js/handlebars.min.js"></script>
+  <script src="/js/client-side-templates.js"></script>
+</head>
+
+<body>
+  <header class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">CMS首页</a>
+      <div id="profile-container" class="d-flex" hx-get="/api/auth/profile" hx-trigger="load"
+        hx-ext="client-side-templates" handlebars-template="profile-template" hx-swap="innerHTML">
+      </div>
+    </div>
+  </header>
+  <script id="profile-template" type="text/x-handlebars-template">
+       <span>欢迎, {{user.username}}</span>
+   </script>
+  <script>
+    async function refreshAccessToken() {
+      try {
+        const response = await fetch(' /api/auth/refresh-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            refresh_token: localStorage.getItem('refresh_token')
+          })
+        });
+        const data = await response.json(); if (data.success) {
+          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem('refresh_token', data.refresh_token);
+        } else {
+          console.error('刷新access_token失败');
+          window.location.href = '/login.html';
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error('刷新access_token时出错', error);
+        window.location.href = '/login.html';
+        return false;
+      }
+    }
+    $('body').on('htmx:configRequest', function (event) {
+      const accessToken = localStorage.getItem('access_token');
+      if (accessToken) {
+        event.detail.headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+    });
+    $('#profile-container').on('htmx:afterOnLoad', async function (event) {
+      if (event.detail.xhr.status === 401) {
+        const success = await refreshAccessToken();
+        if (success) {
+          const accessToken = localStorage.getItem('access_token');
+          fetch(`/api/auth/profile`, { headers: { Authorization: `Bearer ${accessToken}` } })
+            .then(response => response.json())
+            .then(data => {
+              const templateSource = document.getElementById('profile-template').innerHTML;
+              const template = Handlebars.compile(templateSource);
+              const html = template({
+                user: data.user
+              });
+              $('#profile-container').html(html);
+              htmx.process(document.getElementById('profile-container'));
+            })
+            .catch(error => console.error('Error fetching profile:', error));
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>
+```
+
+`login.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/css/bootstrap-icons.min.css" rel="stylesheet">
+  <script src="/js/jquery.min.js"></script>
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/htmx.min.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <h2 class="mt-5">登录</h2>
+    <ul class="nav nav-tabs" id="loginTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <a class="nav-link active" id="password-login-tab" data-bs-toggle="tab" href="#password-login" role="tab"
+          aria-controls="password-login" aria-selected="true">密码登录</a>
+      </li>
+    </ul>
+    <div class="tab-content" id="loginTabContent">
+      <div class="tab-pane fade show active" id="password-login" role="tabpanel" aria-labelledby="password-login-tab">
+        <div class="mt-3">
+          <label for="username" class="form-label">用户名</label>
+          <input type="text" class="form-control" id="username" name="username" required>
+        </div>
+        <div class="mt-3">
+          <label for="password" class="form-label">密码</label>
+          <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+        <button id="passwordLoginButton" class="btn btn-primary mt-3" hx-post="/api/auth/login" hx-trigger="click"
+          hx-include="#username,#password" hx-swap="none">登录</button>
+      </div>
+    </div>
+    <div id="errorMessage" class="alert alert-danger d-none mt-3"></div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+      <div id="toastMessage" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <strong class="me-auto">提示</strong>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastBody"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    //显示提示信息的函数
+    function showToast(message) {
+      // 设置提示框的文本内容
+      $('#toastBody').text(message);
+      // 创建 Bootstrap Toast 实例
+      const toast = new bootstrap.Toast(document.getElementById('toastMessage'));
+      // 显示提示框
+      toast.show();
+    }
+    // 处理登录响应的函数
+    function handleLoginResponse(event) {
+      // 解析 AJAX 请求的响应内容
+      const result = JSON.parse(event.detail.xhr.responseText);
+      // 如果登录成功
+      if (result.success) {
+        // 将 access_token 和 refresh_token 存储到本地存储中
+        localStorage.setItem('access_token', result.access_token);
+        localStorage.setItem('refresh_token', result.refresh_token)
+        // 重定向到首页
+        window.location.href = '/';
+      } else {
+        // 如果登录失败，显示错误信息
+        showToast(result.message);
+      }
+    }
+    // 处理发送验证码响应的函数
+    function handleSendCodeResponse(event) {
+      // 解析 AJAX 请求的响应内容
+      const result = JSON.parse(event.detail.xhr.responseText);
+      // 显示响应信息
+      showToast(result.message);
+    }
+    // jQuery 文档就绪函数
+    $(function () {
+      // 为登录按钮绑定事件，当 AJAX 请求完成后调用 handleLoginResponse 函数
+      $('#passwordLoginButton').on('htmx:afterRequest', handleLoginResponse);
+    });
+  </script>
+</body>
+
+</html>
+```
+
