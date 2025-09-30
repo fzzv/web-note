@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CMS首页</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="/css/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/css/bootstrap-icons.min.css" rel="stylesheet" />
   <script src="/js/jquery.min.js"></script>
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script src="/js/htmx.min.js"></script>
@@ -19,36 +19,129 @@
     <div class="container-fluid">
       <a class="navbar-brand" href="#">CMS首页</a>
       <div id="profile-container" class="d-flex" hx-get="/api/auth/profile" hx-trigger="load"
-        hx-ext="client-side-templates" handlebars-template="profile-template" hx-swap="innerHTML">
-      </div>
+        hx-ext="client-side-templates" handlebars-template="profile-template" hx-swap="innerHTML"></div>
     </div>
   </header>
+  <div id="categories-container" class="container mb-3" hx-get="/api/categories" hx-trigger="load"
+    hx-ext="client-side-templates" handlebars-template="categories-template" hx-swap="innerHTML"
+    hx-vals="javascript:{selectedCategory:localStorage.getItem('selectedCategory')??''}"></div>
+  <div class="container" id="article-list" hx-trigger="load" hx-get="/api/articles" hx-ext="client-side-templates"
+    handlebars-template="article-list-template" hx-swap="innerHTML"></div>
   <script id="profile-template" type="text/x-handlebars-template">
-       <span>欢迎, {{user.username}}</span>
+     <span>欢迎, {{user.username}}</span>
+   </script>
+  <script id="categories-template" type="text/x-handlebars-template">
+     <ul class="nav nav-pills">
+         <li class="nav-item">
+             <a onclick="setSelectedCategory('')"
+             class="nav-link {{#if (eq selectedCategory '')}}active{{/if}}"
+             href="#" hx-get="/api/articles?categoryId="
+             hx-target="#article-list"
+             hx-ext="client-side-templates"
+             handlebars-template="article-list-template"
+             hx-swap="innerHTML">全部</a>
+         </li>
+         {{#each categories}}
+             <li class="nav-item">
+                 <a onclick="setSelectedCategory('{{id}}')"  class="nav-link {{#if (eq ../selectedCategory this.id)}}active{{/if}}" href="#" hx-get="/api/articles?categoryId={{id}}" hx-target="#article-list"  hx-ext="client-side-templates" handlebars-template="article-list-template" hx-swap="innerHTML">{{name}}</a>
+             </li>
+         {{/each}}
+     </ul>
+   </script>
+  <script id="article-list-template" type="text/x-handlebars-template">
+     <ul class='list-group'>
+       {{#each articles}}
+         <li class='list-group-item'>
+           <h5><a href='/article.html?id={{id}}'>{{title}}</a></h5>
+           <p>分类:
+             {{#each categories}}
+               <a
+                 onclick="setSelectedCategory('{{id}}')"
+                 href='#'
+                 hx-get='/api/articles?categoryId={{id}}'
+                 hx-vals="javascript:{keyword:document.getElementById('search-keyword').value}"
+                 hx-target='#article-list'
+               >{{name}}</a>
+             {{/each}}
+           </p>
+           <p>标签:
+             {{#each tags}}
+               <a
+                 onclick="setSelectedTag('{{id}}')"
+                 href='#'
+                 hx-get='/api/articles?tagId={{id}}'
+                 hx-vals="javascript:{keyword:document.getElementById('search-keyword').value}"
+                 hx-target='#article-list'
+               >{{name}}</a>
+             {{/each}}
+           </p>
+         </li>
+       {{/each}}
+     </ul>
    </script>
   <script>
+    Handlebars.registerHelper('eq', function (a, b) {
+      return a == b;
+    });
+    function setSelectedCategory(categoryId) {
+      localStorage.setItem('selectedCategory', categoryId);
+      fetch(`/api/categories?selectedCategory=${categoryId}`)
+        .then((response) => response.json())
+        .then((data) => {
+          const templateSource = document.getElementById(
+            'categories-template',
+          ).innerHTML;
+          const template = Handlebars.compile(templateSource);
+          const html = template({
+            categories: data.categories,
+            selectedCategory: categoryId,
+          });
+          document.getElementById('categories-container').innerHTML = html;
+          htmx.process(document.getElementById('categories-container'));
+        })
+        .catch((error) => console.error('Error fetching categories:', error));
+    }
+  </script>
+  <script>
+    let isRefreshingAccessToken = false;
+    let refreshSubscribers = [];
+    function onRefreshed(newAccessToken) {
+      refreshSubscribers.forEach((callback) => callback(newAccessToken));
+      refreshSubscribers = [];
+    }
+    function subscribeTokenRefresh(callback) {
+      refreshSubscribers.push(callback);
+    }
     async function refreshAccessToken() {
-      try {
-        const response = await fetch(' /api/auth/refresh-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            refresh_token: localStorage.getItem('refresh_token')
-          })
-        });
-        const data = await response.json(); if (data.success) {
-          localStorage.setItem('access_token', data.access_token);
-          localStorage.setItem('refresh_token', data.refresh_token);
-        } else {
-          console.error('刷新access_token失败');
+      if (!isRefreshingAccessToken) {
+        isRefreshingAccessToken = true;
+        try {
+          const response = await fetch(' /api/auth/refresh-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              refresh_token: localStorage.getItem('refresh_token'),
+            }),
+          });
+          const data = await response.json();
+          if (data.success) {
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('refresh_token', data.refresh_token);
+            onRefreshed(data.access_token);
+            return true;
+          } else {
+            console.error('刷新access_token失败');
+            window.location.href = '/login.html';
+            return false;
+          }
+          return true;
+        } catch (error) {
+          console.error('刷新access_token时出错', error);
           window.location.href = '/login.html';
           return false;
+        } finally {
+          isRefreshingAccessToken = false;
         }
-        return true;
-      } catch (error) {
-        console.error('刷新access_token时出错', error);
-        window.location.href = '/login.html';
-        return false;
       }
     }
     $('body').on('htmx:configRequest', function (event) {
@@ -59,21 +152,34 @@
     });
     $('#profile-container').on('htmx:afterOnLoad', async function (event) {
       if (event.detail.xhr.status === 401) {
-        const success = await refreshAccessToken();
-        if (success) {
-          const accessToken = localStorage.getItem('access_token');
-          fetch(`/api/auth/profile`, { headers: { Authorization: `Bearer ${accessToken}` } })
-            .then(response => response.json())
-            .then(data => {
-              const templateSource = document.getElementById('profile-template').innerHTML;
-              const template = Handlebars.compile(templateSource);
-              const html = template({
-                user: data.user
-              });
-              $('#profile-container').html(html);
-              htmx.process(document.getElementById('profile-container'));
+        if (!isRefreshingAccessToken) {
+          const success = await refreshAccessToken();
+          if (success) {
+            const accessToken = localStorage.getItem('access_token');
+            fetch(`/api/auth/profile`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
             })
-            .catch(error => console.error('Error fetching profile:', error));
+              .then((response) => response.json())
+              .then((data) => {
+                const templateSource =
+                  document.getElementById('profile-template').innerHTML;
+                const template = Handlebars.compile(templateSource);
+                const html = template({
+                  user: data.user,
+                });
+                $('#profile-container').html(html);
+                htmx.process(document.getElementById('profile-container'));
+              })
+              .catch((error) =>
+                console.error('Error fetching profile:', error),
+              );
+          }
+        } else {
+          subscribeTokenRefresh((newAccessToken) => {
+            event.detail.headers['Authorization'] =
+              `Bearer ${newAccessToken}`;
+            htmx.ajax('GET', event.detail.path, event.target);
+          });
         }
       }
     });

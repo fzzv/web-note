@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { UserController } from './controllers/user.controller';
 import { AuthController } from './controllers/auth.controller';
+import { CategoryController } from './controllers/category.controller';
+import { ArticleController } from './controllers/article.controller';
 import { JwtModule } from '@nestjs/jwt';
 
 @Module({
@@ -10,6 +12,6 @@ import { JwtModule } from '@nestjs/jwt';
       signOptions: { expiresIn: '7d' }
     }),
   ],
-  controllers: [UserController, AuthController]
+  controllers: [UserController, AuthController, CategoryController, ArticleController]
 })
 export class ApiModule { }
