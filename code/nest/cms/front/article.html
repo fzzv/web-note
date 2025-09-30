@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文章详情</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/css/bootstrap-icons.min.css" rel="stylesheet">
+  <script src="/js/jquery.min.js"></script>
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/htmx.min.js"></script>
+  <script src="/js/handlebars.min.js"></script>
+</head>
+
+<body>
+  <header class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">CMS首页</a>
+    </div>
+  </header>
+
+  <div class="container mt-4" id="article-detail"></div>
+
+  <script id="article-detail-template" type="text/x-handlebars-template">
+        <div class="article">
+            <h1>{{title}}</h1>
+            <p><strong>分类:</strong> 
+                {{#each categories}}
+                    <span>{{name}}</span>
+                {{/each}}
+            </p>
+            <p><strong>标签:</strong> 
+                {{#each tags}}
+                    <span>{{name}}</span>
+                {{/each}}
+            </p>
+            <hr/>
+            <div class="content">
+                {{{content}}}
+            </div>
+        </div>
+    </script>
+
+  <script>
+    const articleId = new URLSearchParams(window.location.search).get('id');
+    fetch(`/api/articles/${articleId}`)
+      .then(response => response.json())
+      .then(data => {
+        const templateSource = document.getElementById('article-detail-template').innerHTML;
+        const template = Handlebars.compile(templateSource);
+        const html = template({
+          title: data.title,
+          categories: data.categories,
+          tags: data.tags,
+          content: data.content
+        });
+        document.getElementById('article-detail').innerHTML = html;
+        htmx.process(document.getElementById('article-detail'));
+      })
+      .catch(error => console.error('Error fetching tags:', error));
+  </script>
+</body>
+
+</html>

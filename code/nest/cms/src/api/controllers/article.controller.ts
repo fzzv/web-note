@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
 import { ArticleService } from '../../share/services/article.service';
 
 @Controller('api/articles')
@@ -24,5 +24,14 @@ export class ArticleController {
       tagId,
       articles
     };
+  }
+
+  @Get(':id')
+  async getArticleById(@Param('id') id: number) {
+    const article = await this.articleService.findOne({ where: { id }, relations: ['categories', 'tags'] });
+    if (!article) {
+      throw new NotFoundException('Article not found');
+    }
+    return article;
   }
 }
