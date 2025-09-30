@@ -25,6 +25,15 @@
   <div id="categories-container" class="container mb-3" hx-get="/api/categories" hx-trigger="load"
     hx-ext="client-side-templates" handlebars-template="categories-template" hx-swap="innerHTML"
     hx-vals="javascript:{selectedCategory:localStorage.getItem('selectedCategory')??''}"></div>
+  <div id="tags" class="container mb-3" hx-get="/api/tags" hx-trigger="load" hx-ext="client-side-templates"
+    handlebars-template="tags-template" hx-swap="innerHTML"
+    hx-vals="javascript:{selectedTag:localStorage.getItem('selectedTag')??''}"></div>
+  <div class="container mb-3">
+    <input id="search-keyword" class="form-control" placeholder="搜索文章..." hx-get="/api/articles"
+      hx-target="#article-list" hx-trigger="keyup"
+      hx-vals="javascript:{keyword:document.getElementById('search-keyword').value}" hx-ext="client-side-templates"
+      handlebars-template="article-list-template" hx-swap="innerHTML">
+  </div>
   <div class="container" id="article-list" hx-trigger="load" hx-get="/api/articles" hx-ext="client-side-templates"
     handlebars-template="article-list-template" hx-swap="innerHTML"></div>
   <script id="profile-template" type="text/x-handlebars-template">
@@ -39,15 +48,30 @@
              hx-target="#article-list"
              hx-ext="client-side-templates"
              handlebars-template="article-list-template"
+             hx-vals="javascript:{keyword:document.getElementById('search-keyword').value}"
              hx-swap="innerHTML">全部</a>
          </li>
          {{#each categories}}
-             <li class="nav-item">
-                 <a onclick="setSelectedCategory('{{id}}')"  class="nav-link {{#if (eq ../selectedCategory this.id)}}active{{/if}}" href="#" hx-get="/api/articles?categoryId={{id}}" hx-target="#article-list"  hx-ext="client-side-templates" handlebars-template="article-list-template" hx-swap="innerHTML">{{name}}</a>
-             </li>
+            <li class="nav-item">
+            <a onclick="setSelectedCategory('{{id}}')" 
+              hx-vals="javascript:{keyword:document.getElementById('search-keyword').value}"
+              class="nav-link {{#if (eq ../selectedCategory this.id)}}active{{/if}}" href="#" hx-get="/api/articles?categoryId={{id}}" hx-target="#article-list"  hx-ext="client-side-templates" handlebars-template="article-list-template" hx-swap="innerHTML">{{name}}</a>
+            </li>
          {{/each}}
      </ul>
    </script>
+  <script id="tags-template" type="text/x-handlebars-template">
+    <ul class="nav nav-pills">
+        <li class="nav-item">
+          <a onclick="setSelectedTag('')" class="nav-link {{#if (eq selectedTag '')}}active{{/if}}" href="#" hx-get="/api/articles?tagId=" hx-target="#article-list" hx-vals="javascript:{keyword:document.getElementById('search-keyword').value}" hx-ext="client-side-templates" handlebars-template="article-list-template" hx-swap="innerHTML">全部</a>
+        </li>
+        {{#each tags}}
+          <li class="nav-item">
+            <a onclick="setSelectedTag('{{id}}')" class="nav-link {{#if (eq ../selectedTag this.id)}}active{{/if}}" href="#" hx-get="/api/articles?tagId={{id}}" hx-target="#article-list" hx-vals="javascript:{keyword:document.getElementById('search-keyword').value}" hx-ext="client-side-templates" handlebars-template="article-list-template" hx-swap="innerHTML">{{name}}</a>
+          </li>
+        {{/each}}
+    </ul>
+  </script>
   <script id="article-list-template" type="text/x-handlebars-template">
      <ul class='list-group'>
        {{#each articles}}
@@ -100,6 +124,23 @@
           htmx.process(document.getElementById('categories-container'));
         })
         .catch((error) => console.error('Error fetching categories:', error));
+    }
+
+    function setSelectedTag(tagId) {
+      localStorage.setItem('selectedTag', tagId);
+      fetch(`/api/tags?selectedTag=${tagId}`)
+        .then(response => response.json())
+        .then(data => {
+          const templateSource = document.getElementById('tags-template').innerHTML;
+          const template = Handlebars.compile(templateSource);
+          const html = template({
+            tags: data.tags,
+            selectedTag: tagId
+          });
+          document.getElementById('tags').innerHTML = html;
+          htmx.process(document.getElementById('tags'));
+        })
+        .catch(error => console.error('Error fetching tags:', error));
     }
   </script>
   <script>

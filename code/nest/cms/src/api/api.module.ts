@@ -4,6 +4,7 @@ import { AuthController } from './controllers/auth.controller';
 import { CategoryController } from './controllers/category.controller';
 import { ArticleController } from './controllers/article.controller';
 import { JwtModule } from '@nestjs/jwt';
+import { TagController } from './controllers/tag.controller';
 
 @Module({
   imports: [
@@ -12,6 +13,6 @@ import { JwtModule } from '@nestjs/jwt';
       signOptions: { expiresIn: '7d' }
     }),
   ],
-  controllers: [UserController, AuthController, CategoryController, ArticleController]
+  controllers: [UserController, AuthController, CategoryController, ArticleController, TagController]
 })
 export class ApiModule { }
