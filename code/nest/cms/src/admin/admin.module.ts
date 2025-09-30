@@ -9,6 +9,7 @@ import { CategoryController } from './controllers/category.controller';
 import { TagController } from './controllers/tag.controller';
 import { UploadController } from './controllers/upload.controller';
 import { SettingController } from './controllers/setting.controller';
+import { AuthController } from './controllers/auth.controller';
 
 @Module({
   controllers: [
@@ -20,7 +21,8 @@ import { SettingController } from './controllers/setting.controller';
     CategoryController,
     TagController,
     UploadController,
-    SettingController
+    SettingController,
+    AuthController
   ],
   providers: [{
     provide: 'APP_FILTER',

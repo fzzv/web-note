@@ -5469,3 +5469,143 @@ export class DashboardController {
 ## 首页最终效果
 
 ![image-20250930112614605](cms%E9%A1%B9%E7%9B%AE.assets/image-20250930112614605.png)
+
+## 登录和退出
+
+使用svg-captcha生成验证码
+
+```bash
+npm install svg-captcha
+```
+
+### utility.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+// 导入 bcrypt 库，用于处理密码哈希和验证
+import bcrypt from 'bcrypt';
+// 导入 svgCaptcha 库，用于生成验证码
+import svgCaptcha from 'svg-captcha'; // [!code ++]
+
+// 使用 Injectable 装饰器将类标记为可注入的服务
+@Injectable()
+export class UtilityService {
+  // 定义一个异步方法，用于生成密码的哈希值
+  async hashPassword(password: string): Promise<string> {
+    // 生成一个盐值，用于增强哈希的安全性
+    const salt = await bcrypt.genSalt();
+    // 使用生成的盐值对密码进行哈希，并返回哈希结果
+    return bcrypt.hash(password, salt);
+  }
+  // 定义一个异步方法，用于比较输入的密码和存储的哈希值是否匹配
+  async comparePassword(password: string, hash: string): Promise<boolean> {
+    // 使用 bcrypt 的 compare 方法比较密码和哈希值，返回比较结果（true 或 false）
+    return bcrypt.compare(password, hash);
+  }
+  generateCaptcha(options) { // [!code ++]
+    return svgCaptcha.create(options); // [!code ++]
+  } // [!code ++]
+}
+```
+
+### auth.controller
+
+```ts
+import { Controller, Get, Post, Body, Res, Session, Redirect } from '@nestjs/common';
+import { UserService } from '../../share/services/user.service';
+import { UtilityService } from '../../share/services/utility.service';
+import type { Response } from 'express';
+
+@Controller('admin')
+export class AuthController {
+  constructor(
+    private readonly userService: UserService,
+    private readonly utilityService: UtilityService,
+  ) { }
+
+  @Get('login')
+  showLogin(@Res() res: Response) {
+    res.render('auth/login', { layout: false });
+  }
+
+  @Post('login')
+  async login(@Body() body, @Res() res: Response, @Session() session) {
+    const { username, password, captcha } = body;
+    if (captcha?.toLowerCase() !== session.captcha?.toLowerCase()) {
+      return res.render('auth/login', { message: '验证码错误', layout: false });
+    }
+    const user = await this.userService.findOne({ where: { username }, relations: ['roles', 'roles.accesses'] });
+    if (user && await this.utilityService.comparePassword(password, user.password)) {
+      session.user = user;
+      return res.redirect('/admin/dashboard');
+    } else {
+      return res.render('auth/login', { message: '用户名或密码错误', layout: false });
+    }
+  }
+
+  @Get('captcha')
+  getCaptcha(@Res() res: Response, @Session() session) {
+    const captcha = this.utilityService.generateCaptcha({ size: 1, ignoreChars: '0o1il' });
+    session.captcha = captcha.text;
+    res.type('svg');
+    res.send(captcha.data);
+  }
+
+  @Get('logout')
+  @Redirect('login')
+  logout(@Session() session) {
+    session.user = null;
+    return { url: 'login' };
+  }
+}
+```
+
+### login.hbs
+
+```handlebars
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员登录</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="/js/jquery.min.js"></script>
+</head>
+
+<body>
+  <div class="container mt-5">
+    <h1 class="text-center">管理员登录</h1>
+    {{#if message}}
+    <div class="alert alert-danger">{{message}}</div>
+    {{/if}}
+    <form action="/admin/login" method="POST" class="mt-4">
+      <div class="mb-3">
+        <label for="username" class="form-label">用户名</label>
+        <input type="text" class="form-control" id="username" name="username" required>
+      </div>
+      <div class="mb-3">
+        <label for="password" class="form-label">密码</label>
+        <input type="password" class="form-control" id="password" name="password" required>
+      </div>
+      <div class="mb-3">
+        <label for="captcha" class="form-label">验证码</label>
+        <div class="d-flex">
+          <input type="text" class="form-control me-2" id="captcha" name="captcha" required>
+          <img id="captcha-img" src="/admin/captcha" alt="captcha" onclick="reloadCaptcha()" style="cursor:pointer;">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">登录</button>
+    </form>
+  </div>
+
+  <script>
+    function reloadCaptcha() {
+      $('#captcha-img').attr('src', '/admin/captcha?' + Date.now());
+    }
+  </script>
+</body>
+</html>
+```
+

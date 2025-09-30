@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 // 导入 bcrypt 库，用于处理密码哈希和验证
 import bcrypt from 'bcrypt';
+// 导入 svgCaptcha 库，用于生成验证码
+import svgCaptcha from 'svg-captcha';
+
 // 使用 Injectable 装饰器将类标记为可注入的服务
 @Injectable()
 export class UtilityService {
@@ -15,5 +18,8 @@ export class UtilityService {
   async comparePassword(password: string, hash: string): Promise<boolean> {
     // 使用 bcrypt 的 compare 方法比较密码和哈希值，返回比较结果（true 或 false）
     return bcrypt.compare(password, hash);
+  }
+  generateCaptcha(options) {
+    return svgCaptcha.create(options);
   }
 }
