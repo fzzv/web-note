@@ -48,4 +48,21 @@ export class ConfigurationService {
       uri: `mongodb://${this.mongodbHost}:${this.mongodbPort}/${this.mongodbDB}`
     }
   }
+
+  get redisHost(): string {
+    return this.configService.get<string>('REDIS_HOST')!;
+  }
+  get redisPort(): number {
+    return this.configService.get<number>('REDIS_PORT')!;
+  }
+  get redisPassword(): string {
+    return this.configService.get<string>('REDIS_PASSWORD')!;
+  }
+  get redisConfig() {
+    return {
+      host: this.redisHost,
+      port: this.redisPort,
+      password: this.redisPassword
+    }
+  }
 }

@@ -28,6 +28,7 @@ import { SettingService } from './services/setting.service';
 import { DashboardService } from './services/dashboard.service';
 import { WeatherService } from './services/weather.service';
 import { SystemService } from './services/system.service';
+import { RedisService } from './services/redis.service';
 
 @Global()
 @Module({
@@ -56,8 +57,8 @@ import { SystemService } from './services/system.service';
             }),
         }),
     ],
-    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService, WeatherService, SystemService],
-    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService, WeatherService, SystemService],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService, WeatherService, SystemService, RedisService],
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService, WeatherService, SystemService, RedisService],
 })
 export class ShareModule {
 }

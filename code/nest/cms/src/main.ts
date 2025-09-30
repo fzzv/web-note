@@ -9,6 +9,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { useContainer } from 'class-validator';
 import * as helpers from './share/helpers';
+import { RedisStore } from 'connect-redis';
+import { RedisService } from './share/services/redis.service';
 
 async function bootstrap() {
   // 使用 NestFactory 创建一个 NestExpressApplication 实例
@@ -36,9 +38,13 @@ async function bootstrap() {
   }));
   // 配置 cookie 解析器
   app.use(cookieParser());
+  const redisService = app.get(RedisService);
+  const redisClient = redisService.getClient();
+  const redisStore = new RedisStore({ client: redisClient });
   // 配置 session
   app.use(
     session({
+      store: redisStore,
       secret: 'secret-key',
       resave: true, // 是否每次都重新保存
       saveUninitialized: true, // 是否保存未初始化的会话
