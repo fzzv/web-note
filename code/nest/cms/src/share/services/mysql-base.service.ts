@@ -22,4 +22,7 @@ export abstract class MysqlBaseService<T extends ObjectLiteral> {
   async delete(id: number) {
     return await this.repository.delete(id);
   }
+  async count(): Promise<number> {
+    return this.repository.count();
+  }
 }

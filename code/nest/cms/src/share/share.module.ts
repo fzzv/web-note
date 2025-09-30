@@ -25,6 +25,7 @@ import { ExcelExportService } from './services/excel-export.service'
 import { MongooseModule } from '@nestjs/mongoose';
 import { Setting, SettingSchema } from './schemas/setting.schema';
 import { SettingService } from './services/setting.service';
+import { DashboardService } from './services/dashboard.service';
 
 @Global()
 @Module({
@@ -53,8 +54,8 @@ import { SettingService } from './services/setting.service';
             }),
         }),
     ],
-    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService],
-    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService],
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService],
 })
 export class ShareModule {
 }
