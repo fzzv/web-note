@@ -7,3 +7,4 @@ export * from './def';
 export * from './multiply';
 export * from './mapToIds';
 export * from './contains';
+export * from './fromNow';

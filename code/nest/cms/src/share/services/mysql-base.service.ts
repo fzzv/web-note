@@ -4,7 +4,7 @@ import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity
 
 @Injectable()
 export abstract class MysqlBaseService<T extends ObjectLiteral> {
-  constructor(protected repository: Repository<T>) {}
+  constructor(protected repository: Repository<T>) { }
 
   async findAll(): Promise<T[]> {
     return this.repository.find();
@@ -24,5 +24,14 @@ export abstract class MysqlBaseService<T extends ObjectLiteral> {
   }
   async count(): Promise<number> {
     return this.repository.count();
+  }
+  async findLatest(limit: number) {
+    const order: any = {
+      id: 'DESC'
+    }
+    return this.repository.find({
+      order,
+      take: limit
+    });
   }
 }

@@ -18,18 +18,24 @@ export class DashboardService {
       userCount,
       articleCount,
       categoryCount,
-      tagCount
+      tagCount,
+      latestArticles,
+      latestUsers,
     ] = await Promise.all([
       this.userService.count(),
       this.articleService.count(),
       this.categoryService.count(),
-      this.tagService.count()
+      this.tagService.count(),
+      this.articleService.findLatest(5),
+      this.userService.findLatest(5)
     ]);
     return {
       userCount,
       articleCount,
       categoryCount,
-      tagCount
+      tagCount,
+      latestArticles,
+      latestUsers
     };
   }
 }

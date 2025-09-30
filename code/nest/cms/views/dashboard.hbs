@@ -80,3 +80,32 @@
     </div>
   </div>
 </div>
+
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">最新文章</div>
+      <ul class="list-group list-group-flush">
+        {{#each latestArticles}}
+        <li class="list-group-item">
+          <a href="/admin/articles/{{id}}">{{title}}</a>
+          <span class="float-right">{{fromNow createdAt}}</span>
+        </li>
+        {{/each}}
+      </ul>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">最新用户</div>
+      <ul class="list-group list-group-flush">
+        {{#each latestUsers}}
+        <li class="list-group-item">
+          <a href="/admin/users/{{id}}">{{username}}</a>
+          <span class="float-right">{{fromNow createdAt}}</span>
+        </li>
+        {{/each}}
+      </ul>
+    </div>
+  </div>
+</div>
