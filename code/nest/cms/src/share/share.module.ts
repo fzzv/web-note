@@ -22,11 +22,23 @@ import { MailService } from './services/mail.service';
 import { WordExportService } from './services/word-export.service';
 import { PptExportService } from './services/ppt-export.service';
 import { ExcelExportService } from './services/excel-export.service'
+import { MongooseModule } from '@nestjs/mongoose';
+import { Setting, SettingSchema } from './schemas/setting.schema';
+import { SettingService } from './services/setting.service';
 
 @Global()
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
+        MongooseModule.forRootAsync({
+            inject: [ConfigurationService],
+            useFactory: (configurationService: ConfigurationService) => ({
+                uri: configurationService.mongodbConfig.uri
+            }),
+        }),
+        MongooseModule.forFeature([
+            { name: Setting.name, schema: SettingSchema },
+        ]),
         TypeOrmModule.forFeature([User, Role, Access, Article, Category, Tag]),
         TypeOrmModule.forRootAsync({
             imports: [ConfigModule],
@@ -41,8 +53,8 @@ import { ExcelExportService } from './services/excel-export.service'
             }),
         }),
     ],
-    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService],
-    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService],
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService],
 })
 export class ShareModule {
 }

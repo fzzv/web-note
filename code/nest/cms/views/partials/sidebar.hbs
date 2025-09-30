@@ -1,44 +1,52 @@
-<!-- 定义一个列，宽度在中等屏幕及以上为3，在大屏幕及以上为2，并且没有内边距 -->
 <div class="col-md-3 col-lg-2 p-0">
-  <!-- 定义一个手风琴组件，id为sidebarMenu -->
   <div class="accordion" id="sidebarMenu">
-    <!-- 定义一个手风琴项目 -->
     <div class="accordion-item">
-      <!-- 定义手风琴的头部，id为动态生成 -->
-      <h2 class="accordion-header" id="heading{{id}}">
-        <!-- 定义一个按钮，点击时折叠或展开手风琴内容 -->
-        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{id}}">
-          <!-- 按钮文本内容 -->
-          权限管理
-        </button>
+      <h2 class="accordion-header" id="heading">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse"
+          data-bs-target="#collapse1">权限管理</button>
       </h2>
-      <!-- 定义手风琴的折叠内容，id为动态生成 -->
-      <div id="collapse{{id}}" class="accordion-collapse collapse">
-        <!-- 定义手风琴的主体内容 -->
+      <div class="accordion-collapse collapse" id="collapse1">
         <div class="accordion-body">
-          <!-- 定义一个列表组 -->
           <ul class="list-group">
-            <!-- 定义一个列表项 -->
             <li class="list-group-item">
-              <!-- 定义一个链接 -->
-              <a href="/admin/user">用户管理</a>
+              <a href="/admin/users">用户管理</a>
             </li>
             <li class="list-group-item">
-              <!-- 定义一个链接 -->
               <a href="/admin/roles">角色管理</a>
             </li>
             <li class="list-group-item">
-              <!-- 定义一个链接 -->
               <a href="/admin/accesses">资源管理</a>
             </li>
+          </ul>
+        </div>
+      </div>
+      <h2 class="accordion-header" id="heading">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse"
+          data-bs-target="#collapse2">内容管理</button>
+      </h2>
+      <div class="accordion-collapse collapse" id="collapse2">
+        <div class="accordion-body">
+          <ul class="list-group">
             <li class="list-group-item">
-              <a href="/admin/articles">文章管理</a>
+              <a href="/admin/tags">标签管理</a>
             </li>
             <li class="list-group-item">
               <a href="/admin/categories">分类管理</a>
             </li>
             <li class="list-group-item">
-              <a href="/admin/tags">标签管理</a>
+              <a href="/admin/articles">文章管理</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <h2 class="accordion-header" id="heading">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse3">设置</button>
+      </h2>
+      <div class="accordion-collapse collapse" id="collapse3">
+        <div class="accordion-body">
+          <ul class="list-group">
+            <li class="list-group-item">
+              <a href="/admin/settings">网站设置</a>
             </li>
           </ul>
         </div>

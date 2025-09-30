@@ -4730,5 +4730,400 @@ async exportExcel(@Query('search') search: string = '', @Query('page', new Parse
 </script>
 ```
 
+## 首頁设置(使用MongoDB)
 
+设置数据保存到mongodb中
+
+安装 mongodb 所用的库
+
+```bash
+npm install mongoose @nestjs/mongoose
+```
+
+添加环境变量
+
+```
+MONGO_HOST=localhost
+MONGO_PORT=27017
+MONGO_DB=cms
+MONGO_USER=root
+MONGO_PASSWORD=root
+```
+
+### configuration.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+@Injectable()
+export class ConfigurationService {
+  constructor(private configService: ConfigService) { }
+  get mysqlHost(): string {
+    return this.configService.get<string>('MYSQL_HOST')!;
+  }
+  get mysqlPort(): number {
+    return this.configService.get<number>('MYSQL_PORT')!;
+  }
+  get mysqlDb(): string {
+    return this.configService.get<string>('MYSQL_DB')!;
+  }
+  get mysqlUser(): string {
+    return this.configService.get<string>('MYSQL_USER')!;
+  }
+  get mysqlPass(): string {
+    return this.configService.get<string>('MYSQL_PASSWORD')!;
+  }
+  get mysqlConfig() {
+    return {
+      host: this.mysqlHost,
+      port: this.mysqlPort,
+      database: this.mysqlDb,
+      username: this.mysqlUser,
+      password: this.mysqlPass,
+    };
+  }
+  get mongodbHost(): string { // [!code ++]
+    return this.configService.get<string>('MONGO_HOST')!; // [!code ++]
+  } // [!code ++]
+  get mongodbPort(): number { // [!code ++]
+    return this.configService.get<number>('MONGO_PORT')!; // [!code ++]
+  } // [!code ++]
+  get mongodbDB(): string { // [!code ++]
+    return this.configService.get<string>('MONGO_DB')!; // [!code ++]
+  } // [!code ++]
+  get mongodbUser(): string { // [!code ++]
+    return this.configService.get<string>('MONGO_USER')!; // [!code ++]
+  } // [!code ++]
+  get mongodbPassword(): string { // [!code ++]
+    return this.configService.get<string>('MONGO_PASSWORD')!; // [!code ++]
+  } // [!code ++]
+  get mongodbConfig() { // [!code ++]
+    return { // [!code ++]
+      uri: `mongodb://${this.mongodbHost}:${this.mongodbPort}/${this.mongodbDB}` // [!code ++]
+    } // [!code ++]
+  } // [!code ++]
+}
+```
+
+### mongodb-base.service
+
+```ts
+import { Model } from 'mongoose';
+
+export abstract class MongoDBBaseService<T, C, U> {
+  constructor(
+    protected readonly model: Model<T>,
+  ) { }
+
+  async findAll() {
+    return await this.model.find();
+  }
+
+  async findOne(id: string) {
+    return await this.model.findById(id);
+  }
+
+  async create(createDto: C) {
+    const createdEntity = new this.model(createDto);
+    await createdEntity.save();
+    return createdEntity;
+  }
+
+  async update(id: string, updateDto: U) {
+    await this.model.findByIdAndUpdate(id, updateDto as any, { new: true });
+  }
+
+  async delete(id: string) {
+    await this.model.findByIdAndDelete(id);
+  }
+}
+```
+
+### setting.service
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { SettingDocument } from '../schemas/setting.schema';
+import { CreateSettingDto, UpdateSettingDto } from '../dtos/setting.dto';
+import { MongoDBBaseService } from './mongodb-base.service';
+
+@Injectable()
+export class SettingService extends MongoDBBaseService<SettingDocument, CreateSettingDto, UpdateSettingDto> {
+  constructor(@InjectModel('Setting') settingModel: Model<SettingDocument>) {
+    super(settingModel);
+  }
+  async findFirst(): Promise<SettingDocument | null> {
+    return await this.model.findOne().exec();
+  }
+}
+```
+
+### share.module
+
+```ts
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './entities/user.entity';
+import { ConfigModule } from '@nestjs/config';
+import { ConfigurationService } from './services/configuration.service';
+import { UserService } from './services/user.service';
+import { RoleService } from './services/role.service';
+import { AccessService } from "./services/access.service";
+import { UtilityService } from './services/utility.service';
+import { IsUsernameUniqueConstraint } from './validators/user-validators';
+import { Role } from './entities/role.entity';
+import { Access } from "./entities/access.entity";
+import { Article } from './entities/article.entity';
+import { Category } from './entities/category.entity';
+import { Tag } from './entities/tag.entity';
+import { ArticleService } from './services/article.service';
+import { CategoryService } from './services/category.service';
+import { TagService } from './services/tag.service';
+import { CosService } from './services/cos.service';
+import { NotificationService } from './services/notification.service';
+import { MailService } from './services/mail.service';
+import { WordExportService } from './services/word-export.service';
+import { PptExportService } from './services/ppt-export.service';
+import { ExcelExportService } from './services/excel-export.service'
+import { MongooseModule } from '@nestjs/mongoose'; // [!code ++]
+import { Setting, SettingSchema } from './schemas/setting.schema'; // [!code ++]
+import { SettingService } from './services/setting.service'; // [!code ++]
+
+@Global()
+@Module({
+    imports: [
+        ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
+        MongooseModule.forRootAsync({ // [!code ++]
+            inject: [ConfigurationService], // [!code ++]
+            useFactory: (configurationService: ConfigurationService) => ({ // [!code ++]
+                uri: configurationService.mongodbConfig.uri // [!code ++]
+            }), // [!code ++]
+        }), // [!code ++]
+        MongooseModule.forFeature([ // [!code ++]
+            { name: Setting.name, schema: SettingSchema }, // [!code ++]
+        ]), // [!code ++]
+        TypeOrmModule.forFeature([User, Role, Access, Article, Category, Tag]),
+        TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigurationService],
+            useFactory: (configService: ConfigurationService) => ({
+                type: 'mysql',
+                ...configService.mysqlConfig,
+                entities: [User, Role, Access, Article, Category, Tag],
+                synchronize: true,
+                autoLoadEntities: true,
+                logging: false
+            }),
+        }),
+    ],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService], // [!code ++]
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService], // [!code ++]
+})
+export class ShareModule {
+}
+```
+
+
+
+### setting.dto
+
+```ts
+import { ApiProperty } from '@nestjs/swagger';
+import { PartialType } from '@nestjs/mapped-types';
+
+export class CreateSettingDto {
+  @ApiProperty({ description: '网站名称', example: '我的网站' })
+  siteName: string;
+
+  @ApiProperty({ description: '网站描述', example: '这是我的个人网站' })
+  siteDescription: string;
+
+  @ApiProperty({ description: '联系邮箱', example: 'contact@example.com' })
+  contactEmail: string;
+}
+
+export class UpdateSettingDto extends PartialType(CreateSettingDto) {
+  id: string
+}
+```
+
+### setting.schema
+
+```ts
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument } from 'mongoose';
+export type SettingDocument = HydratedDocument<Setting>;
+@Schema()
+export class Setting {
+  id: string;
+  @Prop({ required: true })
+  siteName: string;
+  @Prop()
+  siteDescription: string;
+  @Prop()
+  contactEmail: string;
+}
+export const SettingSchema = SchemaFactory.createForClass(Setting);
+SettingSchema.virtual('id').get(function () {
+  return this._id.toHexString();
+});
+SettingSchema.set('toJSON', { virtuals: true });
+SettingSchema.set('toObject', { virtuals: true });
+```
+
+### setting.controller
+
+```ts
+import { Controller, Get, Post, Body, Render, Redirect } from '@nestjs/common';
+import { SettingService } from '../../share/services/setting.service';
+import { UpdateSettingDto } from '../../share/dtos/setting.dto';
+
+@Controller('admin/settings')
+export class SettingController {
+  constructor(private readonly settingService: SettingService) { }
+
+  @Get()
+  @Render('settings')
+  async getSettings() {
+    let settings = await this.settingService.findFirst();
+    if (!settings) {
+      settings = await this.settingService.create({
+        siteName: '默认网站名称',
+        siteDescription: '默认网站描述',
+        contactEmail: 'default@example.com',
+      });
+    }
+    return { settings };
+  }
+
+  @Post()
+  @Redirect('/admin/dashboard')
+  async updateSettings(@Body() updateSettingDto: UpdateSettingDto) {
+    await this.settingService.update(updateSettingDto.id, updateSettingDto);
+    return { success: true };
+  }
+}
+```
+
+### admin.module
+
+```ts
+import { Module } from '@nestjs/common';
+import { DashboardController } from './controllers/dashboard.controller';
+import { UserController } from './controllers/user.controller';
+import { AdminExceptionFilter } from './filters/admin-exception.filter';
+import { RoleController } from "./controllers/role.controller";
+import { AccessController } from "./controllers/access.controller";
+import { ArticleController } from './controllers/article.controller';
+import { CategoryController } from './controllers/category.controller';
+import { TagController } from './controllers/tag.controller';
+import { UploadController } from './controllers/upload.controller';
+import { SettingController } from './controllers/setting.controller'; // [!code ++]
+
+@Module({
+  controllers: [
+    DashboardController,
+    UserController,
+    RoleController,
+    AccessController,
+    ArticleController,
+    CategoryController,
+    TagController,
+    UploadController,
+    SettingController // [!code ++]
+  ],
+  providers: [{
+    provide: 'APP_FILTER',
+    useClass: AdminExceptionFilter,
+  }],
+})
+export class AdminModule { }
+```
+
+### sidebar.hbs
+
+```handlebars
+<div class="col-md-3 col-lg-2 p-0">
+  <div class="accordion" id="sidebarMenu">
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse"
+          data-bs-target="#collapse1">权限管理</button>
+      </h2>
+      <div class="accordion-collapse collapse" id="collapse1">
+        <div class="accordion-body">
+          <ul class="list-group">
+            <li class="list-group-item">
+              <a href="/admin/users">用户管理</a>
+            </li>
+            <li class="list-group-item">
+              <a href="/admin/roles">角色管理</a>
+            </li>
+            <li class="list-group-item">
+              <a href="/admin/accesses">资源管理</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <h2 class="accordion-header" id="heading">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse"
+          data-bs-target="#collapse2">内容管理</button>
+      </h2>
+      <div class="accordion-collapse collapse" id="collapse2">
+        <div class="accordion-body">
+          <ul class="list-group">
+            <li class="list-group-item">
+              <a href="/admin/tags">标签管理</a>
+            </li>
+            <li class="list-group-item">
+              <a href="/admin/categories">分类管理</a>
+            </li>
+            <li class="list-group-item">
+              <a href="/admin/articles">文章管理</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <h2 class="accordion-header" id="heading">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse3">设置</button>
+      </h2>
+      <div class="accordion-collapse collapse" id="collapse3">
+        <div class="accordion-body">
+          <ul class="list-group">
+            <li class="list-group-item">
+              <a href="/admin/settings">网站设置</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+### settings.hbs
+
+```handlebars
+<form action="/admin/settings" method="post">
+  <input type="hidden" name="id" value="{{settings.id}}">
+  <div class="mb-3">
+    <label for="siteName" class="form-label">网站名称</label>
+    <input type="text" class="form-control" id="siteName" name="siteName" value="{{settings.siteName}}" required>
+  </div>
+  <div class="mb-3">
+    <label for="siteDescription" class="form-label">网站描述</label>
+    <input type="text" class="form-control" id="siteDescription" name="siteDescription"
+      value="{{settings.siteDescription}}" required>
+  </div>
+  <div class="mb-3">
+    <label for="contactEmail" class="form-label">联系邮箱</label>
+    <input type="email" class="form-control" id="contactEmail" name="contactEmail" value="{{settings.contactEmail}}"
+      required>
+  </div>
+  <button type="submit" class="btn btn-primary">保存设置</button>
+</form>
+```
 

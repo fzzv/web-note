@@ -8,6 +8,7 @@ import { ArticleController } from './controllers/article.controller';
 import { CategoryController } from './controllers/category.controller';
 import { TagController } from './controllers/tag.controller';
 import { UploadController } from './controllers/upload.controller';
+import { SettingController } from './controllers/setting.controller';
 
 @Module({
   controllers: [
@@ -18,7 +19,8 @@ import { UploadController } from './controllers/upload.controller';
     ArticleController,
     CategoryController,
     TagController,
-    UploadController
+    UploadController,
+    SettingController
   ],
   providers: [{
     provide: 'APP_FILTER',
