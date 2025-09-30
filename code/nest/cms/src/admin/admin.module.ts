@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { DashboardController } from './controllers/dashboard.controller';
 import { UserController } from './controllers/user.controller';
 import { AdminExceptionFilter } from './filters/admin-exception.filter';
@@ -10,6 +10,7 @@ import { TagController } from './controllers/tag.controller';
 import { UploadController } from './controllers/upload.controller';
 import { SettingController } from './controllers/setting.controller';
 import { AuthController } from './controllers/auth.controller';
+import { AuthMiddleware } from './middlewares/auth.middleware';
 
 @Module({
   controllers: [
@@ -29,4 +30,9 @@ import { AuthController } from './controllers/auth.controller';
     useClass: AdminExceptionFilter,
   }],
 })
-export class AdminModule { }
+export class AdminModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(AuthMiddleware).exclude('/admin/login', '/admin/captcha', '/admin/logout').forRoutes('/admin/*');
+  }
+}
