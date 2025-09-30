@@ -185,3 +185,87 @@
     });
   });
 </script>
+<!-- 系统状态整体展示 -->
+<div class="row mb-4">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-header">系统状态</div>
+      <div class="card-body" id="system-status">
+        <div>正在获取系统状态数据...</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script id="system-status-template" type="text/x-handlebars-template">
+   <div class="row">
+       <div class="col-md-4">
+           <h5>服务器信息</h5>
+           <table class="table table-striped">
+               <tr><th>主机名</th><td>\{{server.hostname}}</td></tr>
+               <tr><th>IP 地址</th><td>\{{server.ip}}</td></tr>
+               <tr><th>操作系统</th><td>\{{server.os}}</td></tr>
+               <tr><th>架构</th><td>\{{server.arch}}</td></tr>
+           </table>
+       </div>
+       <div class="col-md-4">
+           <h5>CPU 状态</h5>
+           <table class="table table-striped">
+               <tr><th>核心数</th><td>\{{cpu.cores}}</td></tr>
+               <tr><th>用户占用率</th><td>\{{cpu.userLoad}}%</td></tr>
+               <tr><th>系统占用率</th><td>\{{cpu.systemLoad}}%</td></tr>
+               <tr><th>空闲率</th><td>\{{cpu.idle}}%</td></tr>
+           </table>
+       </div>
+       <div class="col-md-4">
+           <h5>内存状态</h5>
+           <table class="table table-striped">
+               <tr><th>总内存</th><td>\{{memory.total}} GB</td></tr>
+               <tr><th>已用内存</th><td>\{{memory.used}} GB</td></tr>
+               <tr><th>剩余内存</th><td>\{{memory.free}} GB</td></tr>
+               <tr><th>使用率</th><td>\{{memory.usage}}%</td></tr>
+           </table>
+       </div>
+   </div>
+   <div class="row">
+       <div class="col-md-12">
+           <h5>磁盘状态</h5>
+           <table class="table table-striped">
+               <thead><tr><th>挂载点</th><th>总空间</th><th>已用</th><th>使用率</th></tr></thead>
+               <tbody>
+                   \{{#each disks}}
+                   <tr>
+                       <td>\{{this.mount}}</td>
+                       <td>\{{this.size}} GB</td>
+                       <td>\{{this.used}} GB</td>
+                       <td>\{{this.usage}}%</td>
+                   </tr>
+                   \{{/each}}
+               </tbody>
+           </table>
+       </div>
+   </div>
+</script>
+<script type="text/javascript">
+  $(function () {
+    // 创建一个新的 EventSource 实例，用于从 '/admin/dashboard/systemInfo' 端点接收服务器发送的事件
+    const eventSource = new EventSource('/admin/dashboard/systemInfo');
+    // 获取存储在 HTML 中的 Handlebars 模板内容
+    const source = $('#system-status-template').html();
+    // 使用 Handlebars 编译模板，将其转换为一个可以渲染数据的函数
+    const template = Handlebars.compile(source);
+    // 当接收到服务器发送的消息时触发该函数
+    eventSource.onmessage = function (event) {
+      // 将接收到的 JSON 数据字符串解析为 JavaScript 对象
+      const systemInfo = JSON.parse(event.data);
+      // 使用 Handlebars 模板将系统信息渲染为 HTML
+      const html = template(systemInfo);
+      // 将生成的 HTML 内容插入到页面中 ID 为 'system-status' 的元素中
+      $('#system-status').html(html);
+    };
+    // 当发生错误时触发该函数
+    eventSource.onerror = function () {
+      // 显示错误信息，表示无法获取系统状态数据
+      $('#system-status').html('<div>获取系统状态数据失败</div>');
+    };
+  });
+</script>

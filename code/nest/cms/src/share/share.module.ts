@@ -27,6 +27,7 @@ import { Setting, SettingSchema } from './schemas/setting.schema';
 import { SettingService } from './services/setting.service';
 import { DashboardService } from './services/dashboard.service';
 import { WeatherService } from './services/weather.service';
+import { SystemService } from './services/system.service';
 
 @Global()
 @Module({
@@ -55,8 +56,8 @@ import { WeatherService } from './services/weather.service';
             }),
         }),
     ],
-    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService, WeatherService],
-    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService, WeatherService],
+    providers: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService, WeatherService, SystemService],
+    exports: [ConfigurationService, UserService, UtilityService, IsUsernameUniqueConstraint, RoleService, AccessService, ArticleService, CategoryService, TagService, CosService, NotificationService, MailService, WordExportService, PptExportService, ExcelExportService, SettingService, DashboardService, WeatherService, SystemService],
 })
 export class ShareModule {
 }

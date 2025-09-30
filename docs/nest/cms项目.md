@@ -5242,3 +5242,230 @@ export class DashboardController {
 </script> // [!code ++]
 ```
 
+## 系统状态
+
+```bash
+npm install systeminformation
+```
+
+### system.service
+
+```ts
+// 导入 Injectable 装饰器，表示该类可以被依赖注入
+import { Injectable } from '@nestjs/common';
+// 导入 systeminformation 模块，用于获取系统信息
+import si from 'systeminformation';
+
+// 使用 Injectable 装饰器，将此类标记为可注入服务
+@Injectable()
+export class SystemService {
+  // 私有方法，将字节值格式化为GB，保留两位小数
+  private formatToGB(value: number) {
+    return (value / (1024 ** 3)).toFixed(2);
+  }
+
+  // 异步方法，获取系统信息
+  async getSystemInfo() {
+    // 获取当前CPU负载信息
+    const cpu = await si.currentLoad();
+    // 获取内存使用情况
+    const memory = await si.mem();
+    // 获取磁盘使用情况
+    const disk = await si.fsSize();
+    // 获取操作系统信息
+    const osInfo = await si.osInfo();
+    // 获取网络接口信息
+    const networkInterfaces = await si.networkInterfaces();
+
+    // 返回格式化后的系统信息
+    return {
+      // CPU信息
+      cpu: {
+        // CPU核心数
+        cores: cpu.cpus.length,
+        // 用户进程占用的CPU负载百分比
+        userLoad: cpu.currentLoadUser.toFixed(2),
+        // 系统进程占用的CPU负载百分比
+        systemLoad: cpu.currentLoadSystem.toFixed(2),
+        // 空闲的CPU负载百分比
+        idle: cpu.currentLoadIdle.toFixed(2),
+      },
+      // 内存信息
+      memory: {
+        // 总内存，单位GB
+        total: this.formatToGB(memory.total),
+        // 已使用内存，单位GB
+        used: this.formatToGB(memory.used),
+        // 空闲内存，单位GB
+        free: this.formatToGB(memory.free),
+        // 内存使用率，单位百分比
+        usage: ((memory.used / memory.total) * 100).toFixed(2),
+      },
+      // 磁盘信息
+      disks: disk.map(d => ({
+        // 挂载点
+        mount: d.mount,
+        // 文件系统类型
+        filesystem: d.fs,
+        // 磁盘类型
+        type: d.type,
+        // 磁盘总大小，单位GB
+        size: this.formatToGB(d.size),
+        // 已使用空间，单位GB
+        used: this.formatToGB(d.used),
+        // 可用空间，单位GB
+        available: this.formatToGB(d.available),
+        // 磁盘使用率，单位百分比
+        usage: d.use.toFixed(2),
+      })),
+      // 服务器信息
+      server: {
+        // 主机名
+        hostname: osInfo.hostname,
+        // IP地址，若无网络接口则返回 'N/A'
+        ip: networkInterfaces[0]?.ip4 || 'N/A',
+        // 操作系统发行版
+        os: osInfo.distro,
+        // 系统架构类型
+        arch: osInfo.arch,
+      }
+    };
+  }
+}
+```
+
+在share.service中注入
+
+### dashboard.controller
+
+```ts
+import { Controller, Get, Render, Sse } from '@nestjs/common';
+import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { DashboardService } from '../../share/services/dashboard.service';
+import { WeatherService } from '../../share/services/weather.service';
+import { interval, map, mergeMap } from 'rxjs';
+import { SystemService } from '../../share/services/system.service'; // [!code ++]
+
+@ApiTags('admin/dashboard')
+@Controller('admin')
+export class DashboardController {
+
+  constructor(private readonly dashboardService: DashboardService, private readonly weatherService: WeatherService, private readonly systemService: SystemService) { } // [!code ++]
+
+  @Get('dashboard')
+  @ApiCookieAuth()
+  @ApiOperation({ summary: '管理后台仪表盘' })
+  @ApiResponse({ status: 200, description: '成功返回仪表盘页面' })
+  @Render('dashboard')
+  async dashboard() {
+    return await this.dashboardService.getDashboardData();
+  }
+
+  @Get('dashboard/weather')
+  async getWeather() {
+    const weather = await this.weatherService.getWeather();
+    return { weather };
+  }
+
+  @Sse('dashboard/systemInfo') // [!code ++]
+  systemInfo() { // [!code ++]
+    return interval(3000).pipe( // [!code ++]
+      mergeMap(() => this.systemService.getSystemInfo()), // [!code ++]
+      map((systemInfo) => ({ data: systemInfo })) // [!code ++]
+    ); // [!code ++]
+  } // [!code ++]
+}
+```
+
+### dashboard.hbs
+
+```handlebars
+<!-- 系统状态整体展示 -->
+<div class="row mb-4">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-header">系统状态</div>
+      <div class="card-body" id="system-status">
+        <div>正在获取系统状态数据...</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script id="system-status-template" type="text/x-handlebars-template">
+   <div class="row">
+       <div class="col-md-4">
+           <h5>服务器信息</h5>
+           <table class="table table-striped">
+               <tr><th>主机名</th><td>\{{server.hostname}}</td></tr>
+               <tr><th>IP 地址</th><td>\{{server.ip}}</td></tr>
+               <tr><th>操作系统</th><td>\{{server.os}}</td></tr>
+               <tr><th>架构</th><td>\{{server.arch}}</td></tr>
+           </table>
+       </div>
+       <div class="col-md-4">
+           <h5>CPU 状态</h5>
+           <table class="table table-striped">
+               <tr><th>核心数</th><td>\{{cpu.cores}}</td></tr>
+               <tr><th>用户占用率</th><td>\{{cpu.userLoad}}%</td></tr>
+               <tr><th>系统占用率</th><td>\{{cpu.systemLoad}}%</td></tr>
+               <tr><th>空闲率</th><td>\{{cpu.idle}}%</td></tr>
+           </table>
+       </div>
+       <div class="col-md-4">
+           <h5>内存状态</h5>
+           <table class="table table-striped">
+               <tr><th>总内存</th><td>\{{memory.total}} GB</td></tr>
+               <tr><th>已用内存</th><td>\{{memory.used}} GB</td></tr>
+               <tr><th>剩余内存</th><td>\{{memory.free}} GB</td></tr>
+               <tr><th>使用率</th><td>\{{memory.usage}}%</td></tr>
+           </table>
+       </div>
+   </div>
+   <div class="row">
+       <div class="col-md-12">
+           <h5>磁盘状态</h5>
+           <table class="table table-striped">
+               <thead><tr><th>挂载点</th><th>总空间</th><th>已用</th><th>使用率</th></tr></thead>
+               <tbody>
+                   \{{#each disks}}
+                   <tr>
+                       <td>\{{this.mount}}</td>
+                       <td>\{{this.size}} GB</td>
+                       <td>\{{this.used}} GB</td>
+                       <td>\{{this.usage}}%</td>
+                   </tr>
+                   \{{/each}}
+               </tbody>
+           </table>
+       </div>
+   </div>
+</script>
+<script type="text/javascript">
+  $(function () {
+    // 创建一个新的 EventSource 实例，用于从 '/admin/dashboard/systemInfo' 端点接收服务器发送的事件
+    const eventSource = new EventSource('/admin/dashboard/systemInfo');
+    // 获取存储在 HTML 中的 Handlebars 模板内容
+    const source = $('#system-status-template').html();
+    // 使用 Handlebars 编译模板，将其转换为一个可以渲染数据的函数
+    const template = Handlebars.compile(source);
+    // 当接收到服务器发送的消息时触发该函数
+    eventSource.onmessage = function (event) {
+      // 将接收到的 JSON 数据字符串解析为 JavaScript 对象
+      const systemInfo = JSON.parse(event.data);
+      // 使用 Handlebars 模板将系统信息渲染为 HTML
+      const html = template(systemInfo);
+      // 将生成的 HTML 内容插入到页面中 ID 为 'system-status' 的元素中
+      $('#system-status').html(html);
+    };
+    // 当发生错误时触发该函数
+    eventSource.onerror = function () {
+      // 显示错误信息，表示无法获取系统状态数据
+      $('#system-status').html('<div>获取系统状态数据失败</div>');
+    };
+  });
+</script>
+```
+
+## 首页最终效果
+
+![image-20250930112614605](cms%E9%A1%B9%E7%9B%AE.assets/image-20250930112614605.png)
