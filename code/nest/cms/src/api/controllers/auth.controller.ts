@@ -1,10 +1,12 @@
 // 导入所需的装饰器、模块和服务
-import { Controller, Post, Body, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Controller, Post, Body, Res, Request, UseGuards, Get } from '@nestjs/common';
+import type { Response, Request as ExpressRequest } from 'express';
 import { UserService } from '../../share/services/user.service';
 import { UtilityService } from '../../share/services/utility.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigurationService } from 'src/share/services/configuration.service';
+import { AuthGuard } from '../guards/auth.guard';
+
 // 声明控制器，路由前缀为 'api/auth'
 @Controller('api/auth')
 export class AuthController {
@@ -53,5 +55,10 @@ export class AuthController {
     });
     // 返回令牌信息
     return { access_token };
+  }
+  @UseGuards(AuthGuard)
+  @Get('profile')
+  getProfile(@Request() req: ExpressRequest, @Res() res: Response) {
+    return res.json({ user: req.user });
   }
 }

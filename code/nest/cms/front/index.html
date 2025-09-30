@@ -15,7 +15,25 @@
 </head>
 
 <body>
-  Home
+  <header class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">CMS首页</a>
+      <div class="d-flex" hx-get="/api/auth/profile" hx-trigger="load" hx-ext="client-side-templates"
+        handlebars-template="profile-template" hx-swap="outerHTML">
+      </div>
+    </div>
+  </header>
+  <script id="profile-template" type="text/x-handlebars-template">
+    <span>欢迎, {{user.username}}</span>
+  </script>
+  <script>
+    $('body').on('htmx:configRequest', function (event) {
+      const accessToken = localStorage.getItem('access_token');
+      if (accessToken) {
+        event.detail.headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+    }); 
+  </script>
 </body>
 
 </html>
