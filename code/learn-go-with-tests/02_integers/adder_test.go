@@ -13,6 +13,7 @@ func TestAdder(t *testing.T) {
 	}
 }
 
+// Example方法可以在 godoc 的example中显示
 func ExampleAdd() {
 	sum := Add(1, 5)
 	fmt.Println(sum)
