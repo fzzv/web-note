@@ -344,7 +344,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3306/security_demo?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
-    password: Fan0124.
+    password: password
 # MyBatis配置
 mybatis:
   #mapper配置文件

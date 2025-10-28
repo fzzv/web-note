@@ -14,7 +14,7 @@ import { RedisModule } from './redis/redis.module';
       host: 'localhost',
       port: 3306,
       username: 'root',
-      password: 'Fan0124.',
+      password: 'password',
       database: 'following',
       synchronize: true, // 根据同步建表，也就是当 database 里没有和 Entity 对应的表的时候，会自动生成建表 sql 语句并执行
       logging: true, // 打印生成的 sql 语句

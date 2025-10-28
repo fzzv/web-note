@@ -7,7 +7,7 @@ const dialect = new MysqlDialect({
     database: 'kysely',
     host: 'localhost',
     user: 'root',
-    password: 'Fan0124.',
+    password: 'password',
     port: 3306,
     connectionLimit: 10,
   }) as unknown as MysqlPool
