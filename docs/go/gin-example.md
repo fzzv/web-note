@@ -1,4 +1,4 @@
-# Gin
+# Gin-Example
 
 > 目标：写一个博客的接口
 
@@ -475,3 +475,238 @@ func DeleteArticle(c *gin.Context) {
 }
 ```
 
+## jwt
+
+### 编写jwt工具包
+
+- GenerateToken：根据用户名和密码生成 token
+- ParseToken：解析 token
+
+```go
+package util
+
+import (
+	"time"
+
+	jwt "github.com/dgrijalva/jwt-go"
+
+	"github.com/fzzv/go-gin-example/pkg/setting"
+)
+
+var jwtSecret = []byte(setting.JwtSecret)
+
+type Claims struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	jwt.StandardClaims
+}
+
+func GenerateToken(username, password string) (string, error) {
+	nowTime := time.Now()
+	expireTime := nowTime.Add(3 * time.Hour)
+
+	claims := Claims{
+		username,
+		password,
+		jwt.StandardClaims{
+			ExpiresAt: expireTime.Unix(),
+			Issuer:    "gin-blog",
+		},
+	}
+
+	/*
+		NewWithClaims(method SigningMethod, claims Claims)，
+		method对应着SigningMethodHMAC  struct{}，
+		其包含SigningMethodHS256、SigningMethodHS384、SigningMethodHS512三种crypto.Hash方案
+	*/
+	tokenClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// SignedString方法内部生成签名字符串，再用于获取完整、已签名的token
+	token, err := tokenClaims.SignedString(jwtSecret)
+
+	return token, err
+}
+
+/*
+用于解析鉴权的声明，方法内部主要是具体的解码和校验的过程，最终返回*Token
+*/
+func ParseToken(token string) (*Claims, error) {
+	tokenClaims, err := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return jwtSecret, nil
+	})
+
+	if tokenClaims != nil {
+		// Valid 验证基于时间的声明exp, iat, nbf，注意如果没有任何声明在令牌中，仍然会被认为是有效的。并且对于时区偏差没有计算方法
+		if claims, ok := tokenClaims.Claims.(*Claims); ok && tokenClaims.Valid {
+			return claims, nil
+		}
+	}
+
+	return nil, err
+}
+```
+
+### 编写jwt中间件
+
+```go
+package jwt
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/fzzv/go-gin-example/pkg/e"
+	"github.com/fzzv/go-gin-example/pkg/util"
+)
+
+// jwt中间件
+func JWT() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var code int
+		var data interface{}
+
+		code = e.SUCCESS
+		token := c.Query("token")
+		if token == "" {
+			code = e.INVALID_PARAMS
+		} else {
+			// 解析 token
+			claims, err := util.ParseToken(token)
+			if err != nil {
+				code = e.ERROR_AUTH_CHECK_TOKEN_FAIL
+			} else if time.Now().Unix() > claims.ExpiresAt {
+				// 判断token是否过期
+				code = e.ERROR_AUTH_CHECK_TOKEN_TIMEOUT
+			}
+		}
+
+		if code != e.SUCCESS {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code": code,
+				"msg":  e.GetMsg(code),
+				"data": data,
+			})
+
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+```
+
+### 获取token的接口
+
+```go
+package api
+
+import (
+	"log"
+	"net/http"
+
+	"github.com/astaxie/beego/validation"
+	"github.com/gin-gonic/gin"
+
+	"github.com/fzzv/go-gin-example/models"
+	"github.com/fzzv/go-gin-example/pkg/e"
+	"github.com/fzzv/go-gin-example/pkg/util"
+)
+
+type auth struct {
+	Username string `valid:"Required; MaxSize(50)"`
+	Password string `valid:"Required; MaxSize(50)"`
+}
+
+func GetAuth(c *gin.Context) {
+	username := c.Query("username")
+	password := c.Query("password")
+
+	valid := validation.Validation{}
+	a := auth{Username: username, Password: password}
+	ok, _ := valid.Valid(&a)
+
+	data := make(map[string]interface{})
+	code := e.INVALID_PARAMS
+	if ok {
+		isExist := models.CheckAuth(username, password)
+		if isExist {
+			token, err := util.GenerateToken(username, password)
+			if err != nil {
+				code = e.ERROR_AUTH_TOKEN
+			} else {
+				data["token"] = token
+
+				code = e.SUCCESS
+			}
+
+		} else {
+			code = e.ERROR_AUTH
+		}
+	} else {
+		for _, err := range valid.Errors {
+			log.Println(err.Key, err.Message)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": code,
+		"msg":  e.GetMsg(code),
+		"data": data,
+	})
+}
+```
+
+### 使用中间件
+
+```go
+package routers
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/fzzv/go-gin-example/middleware/jwt" // [!code ++]
+	"github.com/fzzv/go-gin-example/pkg/setting"
+	"github.com/fzzv/go-gin-example/routers/api"
+	v1 "github.com/fzzv/go-gin-example/routers/api/v1"
+)
+
+func InitRouter() *gin.Engine {
+	r := gin.New()
+
+	r.Use(gin.Logger())
+
+	r.Use(gin.Recovery())
+
+	gin.SetMode(setting.RunMode)
+
+	r.GET("/auth", api.GetAuth)
+
+	apiv1 := r.Group("/api/v1")
+	// 将中间件接入到Gin的访问流程中
+	apiv1.Use(jwt.JWT()) // [!code ++]
+	{
+		//获取标签列表
+		apiv1.GET("/tags", v1.GetTags)
+		//新建标签
+		apiv1.POST("/tags", v1.AddTag)
+		//更新指定标签
+		apiv1.PUT("/tags/:id", v1.EditTag)
+		//删除指定标签
+		apiv1.DELETE("/tags/:id", v1.DeleteTag)
+		//获取文章列表
+		apiv1.GET("/articles", v1.GetArticles)
+		//获取指定文章
+		apiv1.GET("/articles/:id", v1.GetArticle)
+		//新建文章
+		apiv1.POST("/articles", v1.AddArticle)
+		//更新指定文章
+		apiv1.PUT("/articles/:id", v1.EditArticle)
+		//删除指定文章
+		apiv1.DELETE("/articles/:id", v1.DeleteArticle)
+	}
+
+	return r
+}
+```
