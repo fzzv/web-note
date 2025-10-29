@@ -1,7 +1,6 @@
-# Day2 学习笔记（函数、方法、指针/结构体、组合与可见性）
+# 函数、方法、指针/结构体、组合与可见性
 
 > 代码参考：`code/go/day2`
-> 建议：先快速浏览要点，再对照示例运行与改动。
 
 ## 1. 核心要点速览
 - 函数：多返回值很常见；错误用 `error` 返回值承载；支持可变参数 `...T`；命名返回值谨慎使用。
@@ -58,7 +57,3 @@ if err != nil { return nil, err }
 - 方法集差异：`T` 与 `*T` 的方法集不同；接口实现取决于方法集。
 - `nil` 与空切片：打印一样但行为不同，序列化/反射时需留意。
 - `map` 并发写：非线程安全；需要锁或 `sync.Map`。
-
-参考：
-- Tour of Go（Functions/Methods）
-- Effective Go（Functions、Methods、Embedding、Packages） 
