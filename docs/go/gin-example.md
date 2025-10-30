@@ -1078,5 +1078,134 @@ go build main.go
 >
 > github.com\fvbock\endless@v0.0.0-20170109170031-447134032cb6\endless.go:64:11: undefined: syscall.Kill
 
+## swagger
 
+```shell
+go install github.com/swaggo/swag/cmd/swag@latest
+```
+
+需要将`$GOPATH/bin`下的`swag.exe` 复制一份到 `$GOROOT/bin`下，验证是否成功
+
+```shell
+swag -v
+```
+
+安装 gin-swagger
+
+```shell
+go get -u github.com/swaggo/gin-swagger
+go get -u github.com/swaggo/files
+```
+
+`gin-swagger` 给出的范例：
+
+```go
+// @Summary Add a new pet to the store
+// @Description get string by ID
+// @Accept  json
+// @Produce  json
+// @Param   some_id     path    int     true        "Some ID"
+// @Success 200 {string} string    "ok"
+// @Failure 400 {object} web.APIError "We need ID!!"
+// @Failure 404 {object} web.APIError "Can not find ID"
+// @Router /testapi/get-string-by-int/{some_id} [get]
+```
+
+将相应的注释或注解编写到方法上
+
+```go
+// @Summary 新增文章标签
+// @Produce  json
+// @Param name query string true "Name"
+// @Param state query int false "State"
+// @Param created_by query int false "CreatedBy"
+// @Success 200 {string} json "{"code":200,"data":{},"msg":"ok"}"
+// @Router /api/v1/tags [post]
+func AddArticle(c *gin.Context) {...}
+```
+
+routes中添加配置
+
+```go
+package routers
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/fzzv/go-gin-example/middleware/jwt"
+	"github.com/fzzv/go-gin-example/pkg/setting"
+	"github.com/fzzv/go-gin-example/routers/api"
+	v1 "github.com/fzzv/go-gin-example/routers/api/v1"
+	swaggerFiles "github.com/swaggo/files" // [!code ++]
+	ginSwagger "github.com/swaggo/gin-swagger" // [!code ++]
+)
+
+func InitRouter() *gin.Engine {
+	r := gin.New()
+
+	r.Use(gin.Logger())
+
+	r.Use(gin.Recovery())
+
+	gin.SetMode(setting.RunMode)
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler)) // [!code ++]
+
+	r.GET("/auth", api.GetAuth)
+
+	apiv1 := r.Group("/api/v1")
+	// 将中间件接入到Gin的访问流程中
+	apiv1.Use(jwt.JWT())
+	{
+		//获取标签列表
+		apiv1.GET("/tags", v1.GetTags)
+		//新建标签
+		apiv1.POST("/tags", v1.AddTag)
+		//更新指定标签
+		apiv1.PUT("/tags/:id", v1.EditTag)
+		//删除指定标签
+		apiv1.DELETE("/tags/:id", v1.DeleteTag)
+		//获取文章列表
+		apiv1.GET("/articles", v1.GetArticles)
+		//获取指定文章
+		apiv1.GET("/articles/:id", v1.GetArticle)
+		//新建文章
+		apiv1.POST("/articles", v1.AddArticle)
+		//更新指定文章
+		apiv1.PUT("/articles/:id", v1.EditArticle)
+		//删除指定文章
+		apiv1.DELETE("/articles/:id", v1.DeleteArticle)
+	}
+
+	return r
+}
+```
+
+再利用生成器自动生成说明文件
+
+```shell
+swag init
+```
+
+生成了docs目录
+
+访问swagger页面[http://127.0.0.1:8000/swagger/index.html](http://127.0.0.1:8000/swagger/index.html)
+
+发生错误
+
+![image-20251030104555292](gin-example.assets/image-20251030104555292.png)
+
+需要在`main.go`中引入 docs
+
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+
+	_ "github.com/fzzv/go-gin-example/docs" // [!code ++]
+	"github.com/fzzv/go-gin-example/pkg/setting"
+	"github.com/fzzv/go-gin-example/routers"
+)
+```
 
