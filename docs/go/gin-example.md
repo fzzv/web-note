@@ -710,3 +710,218 @@ func InitRouter() *gin.Engine {
 	return r
 }
 ```
+
+## 简单的文件日志
+
+`file.go`
+
+```go
+package logging
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"time"
+)
+
+var (
+	LogSavePath = "runtime/logs/"
+	LogSaveName = "log"
+	LogFileExt  = "log"
+	TimeFormat  = "20060102"
+)
+
+func getLogFilePath() string {
+	return fmt.Sprint(LogSavePath)
+}
+
+func getLogFileFullPath() string {
+	prefixPath := getLogFilePath()
+	suffixPath := fmt.Sprintf("%s%s.%s", LogSaveName, time.Now().Format(TimeFormat), LogFileExt)
+
+	return fmt.Sprintf("%s%s", prefixPath, suffixPath)
+}
+
+func openLogFile(filePath string) *os.File {
+	// os.Stat 返回文件信息结构描述文件。如果出现错误，会返回`*PathError`
+	_, err := os.Stat(filePath)
+	switch {
+	// 能够接受`ErrNotExist`、`syscall`的一些错误，它会返回一个布尔值，能够得知文件不存在或目录不存在
+	case os.IsNotExist(err):
+		mkDir()
+	// 能够接受`ErrPermission`、`syscall`的一些错误，它会返回一个布尔值，能够得知权限是否满足
+	case os.IsPermission(err):
+		log.Fatalf("Permission :%v", err)
+	}
+
+	// 调用文件，支持传入文件名称、指定的模式调用文件、文件权限，返回的文件的方法可以用于I/O。如果出现错误，则为`*PathError`
+	handle, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Fail to OpenFile :%v", err)
+	}
+
+	return handle
+}
+
+func mkDir() {
+	// 返回与当前目录对应的根路径名
+	dir, _ := os.Getwd()
+	// 创建对应的目录以及所需的子目录，若成功则返回`nil`，否则返回`error`
+	err := os.MkdirAll(dir+"/"+getLogFilePath(), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+}
+```
+
+- `os.Stat`：返回文件信息结构描述文件。如果出现错误，会返回`*PathError`
+
+  ```go
+  type PathError struct {
+    Op   string
+    Path string
+    Err  error
+  }
+  ```
+
+- `os.IsNotExist`：能够接受`ErrNotExist`、`syscall`的一些错误，它会返回一个布尔值，能够得知文件不存在或目录不存在
+
+- `os.IsPermission`：能够接受`ErrPermission`、`syscall`的一些错误，它会返回一个布尔值，能够得知权限是否满足
+
+- `os.OpenFile`：调用文件，支持传入文件名称、指定的模式调用文件、文件权限，返回的文件的方法可以用于I/O。如果出现错误，则为`*PathError`。
+
+```go
+const (
+    // Exactly one of O_RDONLY, O_WRONLY, or O_RDWR must be specified.
+    O_RDONLY int = syscall.O_RDONLY // 以只读模式打开文件
+    O_WRONLY int = syscall.O_WRONLY // 以只写模式打开文件
+    O_RDWR   int = syscall.O_RDWR   // 以读写模式打开文件
+    // The remaining values may be or'ed in to control behavior.
+    O_APPEND int = syscall.O_APPEND // 在写入时将数据追加到文件中
+    O_CREATE int = syscall.O_CREAT  // 如果不存在，则创建一个新文件
+    O_EXCL   int = syscall.O_EXCL   // 使用O_CREATE时，文件必须不存在
+    O_SYNC   int = syscall.O_SYNC   // 同步IO
+    O_TRUNC  int = syscall.O_TRUNC  // 如果可以，打开时
+)
+```
+
+- `os.Getwd`：返回与当前目录对应的根路径名
+- `os.MkdirAll`：创建对应的目录以及所需的子目录，若成功则返回`nil`，否则返回`error`
+- `os.ModePerm`：`const`定义`ModePerm FileMode = 0777`
+
+`log.go`
+
+```go
+package logging
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
+)
+
+type Level int
+
+var (
+	F *os.File
+
+	DefaultPrefix      = ""
+	DefaultCallerDepth = 2
+
+	logger     *log.Logger
+	logPrefix  = ""
+	levelFlags = []string{"DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
+)
+
+const (
+	DEBUG Level = iota
+	INFO
+	WARNING
+	ERROR
+	FATAL
+)
+
+func init() {
+	filePath := getLogFileFullPath()
+	F = openLogFile(filePath)
+
+	// log.New 创建一个新的日志记录器。`out`定义要写入日志数据的`IO`句柄。
+	// `prefix`定义每个生成的日志行的开头。`flag`定义了日志记录属性
+	// log.LstdFlags 日志记录的格式属性之一
+	logger = log.New(F, DefaultPrefix, log.LstdFlags)
+}
+
+func Debug(v ...interface{}) {
+	setPrefix(DEBUG)
+	logger.Println(v...)
+}
+
+func Info(v ...interface{}) {
+	setPrefix(INFO)
+	logger.Println(v...)
+}
+
+func Warn(v ...interface{}) {
+	setPrefix(WARNING)
+	logger.Println(v...)
+}
+
+func Error(v ...interface{}) {
+	setPrefix(ERROR)
+	logger.Println(v...)
+}
+
+func Fatal(v ...interface{}) {
+	setPrefix(FATAL)
+	logger.Fatalln(v...)
+}
+
+func setPrefix(level Level) {
+	_, file, line, ok := runtime.Caller(DefaultCallerDepth)
+	if ok {
+		logPrefix = fmt.Sprintf("[%s][%s:%d]", levelFlags[level], filepath.Base(file), line)
+	} else {
+		logPrefix = fmt.Sprintf("[%s]", levelFlags[level])
+	}
+
+	logger.SetPrefix(logPrefix)
+}
+```
+
+- `log.New`：创建一个新的日志记录器。`out`定义要写入日志数据的`IO`句柄。`prefix`定义每个生成的日志行的开头。`flag`定义了日志记录属性
+
+  ```go
+  func New(out io.Writer, prefix string, flag int) *Logger {
+    return &Logger{out: out, prefix: prefix, flag: flag}
+  }
+  ```
+
+- `log.LstdFlags`：日志记录的格式属性之一，其余的选项如下
+
+  ```go
+  const (
+    Ldate         = 1 << iota     // the date in the local time zone: 2009/01/23
+    Ltime                         // the time in the local time zone: 01:23:23
+    Lmicroseconds                 // microsecond resolution: 01:23:23.123123.  assumes Ltime.
+    Llongfile                     // full file name and line number: /a/b/c/d.go:23
+    Lshortfile                    // final file name element and line number: d.go:23. overrides Llongfile
+    LUTC                          // if Ldate or Ltime is set, use UTC rather than the local time zone
+    LstdFlags     = Ldate | Ltime // initial values for the standard logger
+  )
+  ```
+
+使用自己编写的 `logging` 包
+
+1. 打开`routers`目录下的`article.go`、`tag.go`、`auth.go`。
+2. 将`log`包的引用删除，修改引用我们自己的日志包为`github.com/fzzv/go-gin-example/pkg/logging`。
+3. 将原本的`log.Println(...)`改为`logging.Info(...)`。
+
+尝试传入错误的参数，`runtime/logs` 下会生成对应提示的log文件
+
+```go
+[INFO][article.go:76] state 状态只允许0或1
+```
+
