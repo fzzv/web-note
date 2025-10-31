@@ -1,11 +1,5 @@
 package models
 
-import (
-	"github.com/jinzhu/gorm"
-
-	"time"
-)
-
 type Article struct {
 	Model
 
@@ -81,13 +75,13 @@ func DeleteArticle(id int) bool {
 	return true
 }
 
-func (article *Article) BeforeCreate(scope *gorm.Scope) error {
-	// time.Now().Unix() 返回当前的时间戳
-	scope.SetColumn("CreatedOn", time.Now().Unix())
-	return nil
-}
+// func (article *Article) BeforeCreate(scope *gorm.Scope) error {
+// 	// time.Now().Unix() 返回当前的时间戳
+// 	scope.SetColumn("CreatedOn", time.Now().Unix())
+// 	return nil
+// }
 
-func (article *Article) BeforeUpdate(scope *gorm.Scope) error {
-	scope.SetColumn("ModifiedOn", time.Now().Unix())
-	return nil
-}
+// func (article *Article) BeforeUpdate(scope *gorm.Scope) error {
+// 	scope.SetColumn("ModifiedOn", time.Now().Unix())
+// 	return nil
+// }

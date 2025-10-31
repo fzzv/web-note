@@ -1,11 +1,5 @@
 package models
 
-import (
-	"time"
-
-	"github.com/jinzhu/gorm"
-)
-
 // 用于Gorm的使用。并给予了附属属性json，这样子在c.JSON的时候就会自动转换格式，非常的便利
 type Tag struct {
 	Model
@@ -52,17 +46,15 @@ gorm所支持的回调方法：
 删除：BeforeDelete、AfterDelete
 查询：AfterFind
 */
-func (tag *Tag) BeforeCreate(scope *gorm.Scope) error {
-	scope.SetColumn("CreatedOn", time.Now().Unix())
+// func (tag *Tag) BeforeCreate(scope *gorm.Scope) error {
+// 	scope.SetColumn("CreatedOn", time.Now().Unix())
+// 	return nil
+// }
 
-	return nil
-}
-
-func (tag *Tag) BeforeUpdate(scope *gorm.Scope) error {
-	scope.SetColumn("ModifiedOn", time.Now().Unix())
-
-	return nil
-}
+// func (tag *Tag) BeforeUpdate(scope *gorm.Scope) error {
+// 	scope.SetColumn("ModifiedOn", time.Now().Unix())
+// 	return nil
+// }
 
 func ExistTagByID(id int) bool {
 	var tag Tag
