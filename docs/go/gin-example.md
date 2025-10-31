@@ -1209,3 +1209,130 @@ import (
 )
 ```
 
+## 使用docker 部署
+
+### 启动一个mysql容器
+
+拉取镜像
+
+```bash
+docker pull mysql
+```
+
+运行容器
+
+> 基于 wsl2 的docker，可以进入ubuntu 或者所安装的子系统运行该命令，因为目录挂载的时候建议映射子系统中的目录，到时候可以通过别的终端连接子系统进行修改
+
+```bash
+docker run -p 3316:3306 --name mysql \
+-v /fan/mysql/log:/var/log/mysql \
+-v /fan/mysql/data:/var/lib/mysql \
+-v /fan/mysql/conf:/etc/mysql/conf.d \
+-e MYSQL_ROOT_PASSWORD=root -d mysql
+```
+
+进入容器
+
+```bash
+# 进入容器
+docker exec -it mysql  bash
+# 输入密码
+mysql -uroot -p root
+# 将 'root' 用户的身份验证插件设置为 mysql_native_password，并将其密码设置为 'root'。
+# 该用户可以从任何主机连接到 MySQL 服务器
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'root';
+# 如果 mysql_native_password 插件不支持，可以使用 caching_sha2_password 插件
+# ALTER USER 'root'@'%' IDENTIFIED WITH caching_sha2_password BY 'root';
+# 将所有数据库和表的所有权限授予 'root' 用户，并允许该用户将这些权限授予其他用户
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+# 刷新 MySQL 的权限系统，确保所有权限更改立即在数据库中生效，而无需重启 MySQL 服务器
+FLUSH PRIVILEGES;
+# 自动启动 mysql
+docker update mysql --restart=always
+```
+
+### 编写 Dockerfile 文件
+
+```dockerfile
+FROM golang:latest
+
+ENV GOPROXY https://goproxy.cn,direct
+WORKDIR $GOPATH/src/github.com/fzzv/go-gin-example
+COPY . $GOPATH/src/github.com/fzzv/go-gin-example
+RUN go build .
+
+EXPOSE 8000
+ENTRYPOINT ["./go-gin-example"]
+```
+
+打包成名字为gin-blog-docker的镜像
+
+```bash
+docker build -t gin-blog-docker .
+```
+
+### 将web应用和mysql连接到同一个网络
+
+创建一个名为blognet的网络
+
+```bash
+docker network create blognet
+```
+
+将mysql连接到此网络
+
+```bash
+docker network connect blognet mysql
+```
+
+检查是否成功连接到网络
+
+```bash
+docker network inspect blognet
+```
+
+看到如下内容就是连接成功了
+
+```json
+ "Containers": {
+     "2414728d4448e6d3b0eaf615af03ce74f4cce2c3543bb606d16da93e5d878da4": { // 容器id
+         "Name": "mysql",
+         "EndpointID": "b4664acb1aff8ea7a16b1f80802e1669f7387fb8f239d7e1de6c8ba887519eac",
+         "MacAddress": "56:16:86:9f:44:d1",
+         "IPv4Address": "172.18.0.2/16",
+         "IPv6Address": ""
+     }
+ },
+```
+
+修改数据库连接配置，主要修改`HOST`内容为`mysql:3306`
+
+```ini
+#debug or release
+RUN_MODE = debug
+
+[app]
+PAGE_SIZE = 10
+JWT_SECRET = 23347$040412
+
+[server]
+HTTP_PORT = 8000
+READ_TIMEOUT = 60
+WRITE_TIMEOUT = 60
+
+[database]
+TYPE = mysql
+USER = root
+PASSWORD = root
+#127.0.0.1:3306
+HOST = mysql:3306
+NAME = blog
+TABLE_PREFIX = blog_
+```
+
+运行golang应用
+
+```bash
+docker run --name gin-blog-docker --network blognet -p 8000:8000 gin-blog-docker
+```
+
