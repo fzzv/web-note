@@ -1,10 +1,13 @@
 package routers
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/fzzv/go-gin-example/middleware/jwt"
 	"github.com/fzzv/go-gin-example/pkg/setting"
+	"github.com/fzzv/go-gin-example/pkg/upload"
 	"github.com/fzzv/go-gin-example/routers/api"
 	v1 "github.com/fzzv/go-gin-example/routers/api/v1"
 	swaggerFiles "github.com/swaggo/files"
@@ -22,6 +25,10 @@ func InitRouter() *gin.Engine {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.GET("/auth", api.GetAuth)
+
+	r.POST("/upload", api.UploadImage)
+	// 当访问 $HOST/upload/images 时，会访问 upload.GetImageFullPath() 目录下的文件
+	r.StaticFS("/upload/images", http.Dir(upload.GetImageFullPath()))
 
 	apiv1 := r.Group("/api/v1")
 	// 将中间件接入到Gin的访问流程中

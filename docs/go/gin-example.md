@@ -1810,11 +1810,10 @@ func Setup() {
 // ...
 func Setup() {
 	var (
-		err    error
-		dbType string
+		err error
 	)
 
-	db, err = gorm.Open(dbType, fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local",
+	db, err = gorm.Open(setting.DatabaseSetting.Type, fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local",
 		setting.DatabaseSetting.User,
 		setting.DatabaseSetting.Password,
 		setting.DatabaseSetting.Host,
@@ -1824,3 +1823,339 @@ func Setup() {
 }
 ```
 
+## 实现图片上传接口
+
+先在 `blog_article` 中增加字段 `cover_image_url`，格式为 `varchar(255) DEFAULT '' COMMENT '封面图片地址'`
+
+```sql
+ALTER TABLE blog_article
+ADD COLUMN cover_image_url VARCHAR(255) DEFAULT '' COMMENT '封面图片地址';
+```
+
+### 文件名加密工具函数
+
+一般不会直接将上传的图片名暴露出来，因此我们对图片名进行 MD5 来达到这个效果
+
+在 util 目录下新建 md5.go
+
+```go
+package util
+
+import (
+	"crypto/md5"
+	"encoding/hex"
+)
+
+func EncodeMD5(value string) string {
+	m := md5.New()
+	m.Write([]byte(value))
+
+	return hex.EncodeToString(m.Sum(nil))
+}
+```
+
+### 图片处理
+
+封装 image 的处理逻辑
+
+- GetImageFullUrl：获取图片完整访问URL
+- GetImageName：获取图片名称
+- GetImagePath：获取图片路径
+- GetImageFullPath：获取图片完整路径
+- CheckImageExt：检查图片后缀
+- CheckImageSize：检查图片大小
+- CheckImage：检查图片
+
+```go
+// upload/image.go
+package upload
+
+import (
+	"fmt"
+	"log"
+	"mime/multipart"
+	"os"
+	"path"
+	"strings"
+
+	"github.com/fzzv/go-gin-example/pkg/file"
+	"github.com/fzzv/go-gin-example/pkg/logging"
+	"github.com/fzzv/go-gin-example/pkg/setting"
+	"github.com/fzzv/go-gin-example/pkg/util"
+)
+
+// 对底层代码的二次封装，为了更灵活的处理一些图片特有的逻辑，并且方便修改，不直接对外暴露下层
+
+// 获取图片完整访问URL
+func GetImageFullUrl(name string) string {
+	return setting.AppSetting.ImagePrefixUrl + "/" + GetImagePath() + name
+}
+
+// 获取图片名称
+func GetImageName(name string) string {
+	ext := path.Ext(name)
+	fileName := strings.TrimSuffix(name, ext)
+	fileName = util.EncodeMD5(fileName)
+
+	return fileName + ext
+}
+
+// 获取图片保存路径
+func GetImagePath() string {
+	return setting.AppSetting.ImageSavePath
+}
+
+// 获取图片完整保存路径
+func GetImageFullPath() string {
+	return setting.AppSetting.RuntimeRootPath + GetImagePath()
+}
+
+// 检查图片扩展名
+func CheckImageExt(fileName string) bool {
+	ext := file.GetExt(fileName)
+	for _, allowExt := range setting.AppSetting.ImageAllowExts {
+		if strings.EqualFold(allowExt, ext) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// 检查图片大小
+func CheckImageSize(f multipart.File) bool {
+	size, err := file.GetSize(f)
+	if err != nil {
+		log.Println(err)
+		logging.Warn(err)
+		return false
+	}
+
+	return size <= setting.AppSetting.ImageMaxSize
+}
+
+// 检查图片是否存在
+func CheckImage(src string) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("os.Getwd err: %v", err)
+	}
+
+	err = file.IsNotExistMkDir(dir + "/" + src)
+	if err != nil {
+		return fmt.Errorf("file.IsNotExistMkDir err: %v", err)
+	}
+
+	if file.CheckPermission(src) {
+		return fmt.Errorf("file.CheckPermission Permission denied src: %s", src)
+	}
+
+	return nil
+}
+```
+
+### 图片上传接口
+
+增加错误 code
+
+```go
+// e/code.go
+// 保存图片失败
+ERROR_UPLOAD_SAVE_IMAGE_FAIL = 30001
+// 检查图片失败
+ERROR_UPLOAD_CHECK_IMAGE_FAIL = 30002
+// 校验图片错误，图片格式或大小有问题
+ERROR_UPLOAD_CHECK_IMAGE_FORMAT = 30003
+
+// e/msg.go
+var MsgFlags = map[int]string{
+	SUCCESS:                         "ok",
+	ERROR:                           "fail",
+	INVALID_PARAMS:                  "请求参数错误",
+	ERROR_EXIST_TAG:                 "已存在该标签名称",
+	ERROR_NOT_EXIST_TAG:             "该标签不存在",
+	ERROR_NOT_EXIST_ARTICLE:         "该文章不存在",
+	ERROR_AUTH_CHECK_TOKEN_FAIL:     "Token鉴权失败",
+	ERROR_AUTH_CHECK_TOKEN_TIMEOUT:  "Token已超时",
+	ERROR_AUTH_TOKEN:                "Token生成失败",
+	ERROR_AUTH:                      "Token错误",
+	ERROR_UPLOAD_SAVE_IMAGE_FAIL:    "保存图片失败", // [!code ++]
+	ERROR_UPLOAD_CHECK_IMAGE_FAIL:   "检查图片失败", // [!code ++]
+	ERROR_UPLOAD_CHECK_IMAGE_FORMAT: "校验图片错误，图片格式或大小有问题", // [!code ++]
+}
+```
+
+`routers/upload.go`
+
+```go
+package api
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/fzzv/go-gin-example/pkg/e"
+	"github.com/fzzv/go-gin-example/pkg/logging"
+	"github.com/fzzv/go-gin-example/pkg/upload"
+)
+
+func UploadImage(c *gin.Context) {
+	code := e.SUCCESS
+	data := make(map[string]string)
+
+	// 获取上传的文件
+	file, image, err := c.Request.FormFile("image")
+	if err != nil {
+		logging.Warn(err)
+		code = e.ERROR
+		c.JSON(http.StatusOK, gin.H{
+			"code": code,
+			"msg":  e.GetMsg(code),
+			"data": data,
+		})
+	}
+
+	if image == nil {
+		code = e.INVALID_PARAMS
+	} else {
+		imageName := upload.GetImageName(image.Filename)
+		fullPath := upload.GetImageFullPath()
+		savePath := upload.GetImagePath()
+
+		// 获取图片完整保存路径
+		src := fullPath + imageName
+
+		// 检查图片扩展名和大小
+		if !upload.CheckImageExt(imageName) || !upload.CheckImageSize(file) {
+			code = e.ERROR_UPLOAD_CHECK_IMAGE_FORMAT
+		} else {
+			// 检查图片是否存在
+			err := upload.CheckImage(fullPath)
+			if err != nil {
+				logging.Warn(err)
+				code = e.ERROR_UPLOAD_CHECK_IMAGE_FAIL
+				// SaveUploadedFile 保存图片到指定路径
+			} else if err := c.SaveUploadedFile(image, src); err != nil {
+				logging.Warn(err)
+				code = e.ERROR_UPLOAD_SAVE_IMAGE_FAIL
+			} else {
+				data["image_url"] = upload.GetImageFullUrl(imageName)
+				data["image_save_url"] = savePath + imageName
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": code,
+		"msg":  e.GetMsg(code),
+		"data": data,
+	})
+}
+```
+
+增加路由
+
+```go
+// routers/api/router.go
+r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+r.GET("/auth", api.GetAuth)
+r.POST("/upload", api.UploadImage) // [!code ++]
+```
+
+发送请求测试是否成功
+
+![image-20251103135155282](gin-example.assets/image-20251103135155282.png)
+
+![image-20251103135213221](gin-example.assets/image-20251103135213221.png)
+
+## 实现 http.FileServer
+
+成功上传了，但是访问 `image_url` 提示的是404，需要通过 CDN 或者 http.FileSystem 的方式，才能让前端访问到图片。
+
+在公司的话，CDN 或自建分布式文件系统居多，也不需要过多关注。而在实践里的话肯定是本地搭建了，Go 本身对此就有很好的支持，而 Gin 更是再封装了一层，只需要在路由增加一行代码即可
+
+### r.StaticFS
+
+打开 routers/router.go 文件，增加路由 `r.StaticFS("/upload/images", http.Dir(upload.GetImageFullPath()))`
+
+```go
+func InitRouter() *gin.Engine {
+	// ...
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	r.GET("/auth", api.GetAuth)
+
+	r.POST("/upload", api.UploadImage)
+    // 当访问 $HOST/upload/images 时，会访问 upload.GetImageFullPath() 目录下的文件
+	r.StaticFS("/upload/images", http.Dir(upload.GetImageFullPath())) // ![code ++]
+
+	apiv1 := r.Group("/api/v1")
+    
+    // ...
+}
+```
+
+配置过后，就能通过 `image_url` 访问图片了
+
+### r.StaticFS做了什么
+
+```go
+// StaticFS works just like `Static()` but a custom `http.FileSystem` can be used instead.
+// Gin by default user: gin.Dir()
+func (group *RouterGroup) StaticFS(relativePath string, fs http.FileSystem) IRoutes {
+    if strings.Contains(relativePath, ":") || strings.Contains(relativePath, "*") {
+        panic("URL parameters can not be used when serving a static folder")
+    }
+    handler := group.createStaticHandler(relativePath, fs)
+    // *filepath 将匹配所有文件路径，并且 *filepath 必须在 Pattern 的最后
+    urlPattern := path.Join(relativePath, "/*filepath")
+
+    // Register GET and HEAD handlers
+    group.GET(urlPattern, handler)
+    group.HEAD(urlPattern, handler)
+    return group.returnObj()
+}
+```
+
+> `*filepath` 将匹配所有文件路径，并且 `*filepath` 必须在 Pattern 的最后
+>
+> ```
+> Pattern: /src/*filepath
+> 
+>  /src/                     match
+>  /src/somefile.go          match
+>  /src/subdir/somefile.go   match
+> ```
+
+首先在暴露的 URL 中禁止了 * 和 : 符号的使用，通过 `createStaticHandler` 创建了静态文件服务，实质最终调用的还是 `fileServer.ServeHTTP` 和一些处理逻辑了
+
+```go
+func (group *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+    absolutePath := group.calculateAbsolutePath(relativePath)
+    fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+    _, nolisting := fs.(*onlyfilesFS)
+    return func(c *Context) {
+        if nolisting {
+            c.Writer.WriteHeader(404)
+        }
+        fileServer.ServeHTTP(c.Writer, c.Request)
+    }
+}
+```
+
+我们可以留意下 `fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))` 这段语句，在静态文件服务中很常见，它有什么作用呢？
+
+`http.StripPrefix` 主要作用是从请求 URL 的路径中删除给定的前缀，最终返回一个 `Handler`
+
+通常 `http.FileServer` 要与 `http.StripPrefix` 相结合使用，否则当你运行：
+
+```go
+http.Handle("/upload/images", http.FileServer(http.Dir("upload/images")))
+```
+
+会无法正确的访问到文件目录，因为 `/upload/images` 也包含在了 URL 路径中，必须使用：
+
+```go
+http.Handle("/upload/images", http.StripPrefix("upload/images", http.FileServer(http.Dir("upload/images"))))
+```
