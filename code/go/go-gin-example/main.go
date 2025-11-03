@@ -6,11 +6,16 @@ import (
 	"net/http"
 
 	_ "github.com/fzzv/go-gin-example/docs"
+	"github.com/fzzv/go-gin-example/models"
+	"github.com/fzzv/go-gin-example/pkg/logging"
 	"github.com/fzzv/go-gin-example/pkg/setting"
 	"github.com/fzzv/go-gin-example/routers"
 )
 
 func main() {
+	setting.Setup()
+	models.Setup()
+	logging.Setup()
 	router := routers.InitRouter()
 
 	s := &http.Server{
@@ -29,10 +34,14 @@ func main() {
 
 // endless 实现优雅重启
 // func main() {
-// 	endless.DefaultReadTimeOut = setting.ReadTimeout
-// 	endless.DefaultWriteTimeOut = setting.WriteTimeout
+// 	setting.Setup()
+// 	models.Setup()
+// 	logging.Setup()
+
+// 	endless.DefaultReadTimeOut = setting.ServerSetting.ReadTimeout
+// 	endless.DefaultWriteTimeOut = setting.ServerSetting.WriteTimeout
 // 	endless.DefaultMaxHeaderBytes = 1 << 20
-// 	endPoint := fmt.Sprintf(":%d", setting.HTTPPort)
+// 	endPoint := fmt.Sprintf(":%d", setting.ServerSetting.HttpPort)
 
 // 	server := endless.NewServer(endPoint, routers.InitRouter())
 // 	server.BeforeBegin = func(add string) {
