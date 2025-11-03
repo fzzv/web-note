@@ -56,6 +56,12 @@ export const nav = () => {
           items: [
             { text: 'MySQL', link: '/database/mysql/MySQL操作' },
           ]
+        },
+        {
+          text: 'Go',
+          items: [
+            { text: 'gin框架', link: '/go/gin-example' },
+          ]
         }
       ]
     },

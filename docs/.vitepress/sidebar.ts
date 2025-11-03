@@ -234,3 +234,13 @@ export const database = () => {
   ]
 }
 
+export const go = () => {
+  return [
+    {
+      text: 'Go',
+      items: [
+        { text: 'gin框架', link: '/go/gin-example' },
+      ]
+    },
+  ]
+}

@@ -13,6 +13,7 @@ import {
   canvas,
   database,
   nest,
+  go,
 } from './sidebar'
 
 export default {
@@ -43,6 +44,7 @@ export default {
       '/frontend-engineering/vite': vite(),
       '/database': database(),
       '/nest': nest(),
+      '/go': go(),
     },
     outline: {
       level: 'deep',
