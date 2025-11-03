@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/fzzv/go-gin-example/docs"
 	"github.com/fzzv/go-gin-example/models"
+	"github.com/fzzv/go-gin-example/pkg/gredis"
 	"github.com/fzzv/go-gin-example/pkg/logging"
 	"github.com/fzzv/go-gin-example/pkg/setting"
 	"github.com/fzzv/go-gin-example/routers"
@@ -16,6 +17,7 @@ func main() {
 	setting.Setup()
 	models.Setup()
 	logging.Setup()
+	gredis.Setup()
 	router := routers.InitRouter()
 
 	s := &http.Server{

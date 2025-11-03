@@ -2320,3 +2320,231 @@ func EditArticle(c *gin.Context) {
 }
 ```
 
+## redis 配置
+
+`app.ini` 中增加 redis 相关配置
+
+```ini
+[redis]
+Host = redis:6389
+Password =
+MaxIdle = 30
+MaxActive = 30
+IdleTimeout = 200
+```
+
+### redis 的缓存 Prefix
+
+`e/cache.go`
+
+```go
+package e
+
+const (
+	CACHE_ARTICLE = "ARTICLE"
+	CACHE_TAG     = "TAG"
+)
+```
+
+### redis 的缓存key
+
+编写获取缓存 key 的方法 `service/cache_service/article`  和`service/cache_service/tag`
+
+```go
+// aritcle.go
+package cache_service
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/fzzv/go-gin-example/pkg/e"
+)
+
+type Article struct {
+	ID    int
+	TagID int
+	State int
+
+	PageNum  int
+	PageSize int
+}
+
+func (a *Article) GetArticleKey() string {
+	return e.CACHE_ARTICLE + "_" + strconv.Itoa(a.ID)
+}
+
+func (a *Article) GetArticlesKey() string {
+	keys := []string{
+		e.CACHE_ARTICLE,
+		"LIST",
+	}
+
+	if a.ID > 0 {
+		keys = append(keys, strconv.Itoa(a.ID))
+	}
+	if a.TagID > 0 {
+		keys = append(keys, strconv.Itoa(a.TagID))
+	}
+	if a.State >= 0 {
+		keys = append(keys, strconv.Itoa(a.State))
+	}
+	if a.PageNum > 0 {
+		keys = append(keys, strconv.Itoa(a.PageNum))
+	}
+	if a.PageSize > 0 {
+		keys = append(keys, strconv.Itoa(a.PageSize))
+	}
+
+	return strings.Join(keys, "_")
+}
+```
+
+```go
+// tag.go
+package cache_service
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/fzzv/go-gin-example/pkg/e"
+)
+
+type Tag struct {
+	ID    int
+	Name  string
+	State int
+
+	PageNum  int
+	PageSize int
+}
+
+func (t *Tag) GetTagsKey() string {
+	keys := []string{
+		e.CACHE_TAG,
+		"LIST",
+	}
+
+	if t.Name != "" {
+		keys = append(keys, t.Name)
+	}
+	if t.State >= 0 {
+		keys = append(keys, strconv.Itoa(t.State))
+	}
+	if t.PageNum > 0 {
+		keys = append(keys, strconv.Itoa(t.PageNum))
+	}
+	if t.PageSize > 0 {
+		keys = append(keys, strconv.Itoa(t.PageSize))
+	}
+
+	return strings.Join(keys, "_")
+}
+```
+
+### redis 工具包
+
+```go
+package gredis
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+
+	"github.com/fzzv/go-gin-example/pkg/setting"
+)
+
+var (
+	rdb *redis.Client
+	ctx = context.Background()
+)
+
+// Setup 初始化 Redis 客户端
+func Setup() error {
+	rdb = redis.NewClient(&redis.Options{
+		Addr:         setting.RedisSetting.Host,     // e.g. "localhost:6379"
+		Password:     setting.RedisSetting.Password, // "" if no password
+		DB:           0,                             // 默认数据库
+		PoolSize:     setting.RedisSetting.MaxActive,
+		MinIdleConns: setting.RedisSetting.MaxIdle,
+	})
+
+	// 测试连接
+	result, err := rdb.Ping(ctx).Result()
+	if err != nil {
+		return err
+	}
+	fmt.Println("PING 返回:", result)
+	return nil
+}
+
+// Set 设置 key 并指定过期时间（秒）
+func Set(key string, data interface{}, expireSeconds int) error {
+	value, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	return rdb.Set(ctx, key, value, time.Duration(expireSeconds)*time.Second).Err()
+}
+
+// Exists 判断 key 是否存在
+func Exists(key string) bool {
+	ok, err := rdb.Exists(ctx, key).Result()
+	if err != nil {
+		return false
+	}
+	return ok > 0
+}
+
+// Get 获取 key
+func Get(key string) ([]byte, error) {
+	val, err := rdb.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return nil, nil // key 不存在
+	}
+	return val, err
+}
+
+// Delete 删除 key
+func Delete(key string) (bool, error) {
+	deleted, err := rdb.Del(ctx, key).Result()
+	return deleted > 0, err
+}
+
+// LikeDeletes 按模式删除（模糊匹配）
+func LikeDeletes(pattern string) error {
+	iter := rdb.Scan(ctx, 0, "*"+pattern+"*", 0).Iterator()
+	for iter.Next(ctx) {
+		key := iter.Val()
+		_, err := rdb.Del(ctx, key).Result()
+		if err != nil {
+			return err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+```
+
+在`main.go`中调用 Setup 方法
+
+```go
+func main() {
+	setting.Setup()
+	models.Setup()
+	logging.Setup()
+	gredis.Setup()
+    
+    // ...
+}
+```
+
+> 控制台打印 **PING 返回: PONG**，表示连接成功
