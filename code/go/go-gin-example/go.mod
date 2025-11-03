@@ -53,6 +53,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/quic-go v0.55.0 // indirect
+	github.com/robfig/cron v1.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shiena/ansicolor v0.0.0-20230509054315-a9deabde6e02 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
@@ -81,10 +82,10 @@ require (
 
 replace (
 	github.com/fzzv/go-gin-example/conf => E:/other-project/web-note/code/go/go-gin-example/pkg/conf
+	github.com/fzzv/go-gin-example/docs => E:/other-project/web-note/code/go/go-gin-example/docs
 	github.com/fzzv/go-gin-example/middleware => E:/other-project/web-note/code/go/go-gin-example/middleware
 	github.com/fzzv/go-gin-example/models => E:/other-project/web-note/code/go/go-gin-example/models
 	github.com/fzzv/go-gin-example/pkg/e => E:/other-project/web-note/code/go/go-gin-example/pkg/e
 	github.com/fzzv/go-gin-example/pkg/setting => E:/other-project/web-note/code/go/go-gin-example/pkg/setting
 	github.com/fzzv/go-gin-example/routers => E:/other-project/web-note/code/go/go-gin-example/routers
-	github.com/fzzv/go-gin-example/docs => E:/other-project/web-note/code/go/go-gin-example/docs
 )

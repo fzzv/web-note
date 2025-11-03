@@ -85,3 +85,8 @@ func DeleteArticle(id int) bool {
 // 	scope.SetColumn("ModifiedOn", time.Now().Unix())
 // 	return nil
 // }
+
+func CleanAllArticle() bool {
+	db.Unscoped().Where("deleted_on != ?", 0).Delete(&Article{})
+	return true
+}
