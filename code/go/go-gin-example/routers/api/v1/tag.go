@@ -35,7 +35,7 @@ func GetTags(c *gin.Context) {
 	// util.GetPage保证了各接口的page处理是一致的
 	// 在获取标签列表接口中，我们可以根据name、state、page来筛选查询条件，
 	// 分页的步长可通过app.ini进行配置，以lists、total的组合返回达到分页效果
-	data["lists"] = models.GetTags(util.GetPage(c), setting.PageSize, maps)
+	data["lists"] = models.GetTags(util.GetPage(c), setting.AppSetting.PageSize, maps)
 	data["total"] = models.GetTagTotal(maps)
 
 	c.JSON(http.StatusOK, gin.H{

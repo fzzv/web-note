@@ -7,58 +7,71 @@ import (
 	"github.com/go-ini/ini"
 )
 
-var (
-	Cfg *ini.File // 配置文件对象
+type App struct {
+	JwtSecret       string
+	PageSize        int
+	RuntimeRootPath string
 
-	RunMode string // 运行模式
+	ImagePrefixUrl string
+	ImageSavePath  string
+	ImageMaxSize   int
+	ImageAllowExts []string
 
-	HTTPPort     int           // 端口
-	ReadTimeout  time.Duration // 读取超时时间
-	WriteTimeout time.Duration // 写入超时时间
+	LogSavePath string
+	LogSaveName string
+	LogFileExt  string
+	TimeFormat  string
+}
 
-	PageSize  int    // 每页大小
-	JwtSecret string // JWT 密钥
-)
+var AppSetting = &App{}
 
-func init() {
-	var err error
-	Cfg, err = ini.Load("conf/app.ini")
+type Server struct {
+	RunMode      string
+	HttpPort     int
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+}
+
+var ServerSetting = &Server{}
+
+type Database struct {
+	Type        string
+	User        string
+	Password    string
+	Host        string
+	Name        string
+	TablePrefix string
+}
+
+var DatabaseSetting = &Database{}
+
+func Setup() {
+	Cfg, err := ini.Load("conf/app.ini")
 	if err != nil {
 		log.Fatalf("Fail to parse 'conf/app.ini': %v", err)
 	}
 
-	LoadBase()
-	LoadServer()
-	LoadApp()
-}
-
-func LoadBase() {
-	// 读取 conf/app.ini 文件中的 RUN_MODE 配置
-	// Section 方法获取配置文件中的 section 比如：[app]、[server]、[database]
-	// MustString 方法如果获取失败，则返回默认值
-	defaultRunMode := "debug"
-	RunMode = Cfg.Section("").Key("RUN_MODE").MustString(defaultRunMode)
-}
-
-// 加载服务相关的配置
-func LoadServer() {
-	sec, err := Cfg.GetSection("server")
+	// MapTo 将配置文件中的数据映射到结构体中
+	err = Cfg.Section("app").MapTo(AppSetting)
 	if err != nil {
-		log.Fatalf("Fail to get section 'server': %v", err)
+		log.Fatalf("Cfg.MapTo AppSetting err: %v", err)
 	}
 
-	HTTPPort = sec.Key("HTTP_PORT").MustInt(8000)
-	ReadTimeout = time.Duration(sec.Key("READ_TIMEOUT").MustInt(60)) * time.Second
-	WriteTimeout = time.Duration(sec.Key("WRITE_TIMEOUT").MustInt(60)) * time.Second
-}
+	AppSetting.ImageMaxSize = AppSetting.ImageMaxSize * 1024 * 1024
 
-// 加载应用相关的配置
-func LoadApp() {
-	sec, err := Cfg.GetSection("app")
+	err = Cfg.Section("server").MapTo(ServerSetting)
 	if err != nil {
-		log.Fatalf("Fail to get section 'app': %v", err)
+		log.Fatalf("Cfg.MapTo ServerSetting err: %v", err)
 	}
 
-	JwtSecret = sec.Key("JWT_SECRET").MustString("!@)*#)!@U#@*!@!)")
-	PageSize = sec.Key("PAGE_SIZE").MustInt(10)
+	// ini 配置文件中读到的数值是「纯数字」(int)，
+	// 而 Go 中的 time.Duration 是以「纳秒」为单位的整数。
+	// 因此需要将数值转换为 time.Duration 类型。
+	ServerSetting.ReadTimeout = ServerSetting.ReadTimeout * time.Second
+	ServerSetting.WriteTimeout = ServerSetting.ReadTimeout * time.Second
+
+	err = Cfg.Section("database").MapTo(DatabaseSetting)
+	if err != nil {
+		log.Fatalf("Cfg.MapTo DatabaseSetting err: %v", err)
+	}
 }

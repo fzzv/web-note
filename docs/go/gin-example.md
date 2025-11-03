@@ -1530,3 +1530,297 @@ go run cron.go
 运行验证，定时任务会把 `deleted_on != 0` 的数据进行硬删除
 
 > 如果手动修改计算机的系统时间，是会导致定时任务错乱的，所以一般不要乱来。
+
+## 优化配置结构
+
+
+
+### 修改配置文件
+
+打开 `conf/app.ini` 将配置文件修改为大驼峰命名，另外增加 5 个配置项用于上传图片的功能，4 个文件日志方面的配置项
+
+```ini
+[app]
+PageSize = 10
+JwtSecret = 23347$040412
+
+RuntimeRootPath = runtime/ // [!code ++]
+ImagePrefixUrl = http://127.0.0.1:8000 // [!code ++]
+ImageSavePath = upload/images/ // [!code ++]
+ImageMaxSize = 5 # MB // [!code ++]
+ImageAllowExts = .jpg,.jpeg,.png // [!code ++]
+
+LogSavePath = logs/ // [!code ++]
+LogSaveName = log // [!code ++]
+LogFileExt = log // [!code ++]
+TimeFormat = 20060102 // [!code ++]
+
+[server]
+#debug or release
+RunMode = debug
+HttpPort = 8000
+ReadTimeout = 60
+WriteTimeout = 60
+
+[database]
+Type = mysql
+User = root
+Password = root
+#127.0.0.1:3306
+#Host = mysql:3306
+Host = localhost:3316
+Name = blog
+TablePrefix = blog_
+```
+
+修改 `setting.go` 
+
+- 编写与配置项保持一致的结构体（App、Server、Database）
+- 使用 MapTo 将配置项映射到结构体上
+- 对一些需特殊设置的配置项进行再赋值
+
+```go
+package setting
+
+import (
+	"log"
+	"time"
+
+	"github.com/go-ini/ini"
+)
+
+type App struct {
+	JwtSecret       string
+	PageSize        int
+	RuntimeRootPath string
+
+	ImagePrefixUrl string
+	ImageSavePath  string
+	ImageMaxSize   int
+	ImageAllowExts []string
+
+	LogSavePath string
+	LogSaveName string
+	LogFileExt  string
+	TimeFormat  string
+}
+
+var AppSetting = &App{}
+
+type Server struct {
+	RunMode      string
+	HttpPort     int
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+}
+
+var ServerSetting = &Server{}
+
+type Database struct {
+	Type        string
+	User        string
+	Password    string
+	Host        string
+	Name        string
+	TablePrefix string
+}
+
+var DatabaseSetting = &Database{}
+
+func Setup() {
+	Cfg, err := ini.Load("conf/app.ini")
+	if err != nil {
+		log.Fatalf("Fail to parse 'conf/app.ini': %v", err)
+	}
+
+	// MapTo 将配置文件中的数据映射到结构体中
+	err = Cfg.Section("app").MapTo(AppSetting)
+	if err != nil {
+		log.Fatalf("Cfg.MapTo AppSetting err: %v", err)
+	}
+
+	AppSetting.ImageMaxSize = AppSetting.ImageMaxSize * 1024 * 1024
+
+	err = Cfg.Section("server").MapTo(ServerSetting)
+	if err != nil {
+		log.Fatalf("Cfg.MapTo ServerSetting err: %v", err)
+	}
+
+	// ini 配置文件中读到的数值是「纯数字」(int)，
+	// 而 Go 中的 time.Duration 是以「纳秒」为单位的整数。
+	// 因此需要将数值转换为 time.Duration 类型。
+	ServerSetting.ReadTimeout = ServerSetting.ReadTimeout * time.Second
+	ServerSetting.WriteTimeout = ServerSetting.ReadTimeout * time.Second
+
+	err = Cfg.Section("database").MapTo(DatabaseSetting)
+	if err != nil {
+		log.Fatalf("Cfg.MapTo DatabaseSetting err: %v", err)
+	}
+}
+```
+
+### 抽离 file 相关方法
+
+抽离一个 `file.go` ，主要封装7个方法：
+
+- GetSize：获取文件大小
+- GetExt：获取文件后缀
+- CheckExist：检查文件是否存在
+- CheckPermission：检查文件权限
+- IsNotExistMkDir：如果不存在则新建文件夹
+- MkDir：新建文件夹
+- Open：打开文件
+
+```go
+package file
+
+import (
+	"io"
+	"mime/multipart"
+	"os"
+	"path"
+)
+
+// GetSize 获取文件大小
+func GetSize(f multipart.File) (int, error) {
+	content, err := io.ReadAll(f)
+
+	return len(content), err
+}
+
+// GetExt 获取文件扩展名
+func GetExt(fileName string) string {
+	return path.Ext(fileName)
+}
+
+// CheckExist 检查文件是否存在
+func CheckExist(src string) bool {
+	_, err := os.Stat(src)
+
+	return os.IsNotExist(err)
+}
+
+// CheckPermission 检查文件权限
+func CheckPermission(src string) bool {
+	_, err := os.Stat(src)
+
+	return os.IsPermission(err)
+}
+
+// IsNotExistMkDir 如果文件不存在，则创建目录
+func IsNotExistMkDir(src string) error {
+	if exist := CheckExist(src); !exist {
+		if err := MkDir(src); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// MkDir 创建目录
+func MkDir(src string) error {
+	err := os.MkdirAll(src, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Open 打开文件
+func Open(name string, flag int, perm os.FileMode) (*os.File, error) {
+	f, err := os.OpenFile(name, flag, perm)
+	if err != nil {
+		return nil, err
+	}
+
+	return f, nil
+}
+```
+
+修改项目中对应的配置读取，举例几个修改
+
+```go
+// pkg/logging/file.go
+package logging
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/fzzv/go-gin-example/pkg/file"
+	"github.com/fzzv/go-gin-example/pkg/setting"
+)
+
+func getLogFilePath() string {
+	return fmt.Sprintf("%s%s", setting.AppSetting.RuntimeRootPath, setting.AppSetting.LogSavePath)
+}
+
+func getLogFileName() string {
+	return fmt.Sprintf("%s%s.%s",
+		setting.AppSetting.LogSaveName,
+		time.Now().Format(setting.AppSetting.TimeFormat),
+		setting.AppSetting.LogFileExt,
+	)
+}
+
+func openLogFile(fileName, filePath string) (*os.File, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("os.Getwd err: %v", err)
+	}
+	src := dir + "/" + filePath
+	perm := file.CheckPermission(src)
+	if perm == true {
+		return nil, fmt.Errorf("file.CheckPermission Permission denied src: %s", src)
+	}
+	err = file.IsNotExistMkDir(src)
+	if err != nil {
+		return nil, fmt.Errorf("file.IsNotExistMkDir src: %s, err: %v", src, err)
+	}
+	f, err := file.Open(src+fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("Fail to OpenFile :%v", err)
+	}
+
+	return f, nil
+}
+```
+
+```go
+// log.go
+// ...
+func Setup() {
+	var err error
+	filePath := getLogFilePath()
+	fileName := getLogFileName()
+    // 由于原方法形参改变了，因此 openLogFile 也需要调整
+	F, err = openLogFile(fileName, filePath)
+	if err != nil {
+		log.Fatalln(err)
+	}
+    // ...
+}
+```
+
+```go
+// modules/modules.go
+// ...
+func Setup() {
+	var (
+		err    error
+		dbType string
+	)
+
+	db, err = gorm.Open(dbType, fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local",
+		setting.DatabaseSetting.User,
+		setting.DatabaseSetting.Password,
+		setting.DatabaseSetting.Host,
+		setting.DatabaseSetting.Name,
+	))
+    // ...
+}
+```
+

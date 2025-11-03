@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	_ "github.com/fzzv/go-gin-example/docs"
@@ -13,14 +14,17 @@ func main() {
 	router := routers.InitRouter()
 
 	s := &http.Server{
-		Addr:           fmt.Sprintf(":%d", setting.HTTPPort),
+		Addr:           fmt.Sprintf(":%d", setting.ServerSetting.HttpPort),
 		Handler:        router,
-		ReadTimeout:    setting.ReadTimeout,
-		WriteTimeout:   setting.WriteTimeout,
+		ReadTimeout:    setting.ServerSetting.ReadTimeout,
+		WriteTimeout:   setting.ServerSetting.WriteTimeout,
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	s.ListenAndServe()
+	err := s.ListenAndServe()
+	if err != nil {
+		log.Printf("Server err: %v", err)
+	}
 }
 
 // endless 实现优雅重启
