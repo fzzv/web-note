@@ -2548,3 +2548,251 @@ func main() {
 ```
 
 > 控制台打印 **PING 返回: PONG**，表示连接成功
+
+## 代码结构重构
+
+- 错误提前返回
+- 统一返回方法
+- 抽离 Service，减轻 routers/api 的逻辑，进行分层
+- 增加 gorm 错误判断，让错误提示更明确（增加内部错误码）
+
+### 编写返回方法
+
+`pkg/app/request.go`
+
+```go
+package app
+
+import (
+	"github.com/astaxie/beego/validation"
+
+	"github.com/fzzv/go-gin-example/pkg/logging"
+)
+
+func MarkErrors(errors []*validation.Error) {
+	for _, err := range errors {
+		logging.Info(err.Key, err.Message)
+	}
+}
+```
+
+`pkg/app/response.go`
+
+```go
+package app
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/fzzv/go-gin-example/pkg/e"
+)
+
+type Gin struct {
+	C *gin.Context
+}
+
+func (g *Gin) Response(httpCode, errCode int, data interface{}) {
+	g.C.JSON(httpCode, gin.H{
+		"code": errCode,
+		"msg":  e.GetMsg(errCode),
+		"data": data,
+	})
+}
+```
+
+### 修改原有代码逻辑
+
+以获取文章为例，修改为 module、controller、service的形式
+
+修改 `modules/article.go`
+
+```go
+func GetArticle(id int) (*Article, error) {
+	var article Article
+	err := db.Where("id = ? AND deleted_on = ? ", id, 0).First(&article).Related(&article.Tag).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return &article, nil
+}
+```
+
+修改 `routers/api/v1/article.go` （controller）
+
+```go
+func GetArticle(c *gin.Context) {
+	appG := app.Gin{C: c}
+	id := com.StrTo(c.Param("id")).MustInt()
+
+	valid := validation.Validation{}
+	valid.Min(id, 1, "id").Message("ID必须大于0")
+
+	if valid.HasErrors() {
+		app.MarkErrors(valid.Errors)
+		appG.Response(http.StatusOK, e.INVALID_PARAMS, nil)
+		return
+	}
+	articleService := article_service.Article{ID: id}
+	exists, err := articleService.ExistByID()
+	if err != nil {
+		appG.Response(http.StatusOK, e.ERROR_CHECK_EXIST_ARTICLE_FAIL, nil)
+		return
+	}
+	if !exists {
+		appG.Response(http.StatusOK, e.ERROR_NOT_EXIST_ARTICLE, nil)
+		return
+	}
+
+	article, err := articleService.Get()
+	if err != nil {
+		appG.Response(http.StatusOK, e.ERROR_GET_ARTICLE_FAIL, nil)
+		return
+	}
+
+	appG.Response(http.StatusOK, e.SUCCESS, article)
+}
+```
+
+新增 `service/article_service/article.go`
+
+```go
+package article_service
+
+import (
+	"encoding/json"
+	"log"
+
+	"github.com/fzzv/go-gin-example/models"
+	"github.com/fzzv/go-gin-example/pkg/gredis"
+	"github.com/fzzv/go-gin-example/pkg/logging"
+	"github.com/fzzv/go-gin-example/service/cache_service"
+)
+
+type Article struct {
+	ID            int
+	TagID         int
+	Title         string
+	Desc          string
+	Content       string
+	CoverImageUrl string
+	State         int
+	CreatedBy     string
+	ModifiedBy    string
+
+	PageNum  int
+	PageSize int
+}
+
+func (a *Article) Add() error {
+	article := map[string]interface{}{
+		"tag_id":          a.TagID,
+		"title":           a.Title,
+		"desc":            a.Desc,
+		"content":         a.Content,
+		"created_by":      a.CreatedBy,
+		"cover_image_url": a.CoverImageUrl,
+		"state":           a.State,
+	}
+
+	if err := models.AddArticle(article); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *Article) Edit() error {
+	return models.EditArticle(a.ID, map[string]interface{}{
+		"tag_id":          a.TagID,
+		"title":           a.Title,
+		"desc":            a.Desc,
+		"content":         a.Content,
+		"cover_image_url": a.CoverImageUrl,
+		"modified_by":     a.ModifiedBy,
+	})
+}
+
+func (a *Article) Get() (*models.Article, error) {
+	var cacheArticle *models.Article
+
+	cache := cache_service.Article{ID: a.ID}
+	key := cache.GetArticleKey()
+	if gredis.Exists(key) {
+		data, err := gredis.Get(key)
+		if err != nil {
+			logging.Info(err)
+		} else {
+			json.Unmarshal(data, &cacheArticle)
+			return cacheArticle, nil
+		}
+	}
+
+	article, err := models.GetArticle(a.ID)
+	log.Print(article)
+	if err != nil {
+		return nil, err
+	}
+
+	gredis.Set(key, article, 3600)
+	return article, nil
+}
+
+func (a *Article) GetAll() ([]*models.Article, error) {
+	var (
+		articles, cacheArticles []*models.Article
+	)
+
+	cache := cache_service.Article{
+		TagID: a.TagID,
+		State: a.State,
+
+		PageNum:  a.PageNum,
+		PageSize: a.PageSize,
+	}
+	key := cache.GetArticlesKey()
+	if gredis.Exists(key) {
+		data, err := gredis.Get(key)
+		if err != nil {
+			logging.Info(err)
+		} else {
+			json.Unmarshal(data, &cacheArticles)
+			return cacheArticles, nil
+		}
+	}
+
+	articles, err := models.GetArticles(a.PageNum, a.PageSize, a.getMaps())
+	if err != nil {
+		return nil, err
+	}
+
+	gredis.Set(key, articles, 3600)
+	return articles, nil
+}
+
+func (a *Article) Delete() error {
+	return models.DeleteArticle(a.ID)
+}
+
+func (a *Article) ExistByID() (bool, error) {
+	return models.ExistArticleByID(a.ID)
+}
+
+func (a *Article) Count() (int, error) {
+	return models.GetArticleTotal(a.getMaps())
+}
+
+func (a *Article) getMaps() map[string]interface{} {
+	maps := make(map[string]interface{})
+	maps["deleted_on"] = 0
+	if a.State != -1 {
+		maps["state"] = a.State
+	}
+	if a.TagID != -1 {
+		maps["tag_id"] = a.TagID
+	}
+
+	return maps
+}
+```
+
