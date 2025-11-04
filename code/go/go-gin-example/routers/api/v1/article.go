@@ -6,6 +6,8 @@ import (
 	"github.com/astaxie/beego/validation"
 	"github.com/fzzv/go-gin-example/pkg/app"
 	"github.com/fzzv/go-gin-example/pkg/e"
+	"github.com/fzzv/go-gin-example/pkg/export"
+	"github.com/fzzv/go-gin-example/pkg/logging"
 	"github.com/fzzv/go-gin-example/pkg/setting"
 	"github.com/fzzv/go-gin-example/pkg/util"
 	"github.com/fzzv/go-gin-example/service/article_service"
@@ -261,5 +263,37 @@ func DeleteArticle(c *gin.Context) {
 		return
 	}
 
+	appG.Response(http.StatusOK, e.SUCCESS, nil)
+}
+
+func ExportArticle(c *gin.Context) {
+	appG := app.Gin{C: c}
+	articleService := article_service.Article{}
+	filename, err := articleService.Export()
+	if err != nil {
+		appG.Response(http.StatusOK, e.ERROR_EXPORT_ARTICLE_FAIL, nil)
+		return
+	}
+	appG.Response(http.StatusOK, e.SUCCESS, map[string]string{
+		"export_url":      export.GetExcelFullUrl(filename),
+		"export_save_url": export.GetExcelPath() + filename,
+	})
+}
+
+func ImportArticle(c *gin.Context) {
+	appG := app.Gin{C: c}
+	file, _, err := c.Request.FormFile("file")
+	if err != nil {
+		logging.Warn(err)
+		appG.Response(http.StatusOK, e.ERROR, nil)
+		return
+	}
+	articleService := article_service.Article{}
+	err = articleService.Import(file)
+	if err != nil {
+		logging.Warn(err)
+		appG.Response(http.StatusOK, e.ERROR_IMPORT_ARTICLE_FAIL, nil)
+		return
+	}
 	appG.Response(http.StatusOK, e.SUCCESS, nil)
 }
