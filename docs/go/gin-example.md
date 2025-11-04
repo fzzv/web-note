@@ -2975,3 +2975,83 @@ r.StaticFS("/export", http.Dir(export.GetExcelFullPath()))
 ![img](gin-example.assets/PixPin_2025-11-04_14-27-37.png)
 
 `export_url` 支持在前端进行下载
+
+## 导入excel
+
+`tag_service/tag.go`
+
+```go
+func (t *Tag) Import(r io.Reader) error {
+	// 1. 打开 Excel 文件
+	xlsx, err := excelize.OpenReader(r)
+	if err != nil {
+		return err
+	}
+	defer xlsx.Close() // 推荐：释放内部资源
+
+	// 2. 读取 "标签信息" 工作表的所有行（注意：GetRows 会返回错误！）
+	rows, err := xlsx.GetRows("标签信息")
+	if err != nil {
+		return err // 工作表不存在或损坏
+	}
+
+	// 3. 遍历行，跳过表头（irow == 0）
+	for irow, row := range rows {
+		if irow == 0 {
+			continue // 跳过表头
+		}
+
+		// 4. 校验字段数量（至少需要 3 列：ID, 名称, 创建人）
+		if len(row) < 3 {
+			continue // 跳过不完整行（或可返回错误）
+		}
+
+		// 5. 提取字段（根据 models.AddTag 参数）
+		name := row[1]      // 第2列：名称
+		state := 1          // 状态为1
+		createdBy := row[2] // 第3列：创建人
+
+		// 跳过空名称
+		if name == "" {
+			continue
+		}
+
+		// 6. 调用业务逻辑
+		models.AddTag(name, state, createdBy)
+	}
+
+	return nil
+}
+```
+
+添加路由
+
+```go
+// api/v1/tag.go
+func ImportTag(c *gin.Context) {
+	appG := app.Gin{C: c}
+
+	file, _, err := c.Request.FormFile("file")
+	if err != nil {
+		logging.Warn(err)
+		appG.Response(http.StatusOK, e.ERROR, nil)
+		return
+	}
+
+	tagService := tag_service.Tag{}
+	err = tagService.Import(file)
+	if err != nil {
+		logging.Warn(err)
+		appG.Response(http.StatusOK, e.ERROR_IMPORT_TAG_FAIL, nil)
+		return
+	}
+
+	appG.Response(http.StatusOK, e.SUCCESS, nil)
+}
+
+// routers/router.go
+{
+    apiv1.POST("/tags/import", v1.ImportTag)
+}
+```
+

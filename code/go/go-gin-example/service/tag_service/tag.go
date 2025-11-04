@@ -3,6 +3,7 @@ package tag_service
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -162,4 +163,46 @@ func (t *Tag) Export() (string, error) {
 	}
 
 	return filename, nil
+}
+
+func (t *Tag) Import(r io.Reader) error {
+	// 1. 打开 Excel 文件
+	xlsx, err := excelize.OpenReader(r)
+	if err != nil {
+		return err
+	}
+	defer xlsx.Close() // 推荐：释放内部资源
+
+	// 2. 读取 "标签信息" 工作表的所有行（注意：GetRows 会返回错误！）
+	rows, err := xlsx.GetRows("标签信息")
+	if err != nil {
+		return err // 工作表不存在或损坏
+	}
+
+	// 3. 遍历行，跳过表头（irow == 0）
+	for irow, row := range rows {
+		if irow == 0 {
+			continue // 跳过表头
+		}
+
+		// 4. 校验字段数量（至少需要 3 列：ID, 名称, 创建人）
+		if len(row) < 3 {
+			continue // 跳过不完整行（或可返回错误）
+		}
+
+		// 5. 提取字段（根据 models.AddTag 参数）
+		name := row[1]      // 第2列：名称
+		state := 1          // 状态为1
+		createdBy := row[2] // 第3列：创建人
+
+		// 可选：跳过空名称
+		if name == "" {
+			continue
+		}
+
+		// 6. 调用业务逻辑
+		models.AddTag(name, state, createdBy)
+	}
+
+	return nil
 }
