@@ -2796,3 +2796,182 @@ func (a *Article) getMaps() map[string]interface{} {
 }
 ```
 
+## 导出 excel
+
+### 配置中增加导出路径
+
+ImagePrefixUrl修改为PrefixUrl
+
+```ini
+[app]
+PrefixUrl = http://127.0.0.1:8000
+ExportSavePath = export/
+```
+
+setting 中添加 ExportSavePath
+
+```go
+type App struct {
+	JwtSecret       string
+	PageSize        int
+	RuntimeRootPath string
+
+	PrefixUrl      string
+	ImageSavePath  string
+	ImageMaxSize   int
+	ImageAllowExts []string
+
+	ExportSavePath string
+
+	LogSavePath string
+	LogSaveName string
+	LogFileExt  string
+	TimeFormat  string
+}
+```
+
+### 导出相关路径
+
+`pkg/export/excel.go`
+
+```go
+package export
+
+import "github.com/fzzv/go-gin-example/pkg/setting"
+
+func GetExcelFullUrl(name string) string {
+	return setting.AppSetting.PrefixUrl + "/" + GetExcelPath() + name
+}
+
+func GetExcelPath() string {
+	return setting.AppSetting.ExportSavePath
+}
+
+func GetExcelFullPath() string {
+	return setting.AppSetting.RuntimeRootPath + GetExcelPath()
+}
+```
+
+### 导出服务实现
+
+```shell
+go get github.com/xuri/excelize/v2
+```
+
+`service/tag_service/tag.go`
+
+```go
+func (t *Tag) Export() (string, error) {
+	// 导出时需要获取所有数据，设置一个很大的 PageSize
+	if t.PageSize == 0 {
+		t.PageSize = 10000 // 设置一个足够大的值，或者改为 -1 表示不限制
+	}
+	tags, err := t.GetAll()
+	fmt.Println("tags:", tags)
+	if err != nil {
+		return "", err
+	}
+
+	// 创建 Excel 文件
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "标签信息"
+	// 默认第一个 sheet，重命名为“标签信息”
+	f.SetSheetName(f.GetSheetName(0), sheetName)
+
+	// 表头
+	titles := []string{"ID", "名称", "创建人", "创建时间", "修改人", "修改时间"}
+	if err := f.SetSheetRow(sheetName, "A1", &titles); err != nil {
+		return "", fmt.Errorf("设置表头失败: %w", err)
+	}
+
+	// 填充数据
+	for i, v := range tags {
+		// 格式化时间（假设 CreatedOn 和 ModifiedOn 是 int64 或 int 的 Unix 时间戳）
+		createdTime := time.Unix(int64(v.CreatedOn), 0).Format("2006-01-02 15:04:05")
+		modifiedTime := time.Unix(int64(v.ModifiedOn), 0).Format("2006-01-02 15:04:05")
+
+		row := i + 2 // 从第2行开始（A1 是表头）
+		values := []interface{}{
+			v.ID,
+			v.Name,
+			v.CreatedBy,
+			createdTime,
+			v.ModifiedBy,
+			modifiedTime,
+		}
+
+		cell := fmt.Sprintf("A%d", row)
+		if err := f.SetSheetRow(sheetName, cell, &values); err != nil {
+			return "", fmt.Errorf("写入第 %d 行数据失败: %w", row, err)
+		}
+	}
+
+	// 生成文件名
+	filename := fmt.Sprintf("tags-%d.xlsx", time.Now().Unix())
+	fullPath := export.GetExcelFullPath() + filename
+
+	// 创建导出目录
+	if err := os.MkdirAll(export.GetExcelFullPath(), 0755); err != nil {
+		return "", fmt.Errorf("创建导出目录失败: %w", err)
+	}
+	// 保存文件
+	if err := f.SaveAs(fullPath); err != nil {
+		return "", fmt.Errorf("保存 Excel 文件失败: %w", err)
+	}
+
+	return filename, nil
+}
+```
+
+路由中添加导出接口
+
+`routers/api/v1/tag.go`
+
+```go
+func ExportTag(c *gin.Context) {
+	appG := app.Gin{C: c}
+	name := c.PostForm("name")
+	state := -1
+	if arg := c.PostForm("state"); arg != "" {
+		state = com.StrTo(arg).MustInt()
+	}
+
+	tagService := tag_service.Tag{
+		Name:  name,
+		State: state,
+	}
+
+	filename, err := tagService.Export()
+	if err != nil {
+		appG.Response(http.StatusOK, e.ERROR_EXPORT_TAG_FAIL, nil)
+		return
+	}
+
+	appG.Response(http.StatusOK, e.SUCCESS, map[string]string{
+		"export_url":      export.GetExcelFullUrl(filename),
+		"export_save_url": export.GetExcelPath() + filename,
+	})
+}
+```
+
+`routers/router.go`
+
+```go
+// 当访问 $HOST/export 时，会访问 export.GetExcelFullPath() 目录下的文件
+r.StaticFS("/export", http.Dir(export.GetExcelFullPath()))
+// ...
+{
+    // ...
+    //导出标签
+    apiv1.POST("/tags/export", v1.ExportTag)
+}
+// ...
+```
+
+![img](gin-example.assets/PixPin_2025-11-04_14-26-08.png)
+
+![img](gin-example.assets/PixPin_2025-11-04_14-27-37.png)
+
+`export_url` 支持在前端进行下载

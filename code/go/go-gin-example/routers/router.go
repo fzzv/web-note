@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/fzzv/go-gin-example/middleware/jwt"
+	"github.com/fzzv/go-gin-example/pkg/export"
 	"github.com/fzzv/go-gin-example/pkg/setting"
 	"github.com/fzzv/go-gin-example/pkg/upload"
 	"github.com/fzzv/go-gin-example/routers/api"
@@ -29,6 +30,8 @@ func InitRouter() *gin.Engine {
 	r.POST("/upload", api.UploadImage)
 	// 当访问 $HOST/upload/images 时，会访问 upload.GetImageFullPath() 目录下的文件
 	r.StaticFS("/upload/images", http.Dir(upload.GetImageFullPath()))
+	// 当访问 $HOST/export 时，会访问 export.GetExcelFullPath() 目录下的文件
+	r.StaticFS("/export", http.Dir(export.GetExcelFullPath()))
 
 	apiv1 := r.Group("/api/v1")
 	// 将中间件接入到Gin的访问流程中
@@ -42,6 +45,8 @@ func InitRouter() *gin.Engine {
 		apiv1.PUT("/tags/:id", v1.EditTag)
 		//删除指定标签
 		apiv1.DELETE("/tags/:id", v1.DeleteTag)
+		//导出标签
+		apiv1.POST("/tags/export", v1.ExportTag)
 		//获取文章列表
 		apiv1.GET("/articles", v1.GetArticles)
 		//获取指定文章

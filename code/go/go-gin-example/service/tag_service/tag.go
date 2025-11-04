@@ -2,11 +2,16 @@ package tag_service
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"time"
 
 	"github.com/fzzv/go-gin-example/models"
+	"github.com/fzzv/go-gin-example/pkg/export"
 	"github.com/fzzv/go-gin-example/pkg/gredis"
 	"github.com/fzzv/go-gin-example/pkg/logging"
 	"github.com/fzzv/go-gin-example/service/cache_service"
+	"github.com/xuri/excelize/v2"
 )
 
 type Tag struct {
@@ -94,4 +99,67 @@ func (t *Tag) getMaps() map[string]interface{} {
 	}
 
 	return maps
+}
+
+func (t *Tag) Export() (string, error) {
+	// 导出时需要获取所有数据，设置一个很大的 PageSize
+	if t.PageSize == 0 {
+		t.PageSize = 10000 // 设置一个足够大的值，或者改为 -1 表示不限制
+	}
+	tags, err := t.GetAll()
+	fmt.Println("tags:", tags)
+	if err != nil {
+		return "", err
+	}
+
+	// 创建 Excel 文件
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "标签信息"
+	// 默认第一个 sheet，重命名为“标签信息”
+	f.SetSheetName(f.GetSheetName(0), sheetName)
+
+	// 表头
+	titles := []string{"ID", "名称", "创建人", "创建时间", "修改人", "修改时间"}
+	if err := f.SetSheetRow(sheetName, "A1", &titles); err != nil {
+		return "", fmt.Errorf("设置表头失败: %w", err)
+	}
+
+	// 填充数据
+	for i, v := range tags {
+		// 格式化时间（假设 CreatedOn 和 ModifiedOn 是 int64 或 int 的 Unix 时间戳）
+		createdTime := time.Unix(int64(v.CreatedOn), 0).Format("2006-01-02 15:04:05")
+		modifiedTime := time.Unix(int64(v.ModifiedOn), 0).Format("2006-01-02 15:04:05")
+
+		row := i + 2 // 从第2行开始（A1 是表头）
+		values := []interface{}{
+			v.ID,
+			v.Name,
+			v.CreatedBy,
+			createdTime,
+			v.ModifiedBy,
+			modifiedTime,
+		}
+
+		cell := fmt.Sprintf("A%d", row)
+		if err := f.SetSheetRow(sheetName, cell, &values); err != nil {
+			return "", fmt.Errorf("写入第 %d 行数据失败: %w", row, err)
+		}
+	}
+
+	// 生成文件名
+	filename := fmt.Sprintf("tags-%d.xlsx", time.Now().Unix())
+	fullPath := export.GetExcelFullPath() + filename
+
+	// 创建导出目录
+	if err := os.MkdirAll(export.GetExcelFullPath(), 0755); err != nil {
+		return "", fmt.Errorf("创建导出目录失败: %w", err)
+	}
+	// 保存文件
+	if err := f.SaveAs(fullPath); err != nil {
+		return "", fmt.Errorf("保存 Excel 文件失败: %w", err)
+	}
+
+	return filename, nil
 }
