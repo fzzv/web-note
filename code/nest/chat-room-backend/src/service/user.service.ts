@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/c
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/service/redis.service';
 import { RegisterUserDto } from 'src/dtos/register-user.dto';
-import { md5 } from 'src/utils';
+import { UtilityService } from 'src/service/utility.service';
 
 @Injectable()
 export class UserService {
@@ -11,6 +11,9 @@ export class UserService {
 
   @Inject(RedisService)
   private redisService: RedisService;
+
+  @Inject(UtilityService)
+  private utilityService: UtilityService;
 
   private logger = new Logger();
 
@@ -35,11 +38,12 @@ export class UserService {
       throw new HttpException('用户已存在', HttpStatus.BAD_REQUEST);
     }
 
+    let hashedPassword = await this.utilityService.hashPassword(user.password);
     try {
       return await this.prismaService.user.create({
         data: {
           username: user.username,
-          password: md5(user.password),
+          password: hashedPassword,
           nickName: user.nickName,
           email: user.email
         },
