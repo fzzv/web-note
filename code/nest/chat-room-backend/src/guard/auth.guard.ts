@@ -46,6 +46,7 @@ export class AuthGuard implements CanActivate {
       if (user.password) {
         user.password = '******';
       }
+      console.log(user, 'user');
       request.user = user;
       return true;
     } catch (error) {

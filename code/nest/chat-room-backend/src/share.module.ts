@@ -5,12 +5,13 @@ import { EmailService } from './service/email.service';
 import { UserService } from './service/user.service';
 import { ConfigurationService } from './service/configuration.service';
 import { UtilityService } from './service/utility.service';
+import { FriendshipService } from './service/friendship.service';
 
 @Global()
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] })],
-  providers: [RedisService, EmailService, UserService, ConfigurationService, UtilityService],
-  exports: [RedisService, EmailService, UserService, ConfigurationService, UtilityService],
+  providers: [RedisService, EmailService, UserService, ConfigurationService, UtilityService, FriendshipService],
+  exports: [RedisService, EmailService, UserService, ConfigurationService, UtilityService, FriendshipService],
 })
 export class ShareModule {
 }

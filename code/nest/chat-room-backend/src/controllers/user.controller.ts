@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { UtilityService } from 'src/service/utility.service';
 import { ConfigurationService } from 'src/service/configuration.service';
 import { JwtService } from '@nestjs/jwt';
+import { Public } from 'src/decorators/public.decorator';
 
 @Controller('user')
 export class UserController {
@@ -21,11 +22,13 @@ export class UserController {
     private readonly configurationService: ConfigurationService
   ) { }
 
+  @Public()
   @Post('register')
   async createUser(@Body() user: RegisterUserDto) {
     return this.userService.register(user);
   }
 
+  @Public()
   @Get('register-captcha')
   async captcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
@@ -40,6 +43,7 @@ export class UserController {
     return '发送成功';
   }
 
+  @Public()
   @Post('login')
   async login(@Body() body: LoginUserDto) {
     const { username, password } = body;

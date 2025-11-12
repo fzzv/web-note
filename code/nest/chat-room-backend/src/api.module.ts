@@ -1,7 +1,8 @@
 import { Module } from "@nestjs/common";
+import { JwtModule } from "@nestjs/jwt";
 import { UserController } from "src/controllers/user.controller";
 import { EmailController } from "src/controllers/email.controller";
-import { JwtModule } from "@nestjs/jwt";
+import { FriendshipController } from "src/controllers/friendship.controller";
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { JwtModule } from "@nestjs/jwt";
   controllers: [
     UserController,
     EmailController,
+    FriendshipController,
   ],
 })
 export class ApiModule { }
