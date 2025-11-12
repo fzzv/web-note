@@ -3,6 +3,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { UserController } from "src/controllers/user.controller";
 import { EmailController } from "src/controllers/email.controller";
 import { FriendshipController } from "src/controllers/friendship.controller";
+import { ChatroomController } from "src/controllers/chatroom.controller";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { FriendshipController } from "src/controllers/friendship.controller";
     UserController,
     EmailController,
     FriendshipController,
+    ChatroomController,
   ],
 })
 export class ApiModule { }
