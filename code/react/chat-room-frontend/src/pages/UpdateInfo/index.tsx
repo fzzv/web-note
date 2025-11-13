@@ -1,14 +1,12 @@
 import { Button, Form, Input, message } from 'antd';
-import './index.css';
 import { useForm } from 'antd/es/form/Form';
-import { register, registerCaptcha } from '../../api';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import './index.css';
+import { getUserInfo, updateInfo, updateUserInfoCaptcha } from '../../api';
 
-export interface RegisterUser {
-  username: string;
+export interface UserInfo {
+  headPic: string;
   nickName: string;
-  password: string;
-  confirmPassword: string;
   email: string;
   captcha: string;
 }
@@ -18,25 +16,22 @@ const layout1 = {
   wrapperCol: { span: 18 }
 }
 
-const layout2 = {
-  labelCol: { span: 0 },
-  wrapperCol: { span: 24 }
-}
-
-export function Register() {
+export function UpdateInfo() {
   const [form] = useForm();
-  const navigate = useNavigate();
-
-  const onFinish = async (values: RegisterUser) => {
-    if (values.password !== values.confirmPassword) {
-      return message.error('两次密码不一致');
+  useEffect(() => {
+    async function query() {
+      const res = await getUserInfo();
+      form.setFieldValue('headPic', res.data.headPic);
+      form.setFieldValue('nickName', res.data.nickName);
+      form.setFieldValue('email', res.data.email);
+      form.setFieldValue('username', res.data.username);
     }
+    query();
+  }, []);
+  const onFinish = async (values: UserInfo) => {
     try {
-      await register(values);
-      message.success('注册成功');
-      setTimeout(() => {
-        navigate('/login');
-      }, 1000);
+      await updateInfo(values);
+      message.success('用户信息更新成功');
     } catch (e: unknown) {
       if (e instanceof Error) {
         message.error(e.message);
@@ -44,15 +39,10 @@ export function Register() {
         message.error('系统繁忙，请稍后再试');
       }
     }
-  }
-  const sendCaptcha = async () => {
-    const address = form.getFieldValue('email');
-    if (!address) {
-      return message.error('请输入邮箱地址');
-    }
-
+  };
+  const sendCaptcha = async function () {
     try {
-      await registerCaptcha(address);
+      await updateUserInfoCaptcha();
       message.success('发送成功');
     } catch (e: unknown) {
       if (e instanceof Error) {
@@ -61,10 +51,9 @@ export function Register() {
         message.error('系统繁忙，请稍后再试');
       }
     }
-  }
+  };
 
-  return <div id="register-container">
-    <h1>聊天室</h1>
+  return <div id="updateInfo-container">
     <Form
       form={form}
       {...layout1}
@@ -73,9 +62,11 @@ export function Register() {
       autoComplete="off"
     >
       <Form.Item
-        label="用户名"
-        name="username"
-        rules={[{ required: true, message: '请输入用户名!' }]}
+        label="头像"
+        name="headPic"
+        rules={[
+          { required: true, message: '请输入头像!' },
+        ]}
       >
         <Input />
       </Form.Item>
@@ -83,25 +74,11 @@ export function Register() {
       <Form.Item
         label="昵称"
         name="nickName"
-        rules={[{ required: true, message: '请输入昵称!' }]}
+        rules={[
+          { required: true, message: '请输入昵称!' },
+        ]}
       >
         <Input />
-      </Form.Item>
-
-      <Form.Item
-        label="密码"
-        name="password"
-        rules={[{ required: true, message: '请输入密码!' }]}
-      >
-        <Input.Password />
-      </Form.Item>
-
-      <Form.Item
-        label="确认密码"
-        name="confirmPassword"
-        rules={[{ required: true, message: '请输入确认密码!' }]}
-      >
-        <Input.Password />
       </Form.Item>
 
       <Form.Item
@@ -127,19 +104,11 @@ export function Register() {
       </div>
 
       <Form.Item
-        {...layout2}
-      >
-        <div className='links'>
-          已有账号？去<a href='/login'>登录</a>
-        </div>
-      </Form.Item>
-
-      <Form.Item
         {...layout1}
         label=" "
       >
         <Button className='btn' type="primary" htmlType="submit">
-          注册
+          修改密码
         </Button>
       </Form.Item>
     </Form>

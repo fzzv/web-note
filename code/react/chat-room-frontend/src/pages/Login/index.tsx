@@ -23,15 +23,14 @@ export function Login() {
   const onFinish = async (values: LoginUser) => {
     try {
       const res = await login(values.username, values.password);
-      if (res.status === 201 || res.status === 200) {
-        message.success('登录成功');
+      message.success('登录成功');
 
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('userInfo', JSON.stringify(res.data.user));
-        setTimeout(() => {
-          navigate('/');
-        }, 1000);
-      }
+      localStorage.setItem('token', res.data.token.access_token);
+      localStorage.setItem('refresh_token', res.data.token.refresh_token);
+      localStorage.setItem('userInfo', JSON.stringify(res.data.user));
+      setTimeout(() => {
+        navigate('/');
+      }, 1000);
     } catch (e: unknown) {
       if (e instanceof Error) {
         console.error(e.message);
