@@ -1,5 +1,5 @@
 import { FriendAddDto } from 'src/dtos/friend-add.dto';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -50,10 +50,35 @@ export class FriendshipService {
 
   // 添加好友
   async add(friendAddDto: FriendAddDto, userId: number) {
+    const friend = await this.prismaService.user.findUnique({
+      where: {
+        username: friendAddDto.username
+      }
+    });
+
+    if (!friend) {
+      throw new BadRequestException('要添加的 username 不存在');
+    }
+
+    if (friend.id === userId) {
+      throw new BadRequestException('不能添加自己为好友');
+    }
+
+    const found = await this.prismaService.friendship.findMany({
+      where: {
+        userId,
+        friendId: friend.id
+      }
+    })
+
+    if (found.length) {
+      throw new BadRequestException('该好友已经添加过');
+    }
+
     return await this.prismaService.friendRequest.create({
       data: {
         fromUserId: userId,
-        toUserId: friendAddDto.friendId,
+        toUserId: friend.id,
         reason: friendAddDto.reason,
         status: 0
       }
@@ -62,11 +87,64 @@ export class FriendshipService {
 
   // 获取好友请求列表
   async list(userId: number) {
-    return await this.prismaService.friendRequest.findMany({
+    const fromMeRequest = await this.prismaService.friendRequest.findMany({
       where: {
         fromUserId: userId
       }
     })
+
+    const toMeRequest = await this.prismaService.friendRequest.findMany({
+      where: {
+        toUserId: userId
+      }
+    })
+
+    const res = {
+      toMe: [] as any[],
+      fromMe: [] as any[]
+    }
+
+    for (let i = 0; i < fromMeRequest.length; i++) {
+      const user = await this.prismaService.user.findUnique({
+        where: {
+          id: fromMeRequest[i].toUserId
+        },
+        select: {
+          id: true,
+          username: true,
+          nickName: true,
+          email: true,
+          headPic: true,
+          createTime: true
+        }
+      })
+      res.fromMe.push({
+        ...fromMeRequest[i],
+        toUser: user
+      })
+    }
+
+    for (let i = 0; i < toMeRequest.length; i++) {
+      const user = await this.prismaService.user.findUnique({
+        where: {
+          id: toMeRequest[i].fromUserId
+        },
+        select: {
+          id: true,
+          username: true,
+          nickName: true,
+          email: true,
+          headPic: true,
+          createTime: true
+        }
+      })
+      res.toMe.push({
+        ...toMeRequest[i],
+        fromUser: user
+      })
+    }
+
+    return res;
   }
 
   // 同意好友请求
