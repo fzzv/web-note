@@ -3,6 +3,7 @@ import { useForm } from 'antd/es/form/Form';
 import { useEffect } from 'react';
 import './index.css';
 import { getUserInfo, updateInfo, updateUserInfoCaptcha } from '../../api';
+import { HeadPicUpload } from './HeadPicUpload';
 
 export interface UserInfo {
   headPic: string;
@@ -32,6 +33,16 @@ export function UpdateInfo() {
     try {
       await updateInfo(values);
       message.success('用户信息更新成功');
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
+        let info = JSON.parse(userInfo);
+        info = {
+          headPic: values?.headPic,
+          nickName: values?.nickName,
+          email: values?.email,
+        };
+        localStorage.setItem('userInfo', JSON.stringify(info));
+      }
     } catch (e: unknown) {
       if (e instanceof Error) {
         message.error(e.message);
@@ -68,7 +79,7 @@ export function UpdateInfo() {
           { required: true, message: '请输入头像!' },
         ]}
       >
-        <Input />
+        <HeadPicUpload />
       </Form.Item>
 
       <Form.Item

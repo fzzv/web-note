@@ -130,3 +130,7 @@ export async function updateInfo(data: UserInfo) {
 export async function updateUserInfoCaptcha() {
   return await axiosInstance.get('/user/update/captcha');
 }
+
+export async function presignedUrl(fileName: string) {
+  return axiosInstance.get(`/minio/presignedUrl?name=${fileName}`);
+}
