@@ -7,6 +7,12 @@ import { UpdatePassword } from './pages/UpdatePassword';
 import { Index } from './pages/Index';
 import { UpdateInfo } from './pages/UpdateInfo';
 import '@ant-design/v5-patch-for-react-19' ;
+import { Menu } from './pages/Menu';
+import { Friendship } from './pages/Friendship';
+import { Group } from './pages/Group';
+import { Chat } from './pages/Chat';
+import { Collection } from './pages/Collection';
+import { Notification } from './pages/Notification';
 
 const routes = [
   {
@@ -17,6 +23,32 @@ const routes = [
         path: "update_info",
         element: <UpdateInfo />,
       },
+      {
+        path: '/',
+        element: <Menu/>,
+        children: [
+          {
+            path: '/',
+            element: <Friendship/>
+          },
+          {
+            path: '/group',
+            element: <Group/>
+          },
+          {
+            path: 'chat',
+            element: <Chat/>
+          },
+          {
+            path: 'collection',
+            element: <Collection/>
+          },
+          {
+            path: 'notification',
+            element: <Notification/>
+          }
+        ]
+      }
     ],
   },
   {
@@ -32,7 +64,7 @@ const routes = [
     element: <UpdatePassword />,
   }
 ];
-const router = createBrowserRouter(routes);
+export const router = createBrowserRouter(routes);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

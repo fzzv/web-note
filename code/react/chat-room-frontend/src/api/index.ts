@@ -132,5 +132,13 @@ export async function updateUserInfoCaptcha() {
 }
 
 export async function presignedUrl(fileName: string) {
-  return axiosInstance.get(`/minio/presignedUrl?name=${fileName}`);
+  return await axiosInstance.get(`/minio/presignedUrl?name=${fileName}`);
+}
+
+export async function friendshipList(name?: string) {
+  return await axiosInstance.get(`/friendship/list?name=${name || ''}`);
+}
+
+export async function chatroomList(name: string) {
+  return await axiosInstance.get(`/chatroom/list?name=${name}`);
 }

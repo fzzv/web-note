@@ -7,7 +7,7 @@ export class FriendshipService {
   constructor(private readonly prismaService: PrismaService) { }
 
   // 获取好友列表
-  async getFriendship(userId: number) {
+  async getFriendship(userId: number, name: string) {
     const friendships = await this.prismaService.friendship.findMany({
       where: {
         OR: [
@@ -45,7 +45,7 @@ export class FriendshipService {
       });
       res.push(friend);
     }
-    return res;
+    return res.filter((item: any) => item.nickName.includes(name))
   }
 
   // 添加好友
