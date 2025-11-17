@@ -6,6 +6,7 @@ import { FriendshipController } from "src/controllers/friendship.controller";
 import { ChatroomController } from "src/controllers/chatroom.controller";
 import { MinioController } from "src/controllers/minio.controller";
 import { ChatHistoryController } from "src/controllers/chat-history.controller";
+import { FavoriteController } from "src/controllers/favorate.controller";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ChatHistoryController } from "src/controllers/chat-history.controller";
     ChatroomController,
     MinioController,
     ChatHistoryController,
+    FavoriteController,
   ],
 })
 export class ApiModule { }

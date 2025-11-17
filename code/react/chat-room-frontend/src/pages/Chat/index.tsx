@@ -2,7 +2,7 @@ import { Button, message, Popover } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import './index.scss';
-import { chatHistoryList, chatroomList } from "../../api";
+import { chatHistoryList, chatroomList, favoriteAdd } from "../../api";
 import type { UserInfo } from "../UpdateInfo";
 import TextArea from "antd/es/input/TextArea";
 import { getUserInfo } from "../../utils";
@@ -178,6 +178,20 @@ export function Chat() {
 
   const [uploadType, setUploadType] = useState<'image' | 'file'>('image');
 
+  async function addToFavorite(chatHistoryId: number) {
+    try {
+      await favoriteAdd(chatHistoryId);
+
+      message.success('收藏成功')
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        message.error(e.message);
+      } else {
+        message.error('系统繁忙，请稍后再试');
+      }
+    }
+  }
+
   return <div id="chat-container">
     <div className="chat-room-list">
       {
@@ -191,15 +205,21 @@ export function Chat() {
     </div>
     <div className="message-list">
       {chatHistory?.map(item => {
-        return <div className={`message-item ${item.senderId === userInfo.id ? 'from-me' : ''}`} data-id={item.id}>
+        return <div
+          className={`message-item ${item.senderId === userInfo.id ? 'from-me' : ''}`}
+          data-id={item.id}
+          onDoubleClick={() => {
+            addToFavorite(item.id)
+          }}
+        >
           <div className="message-sender">
             <img src={item.sender?.headPic ?? ''} />
             <span className="sender-nickname">{item.sender?.nickName ?? ''}</span>
           </div>
           <div className="message-content">
-            {item.type === 0 ? item.content : 
-             item.type === 1 ? <img src={item.content} width="100" height="100" /> : 
-             <div><a href={item.content} download>{item.content}</a></div>}
+            {item.type === 0 ? item.content :
+              item.type === 1 ? <img src={item.content} width="100" height="100" /> :
+                <div><a href={item.content} download>{item.content}</a></div>}
           </div>
         </div>
       })}

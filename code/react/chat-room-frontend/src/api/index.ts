@@ -75,7 +75,7 @@ axiosInstance.interceptors.response.use(
         isRefreshing = false;
       }
     }
-    
+
     message.error(error.response?.data?.message || '系统繁忙，请稍后再试');
 
     return Promise.reject(error);
@@ -199,6 +199,26 @@ export async function createGroup(name: string) {
   return axiosInstance.get(`/chatroom/create-group`, {
     params: {
       name
+    }
+  });
+}
+
+export async function queryFavoriteList() {
+  return axiosInstance.get(`/favorite/list`);
+}
+
+export async function favoriteAdd(chatHistoryId: number) {
+  return axiosInstance.get(`/favorite/add`, {
+    params: {
+      chatHistoryId
+    }
+  });
+}
+
+export async function favoriteDel(id: number) {
+  return axiosInstance.get(`/favorite/del`, {
+    params: {
+      id
     }
   });
 }
