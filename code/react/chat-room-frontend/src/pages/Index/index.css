@@ -11,7 +11,12 @@
   justify-content: space-between;
   padding: 0 20px;
 }
-#index-container h1{
+#index-container .title{
+  text-decoration: none;
+  color: #000;
+}
+
+#index-container h1 {
   margin: 0;
 }
 

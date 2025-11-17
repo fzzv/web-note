@@ -159,3 +159,7 @@ export async function agreeFriendRequest(id: number) {
 export async function rejectFriendRequest(id: number) {
   return axiosInstance.get(`/friendship/reject/${id}`);
 }
+
+export async function chatHistoryList(id: number) {
+  return axiosInstance.get(`/chat-history/list?chatroomId=${id}`);
+}

@@ -55,7 +55,7 @@ export class UserController {
       throw new HttpException('用户名或密码错误', HttpStatus.INTERNAL_SERVER_ERROR)
     }
     return {
-      user: username,
+      user,
       token: this.createJwtTokens(user)
     };
   }
@@ -129,9 +129,19 @@ export class UserController {
     const user = await this.prismaService.user.findUnique({
       where: {
         username
+      },
+      select: {
+        id: true,
+        username: true,
+        password: true,
+        nickName: true,
+        email: true,
+        headPic: true,
+        createTime: true
       }
     });
     if (user && await this.utilityService.comparePassword(password, user.password)) {
+      user.password = '********';
       return user;
     }
     return null;

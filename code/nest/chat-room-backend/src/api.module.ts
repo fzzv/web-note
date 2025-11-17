@@ -5,6 +5,7 @@ import { EmailController } from "src/controllers/email.controller";
 import { FriendshipController } from "src/controllers/friendship.controller";
 import { ChatroomController } from "src/controllers/chatroom.controller";
 import { MinioController } from "src/controllers/minio.controller";
+import { ChatHistoryController } from "src/controllers/chat-history.controller";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { MinioController } from "src/controllers/minio.controller";
     FriendshipController,
     ChatroomController,
     MinioController,
+    ChatHistoryController,
   ],
 })
 export class ApiModule { }

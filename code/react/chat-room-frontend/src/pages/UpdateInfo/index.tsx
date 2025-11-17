@@ -37,6 +37,7 @@ export function UpdateInfo() {
       if (userInfo) {
         let info = JSON.parse(userInfo);
         info = {
+          ...info,
           headPic: values?.headPic,
           nickName: values?.nickName,
           email: values?.email,

@@ -8,6 +8,9 @@ import { UtilityService } from './service/utility.service';
 import { FriendshipService } from './service/friendship.service';
 import { ChatroomService } from './service/chatroom.service';
 import * as Minio from 'minio';
+import { ChatService } from './service/chat.service';
+import { ChatGateway } from './gateway/chat.gateway';
+import { ChatHistoryService } from './service/chat-history.service';
 
 @Global()
 @Module({
@@ -20,14 +23,18 @@ import * as Minio from 'minio';
           endPoint: 'localhost',
           port: 9000,
           useSSL: false,
-          accessKey: 'NvAsQeTYG2zoLCrtbWJm',
-          secretKey: 'dLoYZA0BePBvsP26kP05pMo7Ra3TRs1PswwTIo5p'
+          accessKey: 'lxy5LBZxZzRNxJouncsA',
+          secretKey: 'EuSpsozFDIuZnIfaOLkiVAMEe4vGzeBFbfjgWn5A'
         })
         return client;
       }
     },
-    RedisService, EmailService, UserService, ConfigurationService, UtilityService, FriendshipService, ChatroomService],
-  exports: ['MINIO_CLIENT', RedisService, EmailService, UserService, ConfigurationService, UtilityService, FriendshipService, ChatroomService],
+    ChatGateway,
+    RedisService, EmailService, UserService, ConfigurationService, UtilityService, FriendshipService,
+    ChatroomService, ChatService, ChatHistoryService],
+  exports: [
+    'MINIO_CLIENT', RedisService, EmailService, UserService, ConfigurationService, UtilityService,
+    FriendshipService, ChatroomService, ChatService, ChatHistoryService],
 })
 export class ShareModule {
 }
