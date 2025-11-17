@@ -39,10 +39,6 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.data.code === 500) {
-      message.error(error.response?.data.message);
-    }
-
     // 如果返回 401，说明 access_token 失效
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -79,6 +75,8 @@ axiosInstance.interceptors.response.use(
         isRefreshing = false;
       }
     }
+    
+    message.error(error.response?.data?.message || '系统繁忙，请稍后再试');
 
     return Promise.reject(error);
   }
@@ -177,6 +175,30 @@ export async function createOneToOne(friendId: number,) {
   return axiosInstance.get(`/chatroom/create-one-to-one`, {
     params: {
       friendId,
+    }
+  });
+}
+
+export async function groupMembers(chatroomId: number) {
+  return axiosInstance.get(`/chatroom/members`, {
+    params: {
+      chatroomId
+    }
+  });
+}
+
+export async function addMember(chatroomId: number, joinUsername: string) {
+  return axiosInstance.get(`/chatroom/join/${chatroomId}`, {
+    params: {
+      joinUsername
+    }
+  });
+}
+
+export async function createGroup(name: string) {
+  return axiosInstance.get(`/chatroom/create-group`, {
+    params: {
+      name
     }
   });
 }

@@ -132,6 +132,13 @@ export function Chat() {
     queryChatroomList();
   }, []);
 
+  // 每次聊天室发生变化时，滚动到底部
+  useEffect(() => {
+    setTimeout(() => {
+      document.getElementById('bottom-bar')?.scrollIntoView({ block: 'end' });
+    }, 300);
+  }, [roomId])
+
   const [chatHistory, setChatHistory] = useState<Array<ChatHistory>>();
 
   async function queryChatHistoryList(chatroomId: number) {
@@ -157,7 +164,10 @@ export function Chat() {
   const location = useLocation();
 
   useEffect(() => {
-    setChatroomId(location.state?.chatroomId);
+    if (location.state?.chatroomId) {
+      setChatroomId(location.state?.chatroomId);
+      queryChatHistoryList(location.state?.chatroomId);
+    }
   }, [location.state?.chatroomId]);
 
   return <div id="chat-container">
