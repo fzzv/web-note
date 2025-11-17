@@ -12,7 +12,9 @@ import { Public } from 'src/decorators/public.decorator';
 import { UserInfo } from 'src/decorators';
 import { UpdateUserPasswordDto } from 'src/dtos/update-user-password.dto';
 import { UpdateUserDto } from 'src/dtos/udpate-user.dto';
+import { ApiOperation, ApiBody, ApiResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
 
+@ApiTags('user')
 @Controller('user')
 export class UserController {
   constructor(
@@ -27,12 +29,18 @@ export class UserController {
 
   @Public()
   @Post('register')
+  @ApiOperation({ summary: '注册用户' })
+  @ApiBody({ type: RegisterUserDto })
+  @ApiResponse({ status: 200, description: '成功返回注册用户' })
   async createUser(@Body() user: RegisterUserDto) {
     return this.userService.register(user);
   }
 
   @Public()
   @Get('register-captcha')
+  @ApiOperation({ summary: '获取注册验证码' })
+  @ApiQuery({ name: 'address', description: '邮箱地址', required: true })
+  @ApiResponse({ status: 200, description: '成功返回注册验证码' })
   async captcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
 
@@ -48,6 +56,9 @@ export class UserController {
 
   @Public()
   @Post('login')
+  @ApiOperation({ summary: '登录' })
+  @ApiBody({ type: LoginUserDto })
+  @ApiResponse({ status: 200, description: '成功返回登录' })
   async login(@Body() body: LoginUserDto) {
     const { username, password } = body;
     const user = await this.validateUser(username, password);
@@ -63,6 +74,9 @@ export class UserController {
   // 刷新 token
   @Public()
   @Post('refresh-token')
+  @ApiOperation({ summary: '刷新 token' })
+  @ApiBody({ type: () => ({ refresh_token: { type: 'string', example: 'refresh_token' } }) })
+  @ApiResponse({ status: 200, description: '成功返回刷新 token' })
   async refreshToken(@Body() body) {
     const { refresh_token } = body;
     try {
@@ -75,11 +89,16 @@ export class UserController {
   }
 
   @Get('info')
+  @ApiOperation({ summary: '获取用户信息' })
+  @ApiResponse({ status: 200, description: '成功返回用户信息' })
   async info(@UserInfo('id') userId: number) {
     return this.userService.findUserDetailById(userId);
   }
 
   @Post('update_password')
+  @ApiOperation({ summary: '更新密码' })
+  @ApiBody({ type: UpdateUserPasswordDto })
+  @ApiResponse({ status: 200, description: '成功返回更新密码' })
   async updatePassword(@Body() passwordDto: UpdateUserPasswordDto) {
     // 给密码加密
     passwordDto.password = await this.utilityService.hashPassword(passwordDto.password);
@@ -87,6 +106,9 @@ export class UserController {
   }
 
   @Get('update_password/captcha')
+  @ApiOperation({ summary: '获取更新密码验证码' })
+  @ApiQuery({ name: 'address', description: '邮箱地址', required: true })
+  @ApiResponse({ status: 200, description: '成功返回更新密码验证码' })
   async updatePasswordCaptcha(@Query('address') address: string) {
     if (!address) {
       throw new BadRequestException('邮箱地址不能为空');
@@ -104,11 +126,17 @@ export class UserController {
   }
 
   @Post('update')
+  @ApiOperation({ summary: '更新用户信息' })
+  @ApiBody({ type: UpdateUserDto })
+  @ApiResponse({ status: 200, description: '成功返回更新用户信息' })
   async update(@UserInfo('id') userId: number, @Body() updateUserDto: UpdateUserDto) {
     return await this.userService.update(userId, updateUserDto);
   }
 
   @Get('update/captcha')
+  @ApiOperation({ summary: '获取更新用户信息验证码' })
+  @ApiQuery({ name: 'address', description: '邮箱地址', required: true })
+  @ApiResponse({ status: 200, description: '成功返回更新用户信息验证码' })
   async updateCaptcha(@Query('address') address: string) {
     if (!address) {
       throw new BadRequestException('邮箱地址不能为空');
