@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import './index.css';
 import type { ColumnsType } from "antd/es/table";
 import { useForm } from "antd/es/form/Form";
-import { friendshipList } from "../../api";
+import { createOneToOne, findChatroom, friendshipList } from "../../api";
 import { AddFriendModal } from "./AddFriendModal";
+import { getUserInfo } from "../../utils";
+import { useNavigate } from "react-router-dom";
 
 interface SearchFriend {
   name: string;
@@ -21,6 +23,36 @@ interface FriendshipSearchResult {
 export function Friendship() {
   const [friendshipResult, setFriendshipResult] = useState<Array<FriendshipSearchResult>>([]);
   const [isAddFriendModalOpen, setAddFriendModalOpen] = useState(false);
+
+  const navigate = useNavigate();
+
+  async function goToChat(friendId: number) {
+    const userId = getUserInfo().id;
+    try {
+      const res = await findChatroom(userId, friendId);
+
+      if (res.data) {
+        navigate('/chat', {
+          state: {
+            chatroomId: res.data
+          }
+        });
+      } else {
+        const res2 = await createOneToOne(friendId);
+        navigate('/chat', {
+          state: {
+            chatroomId: res2.data
+          }
+        });
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        console.error(e.message);
+      } else {
+        console.error('Unknown error:', e);
+      }
+    }
+  }
 
   const columns: ColumnsType<FriendshipSearchResult> = useMemo(() => [
     {
@@ -42,9 +74,11 @@ export function Friendship() {
     },
     {
       title: '操作',
-      render: () => (
+      render: (_, record) => (
         <div>
-          <a href="#">聊天</a>
+          <a href="#" onClick={() => {
+            goToChat(record.id)
+          }}>聊天</a>
         </div>
       )
     }

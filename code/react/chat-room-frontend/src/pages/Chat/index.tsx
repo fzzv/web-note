@@ -5,6 +5,8 @@ import './index.scss';
 import { chatHistoryList, chatroomList } from "../../api";
 import type { UserInfo } from "../UpdateInfo";
 import TextArea from "antd/es/input/TextArea";
+import { getUserInfo } from "../../utils";
+import { useLocation } from "react-router-dom";
 
 interface JoinRoomPayload {
   chatroomId: number
@@ -46,19 +48,6 @@ interface ChatHistory {
   senderId: number
   createTime: Date,
   sender: UserInfo
-}
-
-interface User {
-  id: number;
-  email: string;
-  headPic: string;
-  nickName: string;
-  username: string;
-  createTime: Date;
-}
-
-export function getUserInfo(): User {
-  return JSON.parse(localStorage.getItem('userInfo')!);
 }
 
 export function Chat() {
@@ -165,11 +154,17 @@ export function Chat() {
   }
   const [inputText, setInputText] = useState('');
 
+  const location = useLocation();
+
+  useEffect(() => {
+    setChatroomId(location.state?.chatroomId);
+  }, [location.state?.chatroomId]);
+
   return <div id="chat-container">
     <div className="chat-room-list">
       {
         roomList?.map(item => {
-          return <div className="chat-room-item" key={item.id} data-id={item.id} onClick={() => {
+          return <div className={`chat-room-item ${item.id === roomId ? 'selected' : ''}`} key={item.id} data-id={item.id} onClick={() => {
             queryChatHistoryList(item.id);
             setChatroomId(item.id);
           }}>{item.name}</div>
