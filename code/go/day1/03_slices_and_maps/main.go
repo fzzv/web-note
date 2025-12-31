@@ -13,7 +13,6 @@ func wordCount(s string) map[string]int {
 	return m
 }
 
-
 // 数组和切片
 // changeArrayByValue 接收一个数组的副本
 func changeArrayByValue(arr [3]int) {
@@ -64,7 +63,7 @@ func arrayAndSliceExample() {
 	// 切片的扩容
 	s4 := append(s2, 40)
 	fmt.Println("追加元素后, 新切片:", s4)
-	fmt.Printf("新切片长度: %d, 容量: %d\n", len(s4), cap(s4))	
+	fmt.Printf("新切片长度: %d, 容量: %d\n", len(s4), cap(s4))
 }
 
 // Map
@@ -72,8 +71,8 @@ func mapExample() {
 	// 1. 使用字面量创建并初始化一个映射
 	// key 类型是 string，value 类型是 int
 	students := map[string]int{
-		"Alice": 85,
-		"Bob":   92,
+		"Alice":   85,
+		"Bob":     92,
 		"Charlie": 78,
 	}
 	fmt.Println("\n--- Map 示例 ---")
@@ -107,7 +106,7 @@ func mapExample() {
 	fmt.Println("\n--- 遍历映射 ---")
 	for name, score := range students {
 		fmt.Printf("学生: %s, 分数: %d\n", name, score)
-	}	
+	}
 }
 
 func main() {
@@ -143,4 +142,16 @@ func main() {
 
 	// Map
 	mapExample()
-} 
+
+	s1 := []int{1, 2, 3}
+	s2 := s1
+	s2 = append(s2, 4)
+	s2[1] = 99
+	fmt.Printf("s1=%v s2=%v\n", s1, s2)
+
+	var data []int
+	for i := range 2000 {
+		data = append(data, i)
+		fmt.Printf("len: %d, cap: %d\r\n", len(data), cap(data))
+	}
+}
