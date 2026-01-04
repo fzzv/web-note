@@ -1,0 +1,20 @@
+// 使用 proto3 语法版本
+syntax = "proto3";
+// 定义包名为 "hello"
+package hello;
+// 定义一个 Greeter 服务
+service Greeter {
+  // 定义一个 RPC 方法 sayHello，接收 HelloRequest，返回 HelloReply
+  rpc sayHello (HelloRequest) returns (HelloReply);
+  rpc SayHelloStream (HelloRequest) returns (stream HelloReply);
+}
+// 定义 HelloRequest 消息，包含一个字段 name
+message HelloRequest {
+  // 定义一个字符串类型的 name 字段，并且字段序号为 1
+  string name = 1;
+}
+// 定义 HelloReply 消息，包含一个字段 message
+message HelloReply {
+  // 定义一个字符串类型的 message 字段，并且字段序号为 1
+  string message = 1;
+}
