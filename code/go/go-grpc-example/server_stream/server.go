@@ -52,6 +52,29 @@ func (s *Server) CollectNames(stream proto.GreeterService_CollectNamesServer) er
 	}
 }
 
+// 双向流 模式通信，类似聊天
+// 客户端发送一个流，服务端返回一个流
+func (s *Server) Chat(stream proto.GreeterService_ChatServer) error {
+	for {
+		// 1. 接收消息
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		// 2. 逻辑处理并发送回执
+		log.Printf("收到客户端私信: %s", req.GetName())
+		err = stream.Send(&proto.HelloResponse{
+			Message: "服务器已阅: " + req.GetName(),
+		})
+		if err != nil {
+			return err
+		}
+	}
+}
+
 func main() {
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {

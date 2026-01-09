@@ -8,6 +8,8 @@ service GreeterService {
     rpc LotsOfReplies (HelloRequest) returns (stream HelloResponse);
     // 客户端流
     rpc CollectNames (stream HelloRequest) returns (HelloResponse);
+    // 双向流
+    rpc Chat (stream HelloRequest) returns (stream HelloResponse) {}
 }
 
 message HelloRequest {
