@@ -6,6 +6,8 @@ service GreeterService {
     rpc SayHello(HelloRequest) returns (HelloResponse);
     // 服务端流
     rpc LotsOfReplies (HelloRequest) returns (stream HelloResponse);
+    // 客户端流
+    rpc CollectNames (stream HelloRequest) returns (HelloResponse);
 }
 
 message HelloRequest {

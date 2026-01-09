@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go-grpc-example/proto"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -29,6 +30,26 @@ func (s *Server) LotsOfReplies(in *proto.HelloRequest, stream proto.GreeterServi
 	}
 	log.Println("数据发送完毕，关闭流")
 	return nil
+}
+
+// 客户端流 模式通信，类似上传文件
+// 客户端发送一个流，服务端返回一个响应
+func (s *Server) CollectNames(stream proto.GreeterService_CollectNamesServer) error {
+	var names []string
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			// 接收完毕，返回一个汇总响应并关闭流
+			return stream.SendAndClose(&proto.HelloResponse{
+				Message: fmt.Sprintf("已经收到这 %d 个人的名字", len(names)),
+			})
+		}
+		if err != nil {
+			return err
+		}
+		log.Printf("收到名字: %s", req.GetName())
+		names = append(names, req.GetName())
+	}
 }
 
 func main() {
