@@ -4,6 +4,8 @@ option go_package = "./proto";
 
 service GreeterService {
     rpc SayHello(HelloRequest) returns (HelloResponse);
+    // 服务端流
+    rpc LotsOfReplies (HelloRequest) returns (stream HelloResponse);
 }
 
 message HelloRequest {
