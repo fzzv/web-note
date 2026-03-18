@@ -62,6 +62,12 @@ export const nav = () => {
           items: [
             { text: 'gin框架', link: '/go/gin-example' },
           ]
+        },
+        {
+          text: 'Python',
+          items: [
+            { text: 'python基础', link: '/python/01.python基本数据类型' },
+          ]
         }
       ]
     },

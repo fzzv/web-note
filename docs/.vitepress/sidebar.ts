@@ -244,3 +244,21 @@ export const go = () => {
     },
   ]
 }
+
+export const python = () => {
+  return [
+    {
+      text: 'Python',
+      items: [
+        { text: 'Python基本数据类型', link: '/python/01.python基本数据类型' },
+        { text: '运算符和流程控制语句', link: '/python/02.运算符和流程控制语句' },
+        { text: '内置方法', link: '/python/03.内置方法' },
+        { text: '函数', link: '/python/04.函数' },
+        { text: '面向对象编程(OOP)', link: '/python/05.面向对象编程(OOP)' },
+        { text: '模块与包', link: '/python/06.模块与包' },
+        { text: '文件与IO操作', link: '/python/07.文件与IO操作' },
+        { text: '字符串与正则表达式', link: '/python/08.字符串与正则表达式' },
+      ]
+    },
+  ]
+}

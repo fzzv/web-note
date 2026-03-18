@@ -1,3 +1,4 @@
+import type { UserConfig } from 'vitepress'
 import { nav } from './nav'
 import {
   vue3,
@@ -14,9 +15,10 @@ import {
   database,
   nest,
   go,
+  python,
 } from './sidebar'
 
-export default {
+const config: UserConfig = {
   title: 'Web-Notes',
   description: '一些学习笔记.',
   head: [
@@ -45,6 +47,7 @@ export default {
       '/database': database(),
       '/nest': nest(),
       '/go': go(),
+      '/python': python()
     },
     outline: {
       level: 'deep',
@@ -54,13 +57,19 @@ export default {
   // 使用 v-pre 属性来避免代码块的解析
   markdown: {
     config(md) {
-      const defaultCodeInline = md.renderer.rules.code_inline!
+      const defaultCodeInline = md.renderer.rules.code_inline
+      if (!defaultCodeInline) {
+        return
+      }
       // 重写代码块的解析规则
-      md.renderer.rules.code_inline = (tokens, idx, options, env, self) => {
+      md.renderer.rules.code_inline = (...args) => {
         // 添加 v-pre 属性
+        const [tokens, idx] = args
         tokens[idx].attrSet('v-pre', '')
-        return defaultCodeInline(tokens, idx, options, env, self)
+        return defaultCodeInline(...args)
       }
     }
   }
 }
+
+export default config
