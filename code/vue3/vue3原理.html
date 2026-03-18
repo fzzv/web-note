@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue 3 核心原理深度解析 (Vue 3 Internals Explorer)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Styles & Utilities */
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .vue-green { color: #42b883; }
+        .bg-vue-green { background-color: #42b883; }
+        .vue-blue { color: #35495e; }
+        .bg-vue-blue { background-color: #35495e; }
+        
+        /* Smooth transitions */
+        .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        .tab-content.active { display: block; opacity: 1; }
+        
+        /* Interactive Blocks */
+        .interactive-block { transition: transform 0.2s, box-shadow 0.2s; }
+        .interactive-block:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+
+        /* Chart Container Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+
+        /* Diff Algo Node Styling */
+        .vnode-box {
+            transition: all 0.5s ease;
+        }
+
+        /* Syntax highlighting simulation */
+        .token-keyword { color: #d55fde; }
+        .token-string { color: #89ca78; }
+        .token-function { color: #61afef; }
+    </style>
+    <!-- Chosen Palette: Vue 3 Brand Colors (Green #42b883, Dark Blue #35495e) on Neutral Light Gray Background -->
+    <!-- Application Structure Plan:
+         1. Sidebar Navigation: Fixed left sidebar to navigate between the 4 core learning modules (Reactivity, Runtime, Compiler, Diff).
+         2. Main Content Area: Dynamic container switching based on selection.
+         3. Dashboard/Overview: Starting point showing the high-level architecture connection.
+         4. Interactive Modules:
+            - Reactivity Lab: A live mini-implementation of Proxy tracking to show console logs and a dependency graph.
+            - Runtime/Compiler: A flow visualization from Template -> AST -> VNode.
+            - Diff Algorithm Visualizer: A game-like step-by-step player for the diff process using blocks.
+         Rationale: Breaking complex source code concepts into visual, interactive "Labs" helps build a mental model before reading the actual C code.
+    -->
+</head>
+<body class="h-screen flex overflow-hidden">
+
+    <!-- Sidebar Navigation -->
+    <nav class="w-64 bg-white shadow-lg z-10 flex flex-col justify-between">
+        <div>
+            <div class="p-6 flex items-center space-x-3 border-b border-gray-100">
+                <div class="w-8 h-8 bg-vue-green rounded-full flex items-center justify-center text-white font-bold text-lg">V</div>
+                <h1 class="text-xl font-bold text-gray-800 tracking-tight">Vue 3 <span class="text-vue-green">Inside</span></h1>
+            </div>
+            <div class="p-4 space-y-2">
+                <button onclick="switchTab('overview')" id="nav-overview" class="nav-btn w-full text-left px-4 py-3 rounded-lg bg-gray-50 text-vue-green font-semibold transition hover:bg-gray-100 flex items-center">
+                    <span>🔭 全局架构 (Architecture)</span>
+                </button>
+                <button onclick="switchTab('reactivity')" id="nav-reactivity" class="nav-btn w-full text-left px-4 py-3 rounded-lg text-gray-600 font-medium transition hover:bg-gray-50 hover:text-vue-green flex items-center">
+                    <span>⚡ 响应式原理 (Reactivity)</span>
+                </button>
+                <button onclick="switchTab('compiler')" id="nav-compiler" class="nav-btn w-full text-left px-4 py-3 rounded-lg text-gray-600 font-medium transition hover:bg-gray-50 hover:text-vue-green flex items-center">
+                    <span>⚙️ 编译系统 (Compiler)</span>
+                </button>
+                <button onclick="switchTab('runtime')" id="nav-runtime" class="nav-btn w-full text-left px-4 py-3 rounded-lg text-gray-600 font-medium transition hover:bg-gray-50 hover:text-vue-green flex items-center">
+                    <span>🏃 运行时与组件 (Runtime)</span>
+                </button>
+                <button onclick="switchTab('diff')" id="nav-diff" class="nav-btn w-full text-left px-4 py-3 rounded-lg text-gray-600 font-medium transition hover:bg-gray-50 hover:text-vue-green flex items-center">
+                    <span>🔄 Diff 算法 (Diff Algo)</span>
+                </button>
+            </div>
+        </div>
+        <div class="p-4 border-t border-gray-100">
+            <div class="text-xs text-gray-400">
+                基于 Vue.js Core 3.x 源码分析<br>
+                Interactive Learning System
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto bg-gray-50 p-8 relative">
+        
+        <!-- SECTION 1: OVERVIEW (Architecture) -->
+        <div id="overview" class="tab-content active max-w-5xl mx-auto">
+            <header class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Vue 3 核心架构全景</h2>
+                <p class="text-gray-600 max-w-3xl">
+                    Vue 3 是一个模块化的前端框架。从宏观角度看，它由三个核心部分协同工作：
+                    <strong class="text-vue-green">编译模块 (Compiler)</strong> 将模板转化为渲染函数，
+                    <strong class="text-vue-green">响应式模块 (Reactivity)</strong> 追踪数据变化，
+                    <strong class="text-vue-green">运行时模块 (Runtime)</strong> 负责创建和更新虚拟 DOM。
+                </p>
+            </header>
+
+            <!-- Interactive Architecture Diagram -->
+            <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8">
+                <h3 class="text-lg font-semibold mb-6 text-gray-700">数据流向与模块交互 (点击模块查看详情)</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+                    <!-- Compiler Block -->
+                    <div class="interactive-block bg-blue-50 border-l-4 border-blue-500 p-6 rounded cursor-pointer" onclick="switchTab('compiler')">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-blue-800">1. Compiler (编译)</h4>
+                            <span class="text-2xl">⚙️</span>
+                        </div>
+                        <p class="text-sm text-blue-600 mt-2">Template → Render Function</p>
+                        <div class="mt-4 text-xs bg-white p-2 rounded border border-blue-100 code-font">
+                            compiler-core<br>compiler-dom<br>compiler-sfc
+                        </div>
+                    </div>
+
+                    <!-- Reactivity Block -->
+                    <div class="interactive-block bg-green-50 border-l-4 border-green-500 p-6 rounded cursor-pointer" onclick="switchTab('reactivity')">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-green-800">2. Reactivity (响应式)</h4>
+                            <span class="text-2xl">⚡</span>
+                        </div>
+                        <p class="text-sm text-green-600 mt-2">Data Proxy & Effects</p>
+                        <div class="mt-4 text-xs bg-white p-2 rounded border border-green-100 code-font">
+                            reactive()<br>ref()<br>effect()
+                        </div>
+                    </div>
+
+                    <!-- Runtime Block -->
+                    <div class="interactive-block bg-purple-50 border-l-4 border-purple-500 p-6 rounded cursor-pointer" onclick="switchTab('runtime')">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-purple-800">3. Runtime (运行时)</h4>
+                            <span class="text-2xl">🏃</span>
+                        </div>
+                        <p class="text-sm text-purple-600 mt-2">VNode → Real DOM</p>
+                        <div class="mt-4 text-xs bg-white p-2 rounded border border-purple-100 code-font">
+                            runtime-core<br>runtime-dom<br>renderer
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arrow Flow Visualization (CSS) -->
+                <div class="flex justify-center my-4 text-gray-300 text-2xl font-bold">
+                    <span>⬇️ 驱动 (Drives)</span>
+                </div>
+
+                <div class="bg-gray-800 text-white p-6 rounded-lg text-center shadow-lg">
+                    <h4 class="font-bold text-lg mb-2">The Component Instance</h4>
+                    <p class="text-sm text-gray-400">Components combine state (Reactivity) and layout (Compiler/Runtime) to manage the UI lifecycle.</p>
+                </div>
+            </div>
+
+            <!-- Visualization & Content Choices: 
+                 Goal: Show the "Why Vue 3 is faster" metric.
+                 Viz: Bar Chart comparing Bundle Size or Mount Performance (conceptual).
+                 Justification: Sets the stage for why we study these internal optimizations.
+            -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="font-semibold text-gray-800 mb-4">Vue 3 性能优化目标</h3>
+                    <ul class="space-y-3 text-sm text-gray-600">
+                        <li class="flex items-start"><span class="text-vue-green mr-2">✓</span> <strong>更小的体积 (Tree-shaking):</strong> 模块化设计使得未使用的 API 不会被打包。</li>
+                        <li class="flex items-start"><span class="text-vue-green mr-2">✓</span> <strong>更快的挂载 (Proxy):</strong> 消除 Vue 2 `Object.defineProperty` 的初始化性能瓶颈。</li>
+                        <li class="flex items-start"><span class="text-vue-green mr-2">✓</span> <strong>编译优化 (Hoist & PatchFlags):</strong> 编译器分析模板，告诉运行时哪些部分是静态的，哪些是动态的。</li>
+                    </ul>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                    <h3 class="font-semibold text-gray-800 mb-4 text-center">概念性能对比 (Conceptual)</h3>
+                    <div class="chart-container">
+                        <canvas id="perfChart"></canvas>
+                    </div>
+                    <p class="text-xs text-center text-gray-400 mt-2">基于官方基准测试的示意数据</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: REACTIVITY (Proxy & Effect) -->
+        <div id="reactivity" class="tab-content max-w-5xl mx-auto">
+            <header class="mb-8 border-b border-gray-200 pb-4">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">响应式系统 (Reactivity)</h2>
+                <p class="text-gray-600">
+                    Vue 3 抛弃了 Vue 2 的 `Object.defineProperty`，转而使用 ES6 <strong>Proxy</strong>。
+                    核心流程分为两个阶段：<strong class="text-vue-green">Track (收集依赖)</strong> 和 <strong class="text-vue-blue">Trigger (触发更新)</strong>。
+                </p>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Left: Logic Playground -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-vue-green">
+                    <h3 class="font-bold text-lg mb-4 flex items-center">
+                        <span class="bg-vue-green text-white w-6 h-6 rounded flex items-center justify-center text-xs mr-2">1</span>
+                        交互实验室 (Live Lab)
+                    </h3>
+                    <p class="text-sm text-gray-500 mb-4">
+                        在下方输入框修改数据，观察右侧控制台如何捕获 `get` (读取) 和 `set` (修改) 操作。
+                    </p>
+                    
+                    <div class="bg-gray-100 p-4 rounded-lg mb-4">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Reactive Data (Proxy)</label>
+                        <div class="flex items-center space-x-2">
+                            <span class="code-font text-sm">state.message = </span>
+                            <input type="text" id="reactive-input" placeholder="输入文字..." class="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-vue-green outline-none transition">
+                        </div>
+                        <div class="mt-2 text-xs text-gray-400">当前值: <span id="current-val" class="text-gray-800 font-bold">""</span></div>
+                    </div>
+
+                    <div class="bg-gray-900 rounded-lg p-4 h-48 overflow-y-auto code-font text-xs">
+                        <div class="text-gray-400 border-b border-gray-700 pb-1 mb-2">System Logs:</div>
+                        <ul id="reactivity-logs" class="space-y-1">
+                            <li class="text-gray-500 italic">// Waiting for interaction...</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Right: Visual Explanation -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="font-bold text-lg mb-4">依赖收集原理图 (Dep Graph)</h3>
+                    <div class="relative bg-gray-50 h-80 rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
+                        <!-- CSS Shapes for Dep Graph -->
+                        <div class="absolute inset-0 flex flex-col items-center justify-center space-y-8">
+                            
+                            <!-- Target Map -->
+                            <div class="bg-white border-2 border-gray-300 p-3 rounded shadow w-48 text-center z-10">
+                                <div class="font-bold text-gray-700">TargetMap (WeakMap)</div>
+                                <div class="text-xs text-gray-500">Key: target object</div>
+                            </div>
+
+                            <!-- Arrow -->
+                            <div class="text-gray-400 text-2xl">⬇️ finds</div>
+
+                            <!-- Dep Map -->
+                            <div class="flex space-x-4">
+                                <div class="bg-white border-2 border-vue-green p-3 rounded shadow w-40 text-center z-10">
+                                    <div class="font-bold text-vue-green">DepsMap (Map)</div>
+                                    <div class="text-xs text-gray-500">Key: object key (e.g. 'msg')</div>
+                                </div>
+                                <div class="flex items-center text-gray-400">➡️</div>
+                                <div class="bg-vue-blue text-white p-3 rounded shadow w-40 text-center z-10">
+                                    <div class="font-bold">Dep (Set)</div>
+                                    <div class="text-xs text-gray-300">Contains: Effects</div>
+                                </div>
+                            </div>
+
+                            <!-- Action -->
+                            <div class="text-xs bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full mt-4 animate-pulse">
+                                effect.run() executes when Triggered
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Comparison Block -->
+            <div class="mt-8 bg-gray-800 rounded-xl p-6 text-white code-font text-sm overflow-x-auto">
+                <h4 class="text-gray-400 mb-2 border-b border-gray-700 pb-2">Minimal Implementation (Core Logic)</h4>
+<pre>
+<span class="token-keyword">const</span> targetMap = <span class="token-keyword">new</span> WeakMap(); 
+
+<span class="token-keyword">function</span> <span class="token-function">track</span>(target, key) {
+  <span class="text-gray-500">// 1. Get depsMap for this object</span>
+  <span class="text-gray-500">// 2. Get dep Set for this key</span>
+  <span class="text-gray-500">// 3. Add activeEffect to dep Set</span>
+}
+
+<span class="token-keyword">function</span> <span class="token-function">trigger</span>(target, key) {
+  <span class="text-gray-500">// 1. Find the dep Set for this key</span>
+  <span class="text-gray-500">// 2. Run all effects in the Set</span>
+}
+
+<span class="token-keyword">const</span> handler = {
+  <span class="token-function">get</span>(target, key, receiver) {
+    <span class="token-function">track</span>(target, key);
+    <span class="token-keyword">return</span> Reflect.get(target, key, receiver);
+  },
+  <span class="token-function">set</span>(target, key, value, receiver) {
+    <span class="token-keyword">const</span> result = Reflect.set(target, key, value, receiver);
+    <span class="token-function">trigger</span>(target, key);
+    <span class="token-keyword">return</span> result;
+  }
+}
+</pre>
+            </div>
+        </div>
+
+        <!-- SECTION 3: COMPILER & RUNTIME -->
+        <div id="compiler" class="tab-content max-w-5xl mx-auto">
+            <header class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">编译系统 (The Compiler)</h2>
+                <p class="text-gray-600">
+                    Vue 3 编译器的主要任务是将开发者编写的 HTML 模板 (Template) 转换为 JavaScript 渲染函数 (Render Function)。
+                    这个过程包含三个主要步骤：<strong class="text-vue-green">Parse (解析)</strong>, <strong class="text-vue-green">Transform (转换)</strong>, 和 <strong class="text-vue-green">Codegen (生成)</strong>。
+                </p>
+            </header>
+
+            <!-- Interactive Compiler Flow -->
+            <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                <!-- Toolbar -->
+                <div class="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="font-bold text-gray-700">Compiler Pipeline Simulation</h3>
+                    <button onclick="simulateCompile()" class="bg-vue-green hover:bg-green-600 text-white px-4 py-2 rounded shadow transition text-sm font-bold flex items-center">
+                        <span>▶ 运行编译 (Run Compile)</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-200">
+                    
+                    <!-- Step 1: Template -->
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-gray-800">1. Template (Input)</h4>
+                            <span class="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded">String</span>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded text-white code-font text-xs h-40">
+&lt;div id="app"&gt;
+  &lt;p&gt;Hello {{ name }}&lt;/p&gt;
+  &lt;span v-if="show"&gt;!&lt;/span&gt;
+&lt;/div&gt;
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">原始的 HTML 字符串。</p>
+                    </div>
+
+                    <!-- Step 2: AST -->
+                    <div class="p-6 bg-gray-50">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-gray-800">2. Abstract Syntax Tree</h4>
+                            <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Object Tree</span>
+                        </div>
+                        <div id="ast-output" class="bg-white border border-gray-200 p-4 rounded text-gray-700 code-font text-xs h-40 overflow-y-auto whitespace-pre">
+                            (点击 "运行编译" 查看 AST 结构...)
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">通过 `baseParse` 生成的树状结构，描述语法节点。</p>
+                    </div>
+
+                    <!-- Step 3: Render Fn -->
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-gray-800">3. Render Code</h4>
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">JS Function</span>
+                        </div>
+                        <div id="code-output" class="bg-gray-800 p-4 rounded text-white code-font text-xs h-40 overflow-y-auto whitespace-pre">
+                            // 等待生成...
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">最终生成的 JS 代码，包含 `_openBlock`, `_createElementBlock` 等优化指令。</p>
+                    </div>
+                </div>
+            </div>
+
+             <div class="mt-8 bg-blue-50 border border-blue-100 p-6 rounded-xl">
+                <h3 class="font-bold text-blue-800 mb-2">💡 核心优化：PatchFlags</h3>
+                <p class="text-sm text-blue-700">
+                    在 AST 转换阶段，Vue 3 会分析节点是否依赖动态数据。如果是动态的，会打上标记 (PatchFlag)。
+                    在 Diff 阶段，运行时只需对比带有 PatchFlag 的节点，跳过静态节点。这就是 Vue 3 比 Vue 2 快的主要原因之一。
+                </p>
+                <div class="flex gap-2 mt-4">
+                     <span class="bg-white border border-blue-200 text-xs px-2 py-1 rounded text-blue-600 font-mono">TEXT = 1</span>
+                     <span class="bg-white border-blue-200 border text-xs px-2 py-1 rounded text-blue-600 font-mono">CLASS = 2</span>
+                     <span class="bg-white border-blue-200 border text-xs px-2 py-1 rounded text-blue-600 font-mono">STYLE = 4</span>
+                     <span class="bg-white border-blue-200 border text-xs px-2 py-1 rounded text-blue-600 font-mono">PROPS = 8</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="runtime" class="tab-content max-w-5xl mx-auto">
+             <header class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">运行时 (Runtime & Renderer)</h2>
+                <p class="text-gray-600">
+                    Runtime 的核心是 <strong class="text-vue-green">Renderer (渲染器)</strong>。它利用 `render` 函数返回的 VNode (虚拟节点) 树，通过 DOM API 将其渲染到浏览器页面上。
+                </p>
+            </header>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <!-- VNode Visualization -->
+                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="font-bold text-gray-800 mb-4">VNode 结构示意</h3>
+                    <div class="bg-gray-900 rounded p-4 text-white font-mono text-sm">
+const vnode = {
+  type: 'div',
+  props: { id: 'app' },
+  children: [
+    { type: 'p', children: 'Hello' }
+  ],
+  <span class="text-yellow-400">shapeFlag: 17</span>, <span class="text-gray-500">// Bitmask info</span>
+  <span class="text-yellow-400">patchFlag: 0</span>,  <span class="text-gray-500">// Optimization info</span>
+  el: null <span class="text-gray-500">// Ref to real DOM</span>
+}
+                    </div>
+                    <div class="mt-4 text-sm text-gray-600">
+                        虚拟 DOM 仅仅是一个普通的 JavaScript 对象。相比操作真实的 heavy DOM 对象，操作 VNode 极其廉价。
+                    </div>
+                 </div>
+
+                 <!-- Custom Renderer Concept -->
+                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="font-bold text-gray-800 mb-4">自定义渲染器 (Custom Renderer)</h3>
+                    <p class="text-sm text-gray-600 mb-4">
+                        Vue 3 的 `runtime-core` 不依赖于浏览器。通过提供不同的节点操作 API (nodeOps)，Vue 可以渲染到 Canvas、Native (Weex/UniApp) 或终端。
+                    </p>
+                    <div class="border-l-4 border-vue-green pl-4 bg-gray-50 py-2">
+                        <code class="text-xs text-vue-blue block mb-1">createRenderer({</code>
+                        <code class="text-xs text-gray-600 block pl-4">createElement: (tag) => ...</code>
+                        <code class="text-xs text-gray-600 block pl-4">patchProp: (el, key, val) => ...</code>
+                        <code class="text-xs text-gray-600 block pl-4">insert: (el, parent) => ...</code>
+                        <code class="text-xs text-vue-blue block">})</code>
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+        <!-- SECTION 4: DIFF ALGORITHM VISUALIZER -->
+        <div id="diff" class="tab-content max-w-5xl mx-auto">
+            <header class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Diff 算法可视化 (The Patch Process)</h2>
+                <p class="text-gray-600">
+                    当数据变化导致 VNode 树更新时，Vue 需要对比新旧子节点列表 (`patchKeyedChildren`)。
+                    Vue 3 采用了 <strong class="text-vue-green">快速 Diff 算法 (Fast Diff)</strong>，结合了双端对比和最长递增子序列 (LIS) 算法来最小化 DOM 移动操作。
+                </p>
+            </header>
+
+            <div class="bg-white p-8 rounded-xl shadow-lg border-t-4 border-vue-green">
+                <!-- Controls -->
+                <div class="flex flex-wrap items-center justify-between mb-8 pb-6 border-b border-gray-100">
+                    <div>
+                        <h3 class="font-bold text-xl text-gray-800">算法演示 (Demo)</h3>
+                        <p class="text-sm text-gray-500">场景：乱序移动与新增</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="resetDiff()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded font-medium transition">重置 (Reset)</button>
+                        <button onclick="nextDiffStep()" id="next-step-btn" class="px-4 py-2 bg-vue-blue hover:bg-blue-900 text-white rounded font-medium shadow transition">下一步 (Next Step)</button>
+                    </div>
+                </div>
+
+                <!-- Visualization Area -->
+                <div class="space-y-8">
+                    <!-- Old Nodes -->
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Old Children (之前的列表)</span>
+                            <span class="text-xs text-gray-400">Key: [A, B, C, D, E, F, G]</span>
+                        </div>
+                        <div id="old-nodes-container" class="flex space-x-2 h-16 bg-gray-50 p-2 rounded border border-gray-200 overflow-x-auto">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Diff Status Indicator -->
+                    <div class="flex justify-center">
+                        <div id="diff-status" class="bg-yellow-50 text-yellow-800 px-6 py-2 rounded-full text-sm font-bold border border-yellow-200 shadow-sm transition-all duration-300">
+                            等待开始...
+                        </div>
+                    </div>
+
+                    <!-- New Nodes -->
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">New Children (更新后的列表)</span>
+                            <span class="text-xs text-gray-400">Key: [A, B, E, C, H, F, G]</span>
+                        </div>
+                        <div id="new-nodes-container" class="flex space-x-2 h-16 bg-gray-50 p-2 rounded border border-gray-200 overflow-x-auto">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step Description -->
+                <div class="mt-8 bg-gray-800 text-white p-4 rounded-lg min-h-[100px]">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">当前操作 (Current Operation Logic)</h4>
+                    <p id="diff-explanation" class="code-font text-sm leading-relaxed">
+                        点击 "下一步" 开始模拟 patchKeyedChildren 函数的执行流程。
+                    </p>
+                </div>
+                
+                <div class="mt-4 flex gap-4 text-xs text-gray-500">
+                    <div class="flex items-center"><span class="w-3 h-3 bg-green-200 border border-green-500 mr-1"></span> 匹配 (Synced)</div>
+                    <div class="flex items-center"><span class="w-3 h-3 bg-blue-200 border border-blue-500 mr-1"></span> 新增 (Mount)</div>
+                    <div class="flex items-center"><span class="w-3 h-3 bg-red-200 border border-red-500 mr-1"></span> 删除 (Unmount)</div>
+                    <div class="flex items-center"><span class="w-3 h-3 bg-yellow-200 border border-yellow-500 mr-1"></span> 移动 (Move/LIS)</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Global State & Navigation ---
+        function switchTab(tabId) {
+            // Hide all
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            // Show target
+            document.getElementById(tabId).classList.add('active');
+            
+            // Update nav styling
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-gray-100', 'text-vue-green', 'font-semibold');
+                btn.classList.add('text-gray-600');
+            });
+            const activeBtn = document.getElementById('nav-' + tabId);
+            if(activeBtn) {
+                activeBtn.classList.add('bg-gray-100', 'text-vue-green', 'font-semibold');
+                activeBtn.classList.remove('text-gray-600');
+            }
+
+            // Init charts if navigating to overview for the first time
+            if (tabId === 'overview' && !window.perfChartInstance) {
+                initPerfChart();
+            }
+        }
+
+        // --- Section 1: Chart.js Implementation ---
+        function initPerfChart() {
+            const ctx = document.getElementById('perfChart').getContext('2d');
+            window.perfChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Vue 2', 'Vue 3 (Static)', 'Vue 3 (Dynamic)'],
+                    datasets: [{
+                        label: 'Relative Performance (Ops/Sec)',
+                        data: [100, 150, 250], // Conceptual data
+                        backgroundColor: ['#e5e7eb', '#42b883', '#35495e'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + '% Speed';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, display: false },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // --- Section 2: Reactivity Lab Logic ---
+        // A minimal implementation of Vue 3 reactivity for the demo
+        const logEl = document.getElementById('reactivity-logs');
+        const inputEl = document.getElementById('reactive-input');
+        const currentValEl = document.getElementById('current-val');
+
+        function addLog(msg, type) {
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="${type === 'get' ? 'text-blue-400' : 'text-green-400'} font-bold">[${type.toUpperCase()}]</span> <span class="text-gray-300">${msg}</span>`;
+            logEl.prepend(li); // Add to top
+            // Keep only last 8 logs
+            if (logEl.children.length > 8) logEl.lastElementChild.remove();
+        }
+
+        // Simulating the Proxy logic visualizer
+        const originalData = { message: '' };
+        
+        // This isn't the real Vue code, but a simulation for the user interface
+        const stateProxy = new Proxy(originalData, {
+            get(target, key) {
+                if (key === 'message') {
+                    addLog(`Track key: '${key}'`, 'get');
+                }
+                return target[key];
+            },
+            set(target, key, value) {
+                if (key === 'message') {
+                    addLog(`Trigger key: '${key}' -> value: '${value}'`, 'set');
+                    target[key] = value;
+                    currentValEl.innerText = `"${value}"`;
+                    // Simulate effect run
+                    setTimeout(() => {
+                         addLog(`Effect Re-run: DOM Updated`, 'effect');
+                    }, 50);
+                }
+                return true;
+            }
+        });
+
+        // Bind input
+        inputEl.addEventListener('input', (e) => {
+            stateProxy.message = e.target.value;
+        });
+
+        // --- Section 3: Compiler Simulation ---
+        function simulateCompile() {
+            const astEl = document.getElementById('ast-output');
+            const codeEl = document.getElementById('code-output');
+
+            astEl.innerHTML = `<span class="text-gray-400">Processing...</span>`;
+            codeEl.innerHTML = `<span class="text-gray-400">Generating...</span>`;
+
+            setTimeout(() => {
+                // Mock AST
+                astEl.innerHTML = `{
+  "type": 0,
+  "children": [
+    {
+      "type": 1,
+      "tag": "div",
+      "props": [{ "name": "id", "value": "app" }],
+      "children": [
+        { "type": 1, "tag": "p", "children": [...] }
+      ]
+    }
+  ]
+}`;
+                // Mock Render Code
+                codeEl.innerHTML = `import { toDisplayString as _toDisplayString, createElementVNode as _createElementVNode, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+export function render(_ctx, _cache) {
+  return (_openBlock(), _createElementBlock("div", { id: "app" }, [
+    _createElementVNode("p", null, "Hello " + _toDisplayString(_ctx.name), 1 /* TEXT */)
+  ]))
+}`;
+            }, 600);
+        }
+
+        // --- Section 4: Diff Algorithm Visualizer ---
+        // Data Setup:
+        // Old: A B C D E F G
+        // New: A B E C H F G
+        // Diff Logic:
+        // 1. Sync from start: A, B match. i=2.
+        // 2. Sync from end: F, G match. e1=4 (E), e2=4 (H).
+        // 3. Middle part: Old [C, D, E], New [E, C, H].
+        //    Wait, let's simplify for visual clarity:
+        //    Old: A B C D E
+        //    New: A B E D C
+        //    Start: A, B match.
+        //    End: No match.
+        //    Middle: Old[C, D, E], New[E, D, C].
+        //    Actually, let's use the standard example from courseware often used:
+        //    Old: [A, B, C, D, E, F, G]
+        //    New: [A, B, E, C, H, F, G]
+        
+        const oldList = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+        const newList = ['A', 'B', 'E', 'C', 'H', 'F', 'G'];
+        
+        let diffStep = 0;
+        let i = 0;
+        let e1 = oldList.length - 1;
+        let e2 = newList.length - 1;
+
+        const oldContainer = document.getElementById('old-nodes-container');
+        const newContainer = document.getElementById('new-nodes-container');
+        const statusEl = document.getElementById('diff-status');
+        const explainEl = document.getElementById('diff-explanation');
+
+        function renderDiffNodes() {
+            oldContainer.innerHTML = '';
+            newContainer.innerHTML = '';
+
+            oldList.forEach((char, idx) => {
+                const el = document.createElement('div');
+                el.className = `vnode-box w-10 h-10 flex items-center justify-center border-2 rounded font-bold bg-white border-gray-300`;
+                el.id = `old-${idx}`;
+                el.innerText = char;
+                oldContainer.appendChild(el);
+            });
+
+            newList.forEach((char, idx) => {
+                const el = document.createElement('div');
+                el.className = `vnode-box w-10 h-10 flex items-center justify-center border-2 rounded font-bold bg-white border-gray-300`;
+                el.id = `new-${idx}`;
+                el.innerText = char;
+                newContainer.appendChild(el);
+            });
+        }
+
+        function highlight(id, type) {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.className = el.className.replace('bg-white', '').replace('border-gray-300', '');
+            if (type === 'match') el.classList.add('bg-green-100', 'border-green-500');
+            if (type === 'focus') el.classList.add('ring-2', 'ring-purple-500', 'z-10');
+            if (type === 'add') el.classList.add('bg-blue-100', 'border-blue-500');
+            if (type === 'move') el.classList.add('bg-yellow-100', 'border-yellow-500');
+            if (type === 'remove') el.classList.add('bg-red-100', 'border-red-500', 'opacity-50');
+        }
+
+        function resetDiff() {
+            diffStep = 0;
+            i = 0;
+            e1 = oldList.length - 1;
+            e2 = newList.length - 1;
+            renderDiffNodes();
+            statusEl.innerText = "准备就绪 (Ready)";
+            statusEl.className = "bg-gray-200 text-gray-700 px-6 py-2 rounded-full text-sm font-bold border border-gray-300";
+            explainEl.innerText = '点击 "下一步" 开始模拟 patchKeyedChildren 函数的执行流程。';
+            document.getElementById('next-step-btn').disabled = false;
+            document.getElementById('next-step-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function nextDiffStep() {
+            // Vue 3 Diff Logic Simulation
+            
+            // Step 1: Sync from start
+            if (diffStep === 0) {
+                statusEl.innerText = "1. 从头同步 (Sync from Start)";
+                explainEl.innerText = `比较 Old[${i}](${oldList[i]}) 和 New[${i}](${newList[i]})。相同，节点复用。指针 i 向后移。`;
+                highlight(`old-${i}`, 'match');
+                highlight(`new-${i}`, 'match');
+                i++;
+                diffStep++;
+                return;
+            }
+            if (diffStep === 1) {
+                explainEl.innerText = `比较 Old[${i}](${oldList[i]}) 和 New[${i}](${newList[i]})。相同，节点复用。指针 i 向后移。`;
+                highlight(`old-${i}`, 'match');
+                highlight(`new-${i}`, 'match');
+                i++;
+                diffStep++; // i is now 2
+                return;
+            }
+            if (diffStep === 2) {
+                explainEl.innerText = `比较 Old[${i}](${oldList[i]}) 和 New[${i}](${newList[i]})。不同！停止从头同步。`;
+                highlight(`old-${i}`, 'focus');
+                highlight(`new-${i}`, 'focus');
+                diffStep++;
+                return;
+            }
+
+            // Step 2: Sync from end
+            if (diffStep === 3) {
+                statusEl.innerText = "2. 从尾同步 (Sync from End)";
+                explainEl.innerText = `比较 Old[${e1}](${oldList[e1]}) 和 New[${e2}](${newList[e2]})。相同 (G=G)，节点复用。指针向前移。`;
+                highlight(`old-${e1}`, 'match');
+                highlight(`new-${e2}`, 'match');
+                e1--; e2--;
+                diffStep++;
+                return;
+            }
+            if (diffStep === 4) {
+                explainEl.innerText = `比较 Old[${e1}](${oldList[e1]}) 和 New[${e2}](${newList[e2]})。相同 (F=F)，节点复用。指针向前移。`;
+                highlight(`old-${e1}`, 'match');
+                highlight(`new-${e2}`, 'match');
+                e1--; e2--;
+                diffStep++;
+                return;
+            }
+            if (diffStep === 5) {
+                explainEl.innerText = `比较 Old[${e1}](${oldList[e1]}) 和 New[${e2}](${newList[e2]})。不同 (E!=H)！停止从尾同步。`;
+                highlight(`old-${e1}`, 'focus');
+                highlight(`new-${e2}`, 'focus');
+                diffStep++;
+                return;
+            }
+
+            // Step 3: Handle chaotic middle (Simplified explanation for demo)
+            if (diffStep === 6) {
+                statusEl.innerText = "3. 处理乱序 (Unknown Sequence)";
+                explainEl.innerText = `剩下未处理区域：Old [C, D, E] vs New [E, C, H]。\nVue 构建 key-to-index 映射图。检查 Old Nodes 是否存在于 New List 中。`;
+                // Clear focus styles
+                document.querySelectorAll('.ring-2').forEach(el => el.classList.remove('ring-2', 'ring-purple-500', 'z-10'));
+                
+                // Highlight the working area
+                for(let k=i; k<=e1; k++) document.getElementById(`old-${k}`).classList.add('bg-gray-100');
+                for(let k=i; k<=e2; k++) document.getElementById(`new-${k}`).classList.add('bg-gray-100');
+                
+                diffStep++;
+                return;
+            }
+
+            if (diffStep === 7) {
+                explainEl.innerText = `Old Node 'D' 在新列表中找不到 -> 标记为删除 (Unmount)。`;
+                highlight('old-3', 'remove'); // D
+                diffStep++;
+                return;
+            }
+
+            if (diffStep === 8) {
+                explainEl.innerText = `Old Node 'E' 在新列表中存在，但位置变了 -> 准备移动。Old 'C' 也存在 -> 准备移动。`;
+                // Just marking them logically here
+                diffStep++;
+                return;
+            }
+
+            if (diffStep === 9) {
+                statusEl.innerText = "4. 最长递增子序列 (LIS)";
+                explainEl.innerText = `计算最长递增子序列以确定哪些节点不需要移动。\n在此例中，'C' 和 'E' 相对顺序变了。'H' 是全新的 -> 插入 (Mount)。`;
+                highlight('new-4', 'add'); // H is new
+                diffStep++;
+                return;
+            }
+            
+            if (diffStep === 10) {
+                statusEl.innerText = "完成 (Finished)";
+                explainEl.innerText = `最终：移动 C 和 E，挂载 H，卸载 D。Diff 完成。`;
+                highlight('old-2', 'move'); // C
+                highlight('old-4', 'move'); // E
+                
+                // Visual cleanup to match new
+                highlight('new-2', 'move'); // E
+                highlight('new-3', 'move'); // C
+
+                const btn = document.getElementById('next-step-btn');
+                btn.innerText = "演示结束";
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                return;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            switchTab('overview');
+            renderDiffNodes();
+        });
+
+    </script>
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</body>
+</html>

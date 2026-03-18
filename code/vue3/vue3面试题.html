@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue 3 源码核心面试题库 (Vue 3 Internals Interview Bank)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Styles & Utilities */
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #334155; }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .vue-green { color: #42b883; }
+        .bg-vue-green { background-color: #42b883; }
+        .vue-blue { color: #35495e; }
+        .bg-vue-blue { background-color: #35495e; }
+        
+        /* Smooth transitions */
+        .accordion-content {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .accordion-content.expanded {
+            max-height: 1000px; /* arbitrary large max-height */
+            opacity: 1;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        
+        .rotate-180 { transform: rotate(180deg); }
+
+        /* Chart Container Styling - STRICT REQUIREMENTS */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+
+        /* Custom Scrollbar for code blocks */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .glass-header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+    <!-- Chosen Palette: Vue 3 Brand Colors (Green #42b883, Dark Blue #35495e) with neutral slates (#f1f5f9, #334155) for background and text. -->
+    <!-- Application Structure Plan:
+         1. Header (Sticky): Title, Search Bar, and overall progress stats.
+         2. Layout: 2-column grid on desktop.
+            - Left/Top (Sidebar/Overview): Radar chart visualizing the distribution of questions across modules (Reactivity, Compiler, Runtime, etc.) to help identify study focus areas. Category filter buttons.
+            - Right/Bottom (Main Content): An interactive accordion list of the 20+ interview questions.
+         3. Interactions: 
+            - Filtering by category (updates list and chart).
+            - Real-time search by keyword.
+            - Expanding/Collapsing questions to reveal detailed answers (which include source code function names and logic flow).
+         4. Rationale: An interview bank needs to be easily searchable and scannable. Accordions prevent information overload. The radar chart provides a gamified/analytical overview of the domain complexity.
+    -->
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Sticky Header -->
+    <header class="glass-header border-b border-gray-200 shadow-sm z-20 flex-none sticky top-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-vue-green to-vue-blue rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md">V3</div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800 tracking-tight">Vue 3 源码面经 <span class="text-vue-green">Pro</span></h1>
+                    <p class="text-xs text-gray-500 hidden sm:block">22 道高频核心源码解析题</p>
+                </div>
+            </div>
+            
+            <!-- Search Bar -->
+            <div class="flex-1 max-w-md ml-8 relative">
+                <input type="text" id="searchInput" placeholder="搜索题目、关键字 (如：Proxy, Diff)..." 
+                    class="w-full bg-gray-100 border-transparent focus:bg-white focus:border-vue-green focus:ring-2 focus:ring-vue-green/20 rounded-full py-2 px-4 pl-10 text-sm transition-all outline-none"
+                    oninput="handleSearch()">
+                <div class="absolute left-3 top-2.5 text-gray-400">🔍</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Layout -->
+    <main class="flex-1 overflow-hidden flex flex-col lg:flex-row max-w-7xl mx-auto w-full">
+        
+        <!-- Left Sidebar / Dashboard (Overview & Filters) -->
+        <aside class="w-full lg:w-80 border-r border-gray-200 bg-white p-6 overflow-y-auto flex-none flex flex-col gap-6">
+            
+            <!-- Stats & Chart -->
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 shadow-inner">
+                <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center">
+                    <span>📊 考点模块分布</span>
+                </h2>
+                <div class="chart-container">
+                    <canvas id="moduleChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div>
+                <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">模块过滤 (Categories)</h2>
+                <div class="flex flex-col space-y-2" id="filter-container">
+                    <!-- Buttons generated by JS -->
+                </div>
+            </div>
+
+            <!-- Knowledge Tips -->
+            <div class="mt-auto bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <h3 class="text-xs font-bold text-blue-800 mb-1">💡 面试技巧</h3>
+                <p class="text-xs text-blue-600 leading-relaxed">
+                    回答源码题时，请遵循 <strong>“核心思想 -> 具体实现(关键函数) -> 优缺点对比”</strong> 的逻辑结构。切忌只背诵概念，要结合场景说明。
+                </p>
+            </div>
+        </aside>
+
+        <!-- Right Main Area (Question List) -->
+        <div class="flex-1 overflow-y-auto bg-slate-50 p-6 relative" id="question-list-container">
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800" id="list-title">全部题目 (All Questions)</h2>
+                    <p class="text-sm text-gray-500 mt-1">共 <span id="question-count" class="font-bold text-vue-green">0</span> 题匹配</p>
+                </div>
+                <button onclick="expandAll()" class="text-sm text-vue-blue hover:text-blue-800 hover:underline transition">展开全部解答</button>
+            </div>
+
+            <!-- Accordion List injected here -->
+            <div id="accordion-container" class="space-y-4 pb-12">
+                <!-- Template -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden text-center py-20">
+                <div class="text-4xl mb-4">🤷‍♂️</div>
+                <h3 class="text-lg font-bold text-gray-700">未找到匹配的题目</h3>
+                <p class="text-sm text-gray-500 mt-2">请尝试使用其他关键词搜索或清除过滤条件。</p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Data: 22 Vue 3 Source Code Interview Questions ---
+        const questionsData = [
+            // --- 响应式系统 (Reactivity) ---
+            {
+                id: 1,
+                category: 'reactivity',
+                catLabel: '响应式系统',
+                difficulty: 'Medium',
+                q: "Vue 3 的响应式原理是什么？与 Vue 2 的 Object.defineProperty 相比有什么优势？",
+                a: `<strong>核心思想：</strong>Vue 3 使用 ES6 的 <code>Proxy</code> 对象来拦截对数据的操作（get, set, deleteProperty, has, ownKeys），并结合 <code>Reflect</code> 实现对对象属性的默认行为触发。<br><br>
+                    <strong>相比 Vue 2 的优势：</strong><br>
+                    1. <strong>全方位拦截：</strong>Proxy 可以直接监听整个对象，而不需要像 defineProperty 那样遍历对象属性（性能提升）。<br>
+                    2. <strong>支持新增/删除属性：</strong>Vue 2 无法检测对象属性的添加或删除（需使用 $set/$delete），Proxy 可以直接拦截 <code>set</code> 和 <code>deleteProperty</code>。<br>
+                    3. <strong>原生支持数组：</strong>Proxy 可以直接拦截数组的索引访问和 <code>length</code> 修改，Vue 2 需重写数组原型方法。<br>
+                    4. <strong>懒代理：</strong>Vue 3 在 getter 中才对深层嵌套对象进行代理（按需代理），而 Vue 2 是初始化时递归遍历深度观测，Vue 3 启动速度更快。`
+            },
+            {
+                id: 2,
+                category: 'reactivity',
+                catLabel: '响应式系统',
+                difficulty: 'Hard',
+                q: "详细说说 Proxy 和 Reflect 在 Vue 3 中的配合使用？为什么一定要用 Reflect？",
+                a: `<strong>核心配合：</strong>在 <code>Proxy</code> 的 <code>get</code> 和 <code>set</code> 拦截器中，Vue 3 使用 <code>Reflect.get(target, key, receiver)</code> 和 <code>Reflect.set()</code> 来完成实际的属性读取和赋值。<br><br>
+                    <strong>必须使用 Reflect 的原因：为了保证 <code>this</code> 指向的正确性（即上下文传递）。</strong><br>
+                    如果一个对象有一个 getter 属性，且该 getter 内部通过 <code>this</code> 访问了对象的其他属性。如果不使用 <code>Reflect</code> 且不传递 <code>receiver</code>， getter 内部的 <code>this</code> 将指向原始对象 <code>target</code>，而不是代理对象 <code>Proxy</code>。这会导致 getter 内部访问的其他属性<strong>无法触发依赖收集</strong>。<br>
+                    使用 <code>Reflect.get(target, key, receiver)</code> 可以将 getter 中的 <code>this</code> 绑定为 <code>receiver</code>（通常是当前的 Proxy 实例），从而保证深层依赖收集的正确执行。`
+            },
+            {
+                id: 3,
+                category: 'reactivity',
+                catLabel: '响应式系统',
+                difficulty: 'Medium',
+                q: "ref 和 reactive 的区别是什么？在源码中的实现机制有什么不同？",
+                a: `<strong>使用上的区别：</strong><code>ref</code> 通常用于处理基本数据类型（也可处理对象），使用时需通过 <code>.value</code> 访问。<code>reactive</code> 只能用于处理对象或数组。<br><br>
+                    <strong>源码实现差异：</strong><br>
+                    - <strong>reactive:</strong> 本质是直接返回一个 <code>Proxy</code> 实例。通过拦截对象的属性访问来实现响应式。<br>
+                    - <strong>ref:</strong> 本质是返回一个 <code>RefImpl</code> 类的实例。它借助类属性的 <code>get value()</code> 和 <code>set value()</code> (即 getter/setter 访问器) 来实现依赖收集和触发更新。如果 ref 传入的是对象，其内部依然会调用 <code>reactive</code> 将对象转化为 Proxy 并保存在内部属性 <code>_value</code> 中。`
+            },
+            {
+                id: 4,
+                category: 'reactivity',
+                catLabel: '响应式系统',
+                difficulty: 'Hard',
+                q: "什么是 track（依赖收集）和 trigger（派发更新）？源码中是如何管理依赖关系的数据结构的？",
+                a: `<strong>概念：</strong><br>
+                    - <code>track</code>: 在 <code>Proxy</code> 的 <code>get</code> 拦截中触发，将当前的副作用函数（<code>activeEffect</code>）收集起来。<br>
+                    - <code>trigger</code>: 在 <code>Proxy</code> 的 <code>set</code> 拦截中触发，取出收集的副作用函数并执行。<br><br>
+                    <strong>数据结构（双向映射全局 WeakMap）：</strong><br>
+                    Vue 3 维护了一个全局的 <code>targetMap</code>，它的类型是 <code>WeakMap</code>。<br>
+                    数据结构：<code>WeakMap &lt;target(原对象), Map &lt;key(属性名), Set &lt;effect(副作用函数)&gt;&gt;&gt;</code><br>
+                    - 最外层使用 <code>WeakMap</code> 的好处是：当 <code>target</code> 对象没有其他引用时，垃圾回收机制会自动回收它，防止内存泄漏。`
+            },
+            {
+                id: 5,
+                category: 'reactivity',
+                catLabel: '响应式系统',
+                difficulty: 'Hard',
+                q: "副作用函数 effect 的实现原理是什么？它如何处理嵌套调用（如组件嵌套）？",
+                a: `<strong>实现原理：</strong><code>effect</code> 函数会创建一个包裹用户传入函数的 <code>ReactiveEffect</code> 实例。当执行时，它会将自身赋值给全局变量 <code>activeEffect</code>，然后执行用户函数。由于执行用户函数会触发数据的 <code>get</code>，从而触发 <code>track</code>，此时 <code>track</code> 内部直接收集当前的 <code>activeEffect</code>。<br><br>
+                    <strong>嵌套处理机制：</strong><br>
+                    在 Vue 3 早期版本，使用了一个数组 <code>effectStack</code> 来模拟栈结构管理嵌套。由于性能问题，后续版本改用了**基于指针的链表结构**。<br>
+                    在 <code>ReactiveEffect</code> 类中，有一个 <code>parent</code> 属性。当嵌套发生时，子 effect 会将 <code>parent</code> 指向当前的 <code>activeEffect</code>，然后将 <code>activeEffect</code> 赋值为自己。执行完毕后，再将 <code>activeEffect</code> 恢复为 <code>parent</code>（回溯）。这保证了多层组件嵌套渲染时，依赖收集能够准确映射到对应的组件级 effect 上。`
+            },
+            {
+                id: 6,
+                category: 'reactivity',
+                catLabel: '响应式系统',
+                difficulty: 'Medium',
+                q: "watch 和 watchEffect 的区别及源码实现层面的差异？",
+                a: `<strong>区别：</strong><code>watch</code> 需明确指定监听源，可获取新旧值，默认懒执行。<code>watchEffect</code> 自动收集依赖，立即执行一次，无法获取旧值。<br><br>
+                    <strong>实现差异：</strong><br>
+                    二者底层都基于 <code>doWatch</code> 函数。核心区别在于传递给底层 <code>ReactiveEffect</code> 的 <code>getter</code> 函数不同。<br>
+                    - <strong>watch:</strong> 将开发者传入的 source 包装成一个 getter（如果是 ref 则直接返回 <code>.value</code>，如果是对象则进行递归遍历 <code>traverse</code> 以触发所有属性的依赖收集）。<br>
+                    - <strong>watchEffect:</strong> 将开发者传入的函数直接作为 getter。在初始执行时，内部逻辑触发的响应式数据 get 就会自动收集当前 effect。<br>
+                    - 二者都利用了 scheduler 调度器来控制回调的执行时机（如 <code>flush: 'pre/post/sync'</code>）。`
+            },
+
+            // --- 虚拟DOM与Diff算法 (Virtual DOM & Diff) ---
+            {
+                id: 7,
+                category: 'diff',
+                catLabel: '虚拟DOM与Diff',
+                difficulty: 'Hard',
+                q: "Vue 3 的 Diff 算法（Fast Diff）相比 Vue 2（双端 Diff）做了哪些核心优化？",
+                a: `Vue 3 的 Diff 算法被称为“快速 Diff (Fast Diff)”，核心优化在于：<br>
+                    1. <strong>预处理（头尾指针）：</strong>首先从头部向后遍历寻找相同节点（sync from start），再从尾部向前遍历寻找相同节点（sync from end）。这能快速过滤掉头尾没有变化的节点，大大缩小需要复杂 Diff 的范围。<br>
+                    2. <strong>最长递增子序列 (LIS算法)：</strong>对于中间乱序的部分，Vue 3 会基于新节点的相对位置，在旧节点数组中寻找一个“最长递增子序列”。处于该序列中的节点被认为是相对顺序不变的，<strong>不需要移动真实 DOM</strong>，只需进行 patch 操作。只有不在子序列中的节点才需要执行真实的 DOM 移动操作。<br>
+                    这种策略在大量节点乱序或插入的场景下，相比 Vue 2 的双端查找，能显著减少 DOM 的移动次数。`
+            },
+            {
+                id: 8,
+                category: 'diff',
+                catLabel: '虚拟DOM与Diff',
+                difficulty: 'Hard',
+                q: "什么是 PatchFlag（靶向更新）？它在源码中是如何工作的？",
+                a: `<strong>概念：</strong><code>PatchFlag</code>（补丁标记）是 Vue 3 编译优化的核心。在编译模板生成 AST 并转化为渲染函数时，编译器会分析节点是否含有动态属性、文本等。如果有，就会给该节点打上一个位掩码（Bitmask）标记，即 PatchFlag（如 <code>TEXT = 1</code>, <code>CLASS = 2</code>, <code>STYLE = 4</code>, <code>PROPS = 8</code>）。<br><br>
+                    <strong>工作原理：</strong><br>
+                    在运行时的 <code>patchElement</code> 阶段，Renderer 不再进行全量的属性比对（Diff），而是直接通过按位与运算（<code>&</code>）检查节点的 PatchFlag。<br>
+                    例如，如果 <code>patchFlag & 1</code> 为真，说明只有文本是动态的，只需更新 <code>textContent</code>；如果 <code>patchFlag & 2</code> 为真，只更新 <code>class</code>。这种**靶向更新**极大地跳过了对静态属性的无用比对。`
+            },
+            {
+                id: 9,
+                category: 'diff',
+                catLabel: '虚拟DOM与Diff',
+                difficulty: 'Medium',
+                q: "什么是 Block Tree（块级树）和 dynamicChildren？",
+                a: `<strong>Block Tree：</strong>为了进一步配合 PatchFlag，Vue 3 引入了 Block 概念。一个 Block 是一个特殊的 VNode，它不仅拥有普通的 <code>children</code> 数组，还拥有一个 <code>dynamicChildren</code> 数组。<br><br>
+                    <strong>原理：</strong><br>
+                    在渲染函数执行时（<code>openBlock</code>, <code>createElementBlock</code>），所有层级较深的子孙节点中，<strong>只要带有 PatchFlag 的动态节点，都会被扁平化地收集到最外层根节点（Block）的 <code>dynamicChildren</code> 数组中。</strong><br>
+                    在 Diff 时，Vue 会跳过传统的跨层级树形遍历，直接遍历 <code>dynamicChildren</code> 数组。这意味着 <strong>Vue 3 的 Diff 复杂度与模板大小无关，只与动态节点的数量相关</strong>，实现了性能的数量级提升。`
+            },
+
+            // --- 编译系统 (Compiler) ---
+            {
+                id: 10,
+                category: 'compiler',
+                catLabel: '编译系统',
+                difficulty: 'Medium',
+                q: "Vue 3 模板编译 (Compiler) 过程分哪几个阶段？",
+                a: `Vue 3 的模板编译分为三个核心阶段 (对应 <code>@vue/compiler-core</code>)：<br>
+                    1. <strong>Parse（解析）：</strong>调用 <code>baseParse</code> 将 HTML 模板字符串解析成基础的 <strong>抽象语法树 (AST)</strong>。这个过程主要是词法分析和语法分析。<br>
+                    2. <strong>Transform（转换）：</strong>调用 <code>transform</code> 函数遍历 AST 进行转换和优化。这是最关键的一步，它会提取静态节点（静态提升）、给动态节点打上 <code>PatchFlag</code>、收集 <code>dynamicChildren</code> 并创建 <code>Block</code> 结构。它通过插件模式（<code>nodeTransforms</code>, <code>directiveTransforms</code>）实现。<br>
+                    3. <strong>Codegen（生成）：</strong>调用 <code>generate</code> 函数将优化后的 AST 对象转化为 JavaScript 渲染函数的字符串代码（即包含 <code>_createElementVNode</code>, <code>_openBlock</code> 等调用的代码）。`
+            },
+            {
+                id: 11,
+                category: 'compiler',
+                catLabel: '编译系统',
+                difficulty: 'Medium',
+                q: "Vue 3 编译器做了哪些静态提升 (Static Hoisting) 优化？",
+                a: `<strong>静态提升</strong>是指在编译阶段，识别出不包含任何动态绑定的静态节点（或静态属性对象），将它们的 VNode 创建逻辑<strong>提升到渲染函数的作用域外部</strong>。<br><br>
+                    <strong>好处：</strong><br>
+                    1. 避免每次组件重新渲染（重新执行 render 函数）时都重复创建这些永远不会改变的 VNode 对象，减少了内存分配和垃圾回收压力。<br>
+                    2. 提升了渲染函数的执行速度。<br>
+                    <strong>事件监听器缓存 (Cache Handlers)：</strong>类似静态提升，如果遇到 <code>@click="onClick"</code> 且 <code>onClick</code> 不变，编译器会将其缓存起来，避免每次渲染都生成新的内联函数导致子组件不必要的重新渲染。`
+            },
+
+            // --- 运行时与组件 (Runtime) ---
+            {
+                id: 12,
+                category: 'runtime',
+                catLabel: '运行时与组件',
+                difficulty: 'Hard',
+                q: "Vue 3 的组件挂载 (mountComponent) 核心流程是怎样的？",
+                a: `源码位于 <code>runtime-core</code> 中的 <code>mountComponent</code> 函数。核心流程如下：<br>
+                    1. <strong>创建组件实例：</strong>调用 <code>createComponentInstance</code> 创建一个拥有状态的内部组件实例对象（包含 <code>ctx</code>, <code>props</code>, <code>slots</code> 等）。<br>
+                    2. <strong>初始化组件状态：</strong>调用 <code>setupComponent</code>。这步会解析 props/slots，<strong>最关键的是执行 <code>setup</code> 函数</strong>（如果存在）。解析 <code>setup</code> 返回的数据或渲染函数，设置代理 <code>proxy</code>。<br>
+                    3. <strong>设置并运行带有副作用的渲染函数：</strong>调用 <code>setupRenderEffect</code>。在这个函数内部，包装一个 <code>componentUpdateFn</code>，然后将其传入 <code>ReactiveEffect</code> 中，并立即执行一次。<br>
+                    4. 执行过程中会调用组件的 <code>render</code> 函数生成 VNode 树（触发响应式数据的 get 进行依赖收集），然后调用底层的 <code>patch</code> 渲染真实 DOM。`
+            },
+            {
+                id: 13,
+                category: 'runtime',
+                catLabel: '运行时与组件',
+                difficulty: 'Medium',
+                q: "setup 函数的执行时机是什么？源码中如何处理 setup 返回的 Promise (异步组件)？",
+                a: `<strong>执行时机：</strong><code>setup</code> 函数在组件实例创建之后，解析完 props，但<strong>在组件生命周期 <code>beforeCreate</code> 和 <code>created</code> 钩子逻辑之间</strong>执行。<br><br>
+                    <strong>处理异步 setup：</strong><br>
+                    如果 <code>setup</code> 带有 <code>async</code> 关键字，它会返回一个 Promise。在源码 <code>handleSetupResult</code> 中，Vue 检查到结果是 Promise 后，不会立刻处理返回值，而是将实例标记为异步依赖。这通常配合内置组件 <code>&lt;Suspense&gt;</code> 使用。当 Promise resolve 时，才继续处理 setup 返回的响应式状态并完成组件挂载。`
+            },
+            {
+                id: 14,
+                category: 'runtime',
+                catLabel: '运行时与组件',
+                difficulty: 'Hard',
+                q: "Vue 3 的异步更新队列机制是如何实现的？nextTick 的原理是什么？",
+                a: `<strong>异步更新队列 (Scheduler)：</strong><br>
+                    在触发 <code>trigger</code> 更新时，Vue 不会同步执行组件的 render 对应的 effect，而是调用 <code>queueJob(job)</code> 将副作用任务推入一个队列 <code>queue</code> 中。利用 JavaScript 的事件循环机制，通过 <code>Promise.resolve().then()</code> 开启一个微任务（Microtask）<code>flushJobs</code>，在同一事件循环结束时统一批量执行队列中的任务。这实现了<strong>状态多次改变，只会触发一次 DOM 渲染（去重）</strong>。<br><br>
+                    <strong>nextTick 原理：</strong><br>
+                    <code>nextTick</code> 本质上是将开发者传入的回调函数，推入一个 <code>Promise.resolve().then(cb)</code> 的微任务中。由于 <code>nextTick</code> 的调用通常在状态修改之后，其对应的微任务会排在 Vue 内部 <code>flushJobs</code> 微任务的后面，因此能保证在获取到更新后的真实 DOM 之后执行。`
+            },
+            {
+                id: 15,
+                category: 'runtime',
+                catLabel: '运行时与组件',
+                difficulty: 'Medium',
+                q: "Teleport（传送门）组件的底层实现原理是什么？",
+                a: `<code>Teleport</code> 是 Vue 3 的内置组件。它的内部并不是一个普通的虚拟节点，而是一个实现了特定接口的组件对象。<br><br>
+                    <strong>核心原理：</strong><br>
+                    当 <code>Renderer</code> 遇到 <code>Teleport</code> 类型的 VNode 时，不会像常规组件那样进行普通的 <code>patch</code>，而是调用 <code>Teleport</code> 组件自身挂载的 <code>process</code> 方法。<br>
+                    在 <code>process</code> 中，Renderer 会根据 <code>to</code> 属性找到目标 DOM 节点。然后在渲染 <code>Teleport</code> 的 <code>children</code> 时，<strong>将挂载或移动的目标父节点（container）强制修改为指定的 <code>to</code> 节点，而不是当前组件树的自然父节点</strong>。同时，源码中会维护主 DOM 树中的注释节点（Anchor）以便后续更新或卸载时能定位。`
+            },
+            {
+                id: 16,
+                category: 'runtime',
+                catLabel: '运行时与组件',
+                difficulty: 'Medium',
+                q: "KeepAlive 组件的实现原理及它的缓存淘汰策略是什么？",
+                a: `<strong>实现原理：</strong><br>
+                    <code>KeepAlive</code> 本身是一个抽象组件（不渲染为真实 DOM）。在 <code>setup</code> 内部，它维护了一个 <code>cache</code>（Map，用于存储 VNode）和一个 <code>keys</code>（Set，用于记录缓存顺序）。<br>
+                    当其包裹的子组件即将被卸载时，<code>KeepAlive</code> 会拦截卸载动作，调用特殊的 <code>deactivate</code> 方法将组件实例对应的真实 DOM 移动到一个隐藏的离线容器（Fragment）中。当重新挂载时，调用 <code>activate</code> 将其从离线容器移回，并直接复用之前的组件实例状态。<br><br>
+                    <strong>缓存策略：LRU (Least Recently Used) 最近最少使用算法。</strong><br>
+                    当缓存数量超过 <code>max</code> 限制时，它会从 <code>keys</code> Set 的第一项（最久未访问的）对应的缓存删除并触发卸载。每次访问已缓存的组件时，会将其对应的 key 先删除再重新推入 Set 的末尾，保证最近使用的在最后。`
+            },
+            {
+                id: 17,
+                category: 'runtime',
+                catLabel: '运行时与组件',
+                difficulty: 'Medium',
+                q: "Provide 和 Inject 的实现原理是什么？为什么只能在 setup 或函数式组件中使用？",
+                a: `<strong>原理：</strong>利用了组件实例上的原型链（Prototype Chain）。<br>
+                    每个组件实例内部都有一个 <code>provides</code> 对象。默认情况下，子组件的 <code>provides</code> 对象是通过 <code>Object.create(parent.provides)</code> 创建的（继承父组件的 provides）。<br>
+                    当调用 <code>provide(key, value)</code> 时，它会在当前组件实例的 <code>provides</code> 对象上添加属性。<br>
+                    当调用 <code>inject(key)</code> 时，它会读取当前组件实例的 <code>provides[key]</code>。由于原型链的存在，如果当前组件没有，会顺着原型链自动查找到最近的提供该属性的祖先组件。<br><br>
+                    <strong>为何限制在 setup 中：</strong>因为 <code>provide/inject</code> 函数内部依赖一个全局变量 <code>currentInstance</code> 来获取当前的组件实例对象。而 <code>currentInstance</code> 只有在组件初始化调用 <code>setup</code> 时才会被赋值，在异步或外部环境调用时它是 null。`
+            },
+
+            // --- 架构与其他 (Architecture & Misc) ---
+            {
+                id: 18,
+                category: 'architecture',
+                catLabel: '架构与生态',
+                difficulty: 'Medium',
+                q: "Composition API 的设计初衷是什么？解决 Options API 的哪些痛点？",
+                a: `<strong>设计初衷：</strong>为了提供更灵活、更高复用性的逻辑组织方式。<br><br>
+                    <strong>解决 Options API 的痛点：</strong><br>
+                    1. <strong>逻辑碎片化（碎片化问题）：</strong>在复杂的 Vue 2 组件中，处理同一个逻辑的 data, methods, computed 被拆分在不同选项块中，代码一长难以维护。Composition API 允许将同一个功能的代码组合在一起。<br>
+                    2. <strong>逻辑复用困难：</strong>Vue 2 主要依靠 Mixins 抽象逻辑，但 Mixins 容易导致数据来源不清晰（命名冲突）、隐式依赖等问题。Composition API 通过返回响应式状态的普通 JavaScript 函数（即 Composables/Hooks），使得逻辑复用更加清晰和安全。<br>
+                    3. <strong>更好的 TypeScript 推导：</strong>Options API 中的 <code>this</code> 魔法严重阻碍了类型推导。Composition API 绝大多数代码使用纯函数，天生对 TS 更友好。`
+            },
+            {
+                id: 19,
+                category: 'architecture',
+                catLabel: '架构与生态',
+                difficulty: 'Medium',
+                q: "Vue 3 源码中是如何进行 Tree-shaking 优化的？",
+                a: `<strong>Tree-shaking</strong> 依赖于 ES Modules (ESM) 的静态分析特性。打包工具（如 Rollup/Webpack）可以分析 import/export，将未引用的代码在生产包中移除。<br><br>
+                    <strong>Vue 3 源码层面的配合：</strong><br>
+                    1. <strong>模块化与解耦：</strong>Vue 3 将核心逻辑拆分为独立包（如 <code>reactivity</code>, <code>compiler-core</code>, <code>runtime-core</code>）。<br>
+                    2. <strong>导出纯函数：</strong>Vue 3 不再使用一个巨大的全局 <code>Vue</code> 类（如 Vue 2 的 <code>new Vue</code> / <code>Vue.component</code>），而是导出一个个独立的 API 接口，如 <code>createVNode</code>, <code>reactive</code>, <code>watch</code> 等。<br>
+                    3. <strong>编译器配合：</strong>如果在模板中没有使用特定的功能（如内置指令 <code>v-model</code>，或 <code>&lt;Transition&gt;</code>），编译器就不会生成引入这些功能代码的 <code>import</code> 语句，从而打包器就能将其剔除。`
+            },
+            {
+                id: 20,
+                category: 'architecture',
+                catLabel: '架构与生态',
+                difficulty: 'Hard',
+                q: "Vue 3 中自定义渲染器 (Custom Renderer) 的原理是什么？能做什么？",
+                a: `<strong>原理：</strong>Vue 3 的 <code>runtime-core</code> 被设计为平台无关的。它仅仅包含虚拟 DOM 的创建、Diff 算法、组件生命周期管理等抽象逻辑。真正操作 DOM 的 API 被抽离成了 <code>nodeOps</code> (节点操作接口，如 insert, remove, createElement)。<br>
+                    通过调用 <code>createRenderer(nodeOps)</code>，传入特定平台的操作 API，就能生成针对该平台的渲染器。<br><br>
+                    <strong>作用：</strong>使得 Vue 可以轻松脱离浏览器环境，渲染到其他终端。例如：<br>
+                    - 默认传入浏览器 DOM API，生成的就是 Web 渲染器。<br>
+                    - 传入 Canvas/WebGL 的操作 API，可以利用 Vue 构建 3D 游戏 UI。<br>
+                    - 传入移动端原生 UI 接口，可以构建类似 Weex/React Native 的跨平台移动应用（如 UniApp 的底层支撑）。`
+            },
+            {
+                id: 21,
+                category: 'reactivity',
+                catLabel: '响应式系统',
+                difficulty: 'Medium',
+                q: "Vue 3 中 computed 计算属性的源码实现机制是什么？它为什么具有缓存？",
+                a: `<strong>源码机制：</strong><code>computed</code> 在内部也会创建一个 <code>ReactiveEffect</code>（副作用）。但与 watch 不同，它持有一个内部变量 <code>_dirty</code> 默认为 true。<br><br>
+                    <strong>缓存原理：</strong><br>
+                    - 当读取 computed 的 <code>.value</code> 时，如果 <code>_dirty</code> 为 true，它会执行传入的 getter 函数计算最新值，并将 <code>_dirty</code> 设为 false，然后返回计算结果。<br>
+                    - 如果 <code>_dirty</code> 为 false，说明依赖没变，直接返回缓存的旧值（这就是缓存）。<br>
+                    - <strong>如何知道依赖变了？</strong> computed 的 Effect 会被其内部引用的响应式数据收集。当依赖数据变化（触发 set），它会触发 computed effect 的 <code>scheduler</code>（调度器）。在这个 <code>scheduler</code> 中，主要工作就是将 <code>_dirty</code> 重新置为 true，并通知使用该 computed 的下游组件 effect 进行更新。`
+            },
+            {
+                id: 22,
+                category: 'compiler',
+                catLabel: '编译系统',
+                difficulty: 'Medium',
+                q: "解释一下编译过程中的指令转换 (Directive Transform) 以及 v-model 的底层实现？",
+                a: `在编译器 <code>Transform</code> 阶段，当 AST 节点包含如 <code>v-if</code>, <code>v-for</code>, <code>v-model</code> 时，需要特殊的转换逻辑。<br><br>
+                    <strong>v-model 转换原理：</strong><br>
+                    <code>v-model</code> 本质上是语法糖。编译器在处理普通原生元素（如 <code>&lt;input v-model="text"&gt;</code>）时，会通过内置的 <code>transformModel</code> 插件将其转换为两个属性绑定的 AST 节点：<br>
+                    1. <code>modelValue: text</code>（值为响应式变量）<br>
+                    2. <code>"onUpdate:modelValue": $event => (text = $event)</code> （事件监听，更新变量）<br>
+                    对于组件上的 <code>v-model</code>，机制相同，编译出的渲染函数中自动添加了对 <code>update:modelValue</code> 自定义事件的监听。`
+            }
+        ];
+
+        // --- Categories Metadata ---
+        const categories = [
+            { id: 'all', label: '全部题目', color: 'bg-gray-200 text-gray-700 hover:bg-gray-300' },
+            { id: 'reactivity', label: '⚡ 响应式系统 (Reactivity)', color: 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-200' },
+            { id: 'diff', label: '🔄 虚拟DOM与Diff', color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-200' },
+            { id: 'compiler', label: '⚙️ 编译系统 (Compiler)', color: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border border-purple-200' },
+            { id: 'runtime', label: '🏃 运行时与组件 (Runtime)', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-200' },
+            { id: 'architecture', label: '🏗️ 架构与生态 (Architecture)', color: 'bg-rose-100 text-rose-800 hover:bg-rose-200 border border-rose-200' }
+        ];
+
+        // --- Application State ---
+        let state = {
+            currentFilter: 'all',
+            searchQuery: '',
+            expandedItems: new Set()
+        };
+
+        // --- DOM Elements ---
+        const accordionContainer = document.getElementById('accordion-container');
+        const filterContainer = document.getElementById('filter-container');
+        const searchInput = document.getElementById('searchInput');
+        const listTitle = document.getElementById('list-title');
+        const questionCount = document.getElementById('question-count');
+        const emptyState = document.getElementById('empty-state');
+        let chartInstance = null;
+
+        // --- Initialization ---
+        function init() {
+            renderFilters();
+            renderList();
+            initChart();
+        }
+
+        // --- Render Functions ---
+        function renderFilters() {
+            filterContainer.innerHTML = categories.map(cat => `
+                <button onclick="setFilter('${cat.id}', '${cat.label}')" 
+                        class="w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all ${cat.color} 
+                        ${state.currentFilter === cat.id ? 'ring-2 ring-offset-2 ring-gray-400 font-bold' : ''}">
+                    ${cat.label}
+                </button>
+            `).join('');
+        }
+
+        function getFilteredData() {
+            return questionsData.filter(q => {
+                const matchCat = state.currentFilter === 'all' || q.category === state.currentFilter;
+                const matchSearch = q.q.toLowerCase().includes(state.searchQuery) || q.a.toLowerCase().includes(state.searchQuery);
+                return matchCat && matchSearch;
+            });
+        }
+
+        function renderList() {
+            const data = getFilteredData();
+            questionCount.innerText = data.length;
+            
+            if (data.length === 0) {
+                accordionContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            accordionContainer.innerHTML = data.map((q, index) => {
+                const isExpanded = state.expandedItems.has(q.id);
+                const diffColor = q.difficulty === 'Hard' ? 'text-red-500 bg-red-50 border-red-200' : 'text-blue-500 bg-blue-50 border-blue-200';
+                
+                return `
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md">
+                    <!-- Header -->
+                    <button onclick="toggleAccordion(${q.id})" class="w-full flex items-center justify-between p-5 focus:outline-none text-left bg-white hover:bg-slate-50 transition-colors">
+                        <div class="flex items-start gap-4 pr-4">
+                            <span class="text-gray-400 font-mono font-bold mt-1">#${String(index + 1).padStart(2, '0')}</span>
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-base md:text-lg leading-snug">${q.q}</h3>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="text-xs px-2 py-0.5 rounded border ${diffColor} font-semibold">${q.difficulty}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">${q.catLabel}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-none">
+                            <span id="icon-${q.id}" class="transition-transform duration-300 ${isExpanded ? 'rotate-180 text-vue-green' : 'text-gray-400'}">▼</span>
+                        </div>
+                    </button>
+                    <!-- Body -->
+                    <div id="content-${q.id}" class="accordion-content bg-gray-50 border-t border-gray-100 ${isExpanded ? 'expanded' : ''}">
+                        <div class="px-5 md:px-12 pb-5 text-gray-700 text-sm leading-relaxed prose prose-sm max-w-none prose-code:text-vue-blue prose-code:bg-blue-50 prose-code:px-1 prose-code:rounded prose-strong:text-gray-900">
+                            ${q.a}
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // --- Interaction Handlers ---
+        function toggleAccordion(id) {
+            const content = document.getElementById(`content-${id}`);
+            const icon = document.getElementById(`icon-${id}`);
+            
+            if (state.expandedItems.has(id)) {
+                state.expandedItems.delete(id);
+                content.classList.remove('expanded');
+                icon.classList.remove('rotate-180', 'text-vue-green');
+                icon.classList.add('text-gray-400');
+            } else {
+                state.expandedItems.add(id);
+                content.classList.add('expanded');
+                icon.classList.add('rotate-180', 'text-vue-green');
+                icon.classList.remove('text-gray-400');
+            }
+        }
+
+        function expandAll() {
+            const data = getFilteredData();
+            if (state.expandedItems.size === data.length) {
+                // Collapse all
+                state.expandedItems.clear();
+            } else {
+                // Expand all
+                data.forEach(q => state.expandedItems.add(q.id));
+            }
+            renderList();
+        }
+
+        function setFilter(catId, label) {
+            state.currentFilter = catId;
+            listTitle.innerText = label;
+            // Clear search when clicking category for better UX
+            if(state.searchQuery) {
+                state.searchQuery = '';
+                searchInput.value = '';
+            }
+            renderFilters();
+            renderList();
+        }
+
+        function handleSearch() {
+            state.searchQuery = searchInput.value.toLowerCase();
+            if (state.searchQuery) {
+                state.currentFilter = 'all'; // Override category filter when searching
+                listTitle.innerText = "搜索结果";
+                renderFilters();
+            } else {
+                listTitle.innerText = "全部题目";
+            }
+            renderList();
+        }
+
+        // --- Chart Generation ---
+        function initChart() {
+            const ctx = document.getElementById('moduleChart').getContext('2d');
+            
+            // Calculate Distribution
+            const counts = { reactivity: 0, diff: 0, compiler: 0, runtime: 0, architecture: 0 };
+            questionsData.forEach(q => { if(counts[q.category] !== undefined) counts[q.category]++; });
+
+            chartInstance = new Chart(ctx, {
+                type: 'polarArea',
+                data: {
+                    labels: ['响应式系统', 'Diff算法', '编译系统', '运行时', '架构设计'],
+                    datasets: [{
+                        data: [counts.reactivity, counts.diff, counts.compiler, counts.runtime, counts.architecture],
+                        backgroundColor: [
+                            'rgba(66, 184, 131, 0.6)', // Green
+                            'rgba(245, 158, 11, 0.6)', // Yellow
+                            'rgba(168, 85, 247, 0.6)', // Purple
+                            'rgba(59, 130, 246, 0.6)', // Blue
+                            'rgba(244, 63, 94, 0.6)'   // Rose
+                        ],
+                        borderWidth: 1,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: { ticks: { display: false }, grid: { color: 'rgba(0,0,0,0.05)' } }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { boxWidth: 12, font: { size: 10, family: 'Inter' } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.label}: ${context.raw} 题`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Run Init
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</body>
+</html>

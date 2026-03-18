@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>副作用管理深度解析 (Side Effect Management)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Styles & Utilities */
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #334155; }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .vue-green { color: #42b883; }
+        .bg-vue-green { background-color: #42b883; }
+        .vue-blue { color: #35495e; }
+        .bg-vue-blue { background-color: #35495e; }
+        
+        /* Smooth transitions */
+        .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        .tab-content.active { display: block; opacity: 1; }
+        
+        /* Chart Container Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+
+        /* Stack Visualization */
+        .effect-stack-item {
+            transition: all 0.3s ease;
+            transform-origin: bottom;
+        }
+        
+        .request-pill {
+            transition: all 0.5s ease;
+        }
+
+        /* Console Log Simulation */
+        .console-line {
+            border-left: 3px solid transparent;
+            padding-left: 8px;
+            margin-bottom: 2px;
+            font-size: 0.75rem;
+        }
+        .console-track { border-left-color: #42b883; background: rgba(66, 184, 131, 0.1); }
+        .console-trigger { border-left-color: #35495e; background: rgba(53, 73, 94, 0.1); }
+        .console-cleanup { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+
+    </style>
+    <!-- Chosen Palette: Vue Brand Colors (Green #42b883, Dark Blue #35495e) with Amber (#f59e0b) for side effects/warnings. Background is Slate-50. -->
+    <!-- Application Structure Plan:
+         1. Header: Introduction to the concept of "Side Effects" (DOM updates, Network reqs).
+         2. Dashboard Layout:
+            - Left: Controls & Context (Inputs, Toggles).
+            - Right/Center: Visualizers (Effect Stack, Scheduler Queue, Cleanup Logs).
+         3. Modules:
+            - Core Mechanism: Visualizing activeEffect global variable and the Stack (handling nested effects).
+            - Scheduling (Async vs Sync): A race demonstration showing why we need 'nextTick' and job queues using Chart.js.
+            - Cleanup (onInvalidate): A search input simulator showing how stale side effects (API calls) are cancelled.
+         4. Rationale: Side effects are abstract. Visualizing them as "Stack Blocks" or "Queue Items" makes the management logic concrete.
+    -->
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 shadow-sm z-20 flex-none">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-vue-green to-vue-blue rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">E</div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800 tracking-tight">Side Effect <span class="text-vue-green">Manager</span></h1>
+                    <p class="text-xs text-gray-500">响应式系统的 "大脑" 与 "执行官"</p>
+                </div>
+            </div>
+            <nav class="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                <button onclick="switchTab('stack')" id="nav-stack" class="px-4 py-2 rounded-md text-sm font-medium transition-all bg-white text-vue-green shadow-sm">1. 嵌套与栈 (Stack)</button>
+                <button onclick="switchTab('scheduler')" id="nav-scheduler" class="px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">2. 调度器 (Scheduler)</button>
+                <button onclick="switchTab('cleanup')" id="nav-cleanup" class="px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">3. 清除机制 (Cleanup)</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto bg-slate-50 relative p-6">
+
+        <!-- MODULE 1: THE EFFECT STACK (NESTING) -->
+        <div id="stack" class="tab-content active max-w-6xl mx-auto">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">全局指针与副作用栈 (Global Cursor & Effect Stack)</h2>
+                <p class="text-gray-600 max-w-4xl leading-relaxed">
+                    在响应式系统中，当一个副作用函数 (Effect) 执行时，系统必须知道“当前是谁在运行”，以便将它与由于读取数据而触发的依赖关联起来。
+                    当组件嵌套时（Effect 嵌套 Effect），我们需要一个 <strong class="text-vue-blue">Stack (栈)</strong> 来保存父级 Effect，确保子级执行完后能正确恢复父级环境。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- Control Panel -->
+                <div class="lg:col-span-4 space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="font-bold text-gray-800 mb-4 flex items-center">
+                            <span class="w-6 h-6 bg-vue-green text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                            模拟执行 (Simulation)
+                        </h3>
+                        <p class="text-sm text-gray-500 mb-6">点击下方按钮模拟组件渲染过程。观察右侧 <span class="font-mono text-vue-blue">activeEffect</span> 指针的变化。</p>
+                        
+                        <div class="space-y-3">
+                            <button onclick="runParentEffect()" class="w-full bg-vue-blue hover:bg-blue-900 text-white font-semibold py-3 px-4 rounded-lg shadow transition flex items-center justify-between">
+                                <span>运行父组件 Effect</span>
+                                <span class="text-xs bg-white/20 px-2 py-1 rounded">Parent</span>
+                            </button>
+                            <div id="child-btn-container" class="opacity-50 pointer-events-none transition-opacity pl-8 border-l-2 border-gray-200">
+                                <button onclick="runChildEffect()" class="w-full bg-vue-green hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow transition text-sm">
+                                    ↳ 运行子组件 Effect
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 bg-slate-100 p-4 rounded-lg border border-slate-200">
+                            <div class="text-xs font-bold text-gray-500 uppercase mb-2">System Logs</div>
+                            <div id="stack-logs" class="h-32 overflow-y-auto code-font text-xs space-y-1">
+                                <div class="text-gray-400 italic">Ready to run...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visualization -->
+                <div class="lg:col-span-8">
+                    <div class="bg-white p-8 rounded-xl shadow-lg border-t-4 border-vue-green h-full relative overflow-hidden">
+                        <div class="absolute top-4 right-4 text-xs text-gray-400 font-bold uppercase tracking-wider">EffectStack Visualizer</div>
+                        
+                        <div class="flex items-end justify-center space-x-12 h-64 border-b-2 border-gray-200 relative mt-12">
+                            
+                            <!-- Global Var Pointer -->
+                            <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-16 flex flex-col items-center transition-all duration-500" id="active-pointer">
+                                <div class="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold shadow mb-1">activeEffect</div>
+                                <div class="text-red-500 text-2xl">⬇</div>
+                            </div>
+
+                            <!-- The Stack -->
+                            <div class="w-48 relative flex flex-col-reverse justify-start items-center bg-gray-50 border border-gray-200 rounded-t-lg h-full p-2" id="effect-stack-container">
+                                <div class="absolute bottom-2 text-xs text-gray-300 font-bold uppercase w-full text-center border-t border-gray-200 pt-1">Call Stack</div>
+                                <!-- Stack Items Injected Here -->
+                            </div>
+
+                            <!-- Current Running Label -->
+                            <div class="w-48 h-32 bg-gray-50 border border-dashed border-gray-300 rounded flex items-center justify-center flex-col text-center p-4">
+                                <span class="text-xs text-gray-400 uppercase mb-2">Current Execution</span>
+                                <span id="current-effect-label" class="text-lg font-bold text-gray-800">None</span>
+                                <span id="current-effect-desc" class="text-xs text-gray-500 mt-1">Idle</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 text-sm text-gray-600 bg-yellow-50 p-4 rounded border border-yellow-100">
+                            <strong class="text-yellow-800">为什么需要栈?</strong> 如果没有栈，当子组件 Effect 执行完毕将 `activeEffect` 置为 `null` 时，父组件后续的依赖收集将失败。栈确保了指针能回溯到父级环境。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODULE 2: SCHEDULER (ASYNC QUEUE) -->
+        <div id="scheduler" class="tab-content max-w-6xl mx-auto">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">调度器与去重 (Schedulers & Deduplication)</h2>
+                <p class="text-gray-600 max-w-4xl">
+                    Vue 的响应式系统不会在数据变化时立即执行副作用，而是将它们推入一个 <strong class="text-vue-green">Queue (微任务队列)</strong>。
+                    这允许系统在同一 "Tick" 内对同一数据的多次修改进行去重，只执行最后一次更新，极大地优化了性能。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Experiment Area -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 class="font-bold text-gray-800 mb-6">同步 vs 异步更新实验</h3>
+                    
+                    <!-- Loop Control -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">模拟循环次数 (Loop Count)</label>
+                        <input type="range" min="10" max="1000" value="100" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-vue-green" id="loop-slider" oninput="updateSliderVal(this.value)">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>10</span>
+                            <span id="slider-val" class="font-bold text-vue-green">100 Updates</span>
+                            <span>1000</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="runSyncUpdate()" class="p-4 rounded-lg border-2 border-red-100 hover:border-red-300 bg-red-50 transition text-center group">
+                            <div class="font-bold text-red-600 mb-1 group-hover:scale-110 transition-transform">🛑 同步更新 (Sync)</div>
+                            <div class="text-xs text-gray-500">每次赋值都触发 DOM 更新</div>
+                        </button>
+                        <button onclick="runAsyncUpdate()" class="p-4 rounded-lg border-2 border-vue-green hover:border-green-400 bg-green-50 transition text-center group">
+                            <div class="font-bold text-vue-green mb-1 group-hover:scale-110 transition-transform">✅ 异步调度 (Queue)</div>
+                            <div class="text-xs text-gray-500">多次赋值，一次更新</div>
+                        </button>
+                    </div>
+
+                    <div class="mt-8">
+                        <h4 class="text-sm font-bold text-gray-700 mb-2">DOM 模拟器 (The DOM)</h4>
+                        <div id="dom-simulator" class="bg-gray-900 text-green-400 font-mono p-4 rounded text-center text-xl transition-all duration-75">
+                            Waiting...
+                        </div>
+                        <div class="text-center mt-2 text-xs text-gray-400">实际渲染值</div>
+                    </div>
+                </div>
+
+                <!-- Results Chart -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                    <h3 class="font-bold text-gray-800 mb-4">性能对比分析</h3>
+                    <div class="chart-container flex-1">
+                        <canvas id="schedulerChart"></canvas>
+                    </div>
+                    <div class="mt-4 p-3 bg-blue-50 text-blue-800 text-sm rounded border border-blue-100">
+                        <span class="font-bold">Result:</span> 
+                        <span id="scheduler-result-text">运行实验以查看数据...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODULE 3: CLEANUP (ONINVALIDATE) -->
+        <div id="cleanup" class="tab-content max-w-6xl mx-auto">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">清除副作用 (Effect Cleanup)</h2>
+                <p class="text-gray-600 max-w-4xl">
+                    当副作用包含异步操作（如 API 请求）或监听器时，如果不及时清理，会导致 <strong class="text-red-500">竞态问题 (Race Conditions)</strong> 或内存泄漏。
+                    Vue 提供了 `onInvalidate` 回调，在副作用重新执行前或组件销毁时触发。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- Input Simulator -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500">
+                        <h3 class="font-bold text-gray-800 mb-4">搜索请求模拟 (Search Simulation)</h3>
+                        <p class="text-sm text-gray-500 mb-4">
+                            快速在下方输入内容。每次按键都会触发一个新的 Effect (API 请求)。
+                            观察系统如何使用 `cleanup` 标记旧请求为 "Stale" (无效)。
+                        </p>
+                        
+                        <div class="relative">
+                            <input type="text" id="search-input" placeholder="Type quickly here..." 
+                                class="w-full p-4 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none transition text-lg"
+                                oninput="handleSearchInput(this.value)">
+                            <div class="absolute left-4 top-4 text-gray-400">🔍</div>
+                        </div>
+
+                        <div class="flex items-center justify-between mt-2 text-xs text-gray-400">
+                            <span>Last Valid Query: <span id="valid-query" class="font-bold text-gray-700">-</span></span>
+                            <span id="pending-status" class="text-yellow-500 opacity-0">Pending Requests...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Network Waterfall -->
+                <div class="lg:col-span-7">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 min-h-[400px]">
+                        <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                            <h3 class="font-bold text-gray-800">网络请求队列 (Network Log)</h3>
+                            <button onclick="clearNetworkLog()" class="text-xs text-red-500 hover:underline">Clear Logs</button>
+                        </div>
+                        
+                        <div class="space-y-3" id="network-log">
+                            <!-- Injected Request Pills -->
+                            <div class="text-center text-gray-400 text-sm mt-10 italic" id="empty-log-msg">Start typing to see requests...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Global Navigation ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            // Nav Styling
+            const buttons = document.querySelectorAll('nav button');
+            buttons.forEach(btn => {
+                btn.className = "px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900";
+            });
+            const activeBtn = document.getElementById('nav-' + tabId);
+            activeBtn.className = "px-4 py-2 rounded-md text-sm font-medium transition-all bg-white text-vue-green shadow-sm";
+        }
+
+        // --- MODULE 1: Effect Stack Visualizer ---
+        let parentActive = false;
+        let childActive = false;
+        
+        const stackContainer = document.getElementById('effect-stack-container');
+        const pointer = document.getElementById('active-pointer');
+        const currentLabel = document.getElementById('current-effect-label');
+        const currentDesc = document.getElementById('current-effect-desc');
+        const stackLogs = document.getElementById('stack-logs');
+        const childBtnContainer = document.getElementById('child-btn-container');
+
+        function addStackLog(msg) {
+            const div = document.createElement('div');
+            div.className = "text-gray-600 border-l-2 border-gray-300 pl-2 text-[10px]";
+            div.innerText = `> ${msg}`;
+            stackLogs.prepend(div);
+        }
+
+        function createStackBlock(name, colorClass) {
+            const div = document.createElement('div');
+            div.className = `w-full h-12 ${colorClass} text-white text-xs font-bold flex items-center justify-center rounded shadow-sm mb-1 effect-stack-item animate-bounce-in`;
+            div.innerText = name;
+            div.id = `block-${name}`;
+            return div;
+        }
+
+        function runParentEffect() {
+            if(parentActive) return;
+            parentActive = true;
+
+            // 1. Push Parent
+            addStackLog("Parent Effect STARTED");
+            const pBlock = createStackBlock("Parent", "bg-vue-blue");
+            stackContainer.appendChild(pBlock);
+            
+            // Update UI
+            currentLabel.innerText = "Parent Effect";
+            currentDesc.innerText = "Running logic, collecting dependencies...";
+            currentLabel.className = "text-lg font-bold text-vue-blue";
+            
+            // Allow Child execution
+            childBtnContainer.classList.remove('opacity-50', 'pointer-events-none');
+            
+            // Move Pointer (Simulated CSS)
+            // In real Vue, activeEffect points to the object in heap. Here we visualize depth.
+        }
+
+        function runChildEffect() {
+            if(!parentActive || childActive) return;
+            childActive = true;
+
+            // 1. Push Child
+            addStackLog("↳ Child Effect STARTED (Nested)");
+            const cBlock = createStackBlock("Child", "bg-vue-green");
+            stackContainer.appendChild(cBlock);
+
+            // Update UI
+            currentLabel.innerText = "Child Effect";
+            currentDesc.innerText = "Parent paused. Child running...";
+            currentLabel.className = "text-lg font-bold text-vue-green";
+
+            // Simulate Child Completion after delay
+            setTimeout(() => {
+                finishChildEffect();
+            }, 1500);
+        }
+
+        function finishChildEffect() {
+            // 1. Pop Child
+            const cBlock = document.getElementById('block-Child');
+            if(cBlock) {
+                cBlock.style.opacity = '0';
+                cBlock.style.transform = 'scale(0.8)';
+                setTimeout(() => cBlock.remove(), 300);
+            }
+            
+            addStackLog("↳ Child Effect FINISHED. Restore Parent.");
+            childActive = false;
+
+            // Restore Parent context
+            currentLabel.innerText = "Parent Effect";
+            currentDesc.innerText = "Resumed execution...";
+            currentLabel.className = "text-lg font-bold text-vue-blue";
+
+            // Simulate Parent Completion
+            setTimeout(() => {
+                finishParentEffect();
+            }, 1500);
+        }
+
+        function finishParentEffect() {
+            const pBlock = document.getElementById('block-Parent');
+            if(pBlock) {
+                pBlock.style.opacity = '0';
+                pBlock.style.transform = 'scale(0.8)';
+                setTimeout(() => pBlock.remove(), 300);
+            }
+            addStackLog("Parent Effect FINISHED. activeEffect = null");
+            parentActive = false;
+            
+            currentLabel.innerText = "None";
+            currentDesc.innerText = "Idle";
+            currentLabel.className = "text-lg font-bold text-gray-800";
+            
+            childBtnContainer.classList.add('opacity-50', 'pointer-events-none');
+        }
+
+        // --- MODULE 2: Scheduler Logic ---
+        const domSim = document.getElementById('dom-simulator');
+        const schedulerResult = document.getElementById('scheduler-result-text');
+        let updateCount = 100;
+
+        function updateSliderVal(val) {
+            updateCount = parseInt(val);
+            document.getElementById('slider-val').innerText = `${val} Updates`;
+        }
+
+        // Chart Initialization
+        let schedulerChartInstance;
+        function initSchedulerChart() {
+            const ctx = document.getElementById('schedulerChart').getContext('2d');
+            schedulerChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Sync Mode (Naive)', 'Queue Mode (Vue)'],
+                    datasets: [{
+                        label: 'DOM Render Operations',
+                        data: [0, 0],
+                        backgroundColor: ['#ef4444', '#42b883'],
+                        borderRadius: 6,
+                        barThickness: 50
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Render Calls' } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function runSyncUpdate() {
+            domSim.innerText = "Running Sync...";
+            
+            // In sync mode, we simulate touching the DOM loop times
+            let renderCalls = 0;
+            const start = performance.now();
+            
+            // Simulation Loop
+            const interval = setInterval(() => {
+                renderCalls++;
+                domSim.innerText = `Value: ${renderCalls}`; // Touching DOM
+                
+                if (renderCalls >= updateCount) {
+                    clearInterval(interval);
+                    const end = performance.now();
+                    schedulerResult.innerHTML = `Sync: <strong class="text-red-500">${renderCalls} DOM ops</strong> took ${(end-start).toFixed(2)}ms (Simulated slow)`;
+                    updateChart(renderCalls, null);
+                }
+            }, 5); // Artificial delay to visualize
+        }
+
+        function runAsyncUpdate() {
+            domSim.innerText = "Queuing Jobs...";
+            
+            // In Async mode, we push jobs but only run once
+            let internalValue = 0;
+            let renderCalls = 0;
+            
+            // Loop updates internal state only
+            for(let i=0; i<updateCount; i++) {
+                internalValue++;
+            }
+
+            // Next Tick Simulation
+            setTimeout(() => {
+                renderCalls = 1; // Only updates once
+                domSim.innerText = `Value: ${internalValue}`;
+                schedulerResult.innerHTML = `Queue: <strong class="text-vue-green">1 DOM op</strong>. <span class="text-gray-500">Merged ${updateCount} state changes.</span>`;
+                updateChart(null, 1);
+            }, 500);
+        }
+
+        function updateChart(syncVal, asyncVal) {
+            if (syncVal !== null) schedulerChartInstance.data.datasets[0].data[0] = syncVal;
+            if (asyncVal !== null) schedulerChartInstance.data.datasets[0].data[1] = asyncVal;
+            schedulerChartInstance.update();
+        }
+
+
+        // --- MODULE 3: Cleanup (onInvalidate) ---
+        let searchTimeout = null;
+        let pendingRequests = []; // Array of { id, el }
+        let reqId = 0;
+
+        const networkLog = document.getElementById('network-log');
+        const emptyLogMsg = document.getElementById('empty-log-msg');
+        const pendingStatus = document.getElementById('pending-status');
+        const validQueryEl = document.getElementById('valid-query');
+
+        function clearNetworkLog() {
+            networkLog.innerHTML = '';
+            networkLog.appendChild(emptyLogMsg);
+            emptyLogMsg.style.display = 'block';
+            pendingRequests = [];
+        }
+
+        function handleSearchInput(val) {
+            if(!val) return;
+            emptyLogMsg.style.display = 'none';
+            pendingStatus.style.opacity = '1';
+
+            // 1. Cleanup Previous (The essence of onInvalidate)
+            // If there's a pending timeout (debounce logic), we clear it.
+            // But here we want to simulate the "Network Race", so we actually FIRE the request
+            // but mark previous ones as "Cleaned Up/Ignored" visually.
+            
+            // Mark all currently pending requests as "Stale"
+            pendingRequests.forEach(req => {
+                if(req.status === 'pending') {
+                    req.status = 'cancelled';
+                    req.el.classList.remove('border-blue-200', 'bg-blue-50');
+                    req.el.classList.add('border-gray-200', 'bg-gray-50', 'opacity-60');
+                    req.el.querySelector('.req-status').innerText = '⚠ Cancelled (Cleanup)';
+                    req.el.querySelector('.req-status').classList.remove('text-blue-500');
+                    req.el.querySelector('.req-status').classList.add('text-gray-500');
+                }
+            });
+
+            // 2. Fire New Request
+            reqId++;
+            const currentId = reqId;
+            
+            const reqEl = document.createElement('div');
+            reqEl.className = "flex items-center justify-between p-3 rounded border border-blue-200 bg-blue-50 request-pill";
+            reqEl.innerHTML = `
+                <div>
+                    <div class="font-bold text-sm text-gray-700">Req #${currentId}: "${val}"</div>
+                    <div class="text-xs text-blue-500 req-status">⏳ Pending...</div>
+                </div>
+                <div class="text-xs font-mono text-gray-400">${new Date().toLocaleTimeString()}</div>
+            `;
+            networkLog.prepend(reqEl);
+
+            const reqObj = { id: currentId, el: reqEl, status: 'pending', query: val };
+            pendingRequests.push(reqObj);
+
+            // 3. Simulate Async Network Delay (Random 1-3s)
+            const delay = Math.floor(Math.random() * 2000) + 1000;
+            
+            setTimeout(() => {
+                // When request returns...
+                if (reqObj.status === 'cancelled') {
+                    // It returned, but we ignored it because of cleanup
+                    return; 
+                }
+
+                // Success
+                reqObj.status = 'resolved';
+                reqObj.el.classList.remove('border-blue-200', 'bg-blue-50');
+                reqObj.el.classList.add('border-green-200', 'bg-green-50');
+                reqObj.el.querySelector('.req-status').innerText = '✔ Resolved';
+                reqObj.el.querySelector('.req-status').classList.replace('text-blue-500', 'text-green-600');
+                
+                validQueryEl.innerText = reqObj.query;
+                pendingStatus.style.opacity = '0';
+                
+            }, delay);
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initSchedulerChart();
+        });
+
+    </script>
+    <!-- Visualization & Content Choices:
+         Module 1 (Stack): 
+         - Goal: Explain `parent -> child -> parent` effect restoration.
+         - Viz: A vertical HTML stack that grows/shrinks using DOM append/remove.
+         - Justification: Stack behavior is best understood by seeing blocks push and pop.
+         
+         Module 2 (Scheduler):
+         - Goal: Show performance benefit of async queues.
+         - Viz: Chart.js Bar Chart comparing 100 Sync Ops vs 1 Async Op.
+         - Justification: Quantitative comparison highlights the "Why" of schedulers.
+         
+         Module 3 (Cleanup):
+         - Goal: Explain `onInvalidate` and race conditions.
+         - Viz: A list of "Network Requests" where typing invalidates previous ones (turns them gray).
+         - Justification: Emulates real-world search-as-you-type scenarios where cleanup is critical.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</body>
+</html>
