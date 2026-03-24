@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	stdruntime "runtime"
+	"strings"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App 负责协调应用生命周期和多语言状态。
@@ -29,30 +31,33 @@ func (a *App) startup(ctx context.Context) {
 	a.downloadDemo.setContext(ctx)
 
 	if err := a.counterDemo.startup(); err != nil {
-		runtime.LogErrorf(ctx, "%s", a.i18n.Format("log.counter.load", err))
+		wailsruntime.LogErrorf(ctx, "%s", a.i18n.Format("log.counter.load", err))
 	}
 }
 
 func (a *App) beforeClose(ctx context.Context) (prevent bool) {
-	selection, err := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
-		Type:          runtime.QuestionDialog,
+	confirmButton := a.confirmDialogButton()
+	cancelButton := a.cancelDialogButton()
+
+	selection, err := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+		Type:          wailsruntime.QuestionDialog,
 		Title:         a.i18n.Text("app.close.title"),
 		Message:       a.i18n.Text("app.close.message"),
-		Buttons:       []string{a.i18n.Text("app.close.confirm"), a.i18n.Text("app.close.cancel")},
-		DefaultButton: a.i18n.Text("app.close.cancel"),
-		CancelButton:  a.i18n.Text("app.close.cancel"),
+		Buttons:       []string{confirmButton, cancelButton},
+		DefaultButton: cancelButton,
+		CancelButton:  cancelButton,
 	})
 	if err != nil {
-		runtime.LogErrorf(ctx, "%s", a.i18n.Format("log.close.confirm", err))
+		wailsruntime.LogErrorf(ctx, "%s", a.i18n.Format("log.close.confirm", err))
 		return false
 	}
 
-	return selection != a.i18n.Text("app.close.confirm")
+	return !isConfirmSelection(selection, confirmButton)
 }
 
 func (a *App) shutdown(ctx context.Context) {
 	if err := a.counterDemo.shutdown(); err != nil {
-		runtime.LogErrorf(ctx, "%s", a.i18n.Format("log.counter.save", err))
+		wailsruntime.LogErrorf(ctx, "%s", a.i18n.Format("log.counter.save", err))
 	}
 }
 
@@ -66,4 +71,25 @@ func (a *App) SetLanguage(language string) string {
 	nextLanguage := a.i18n.SetLanguage(language)
 	a.downloadDemo.SyncLanguage()
 	return nextLanguage
+}
+
+func (a *App) confirmDialogButton() string {
+	if stdruntime.GOOS == "windows" {
+		return "Yes"
+	}
+
+	return a.i18n.Text("app.close.confirm")
+}
+
+func (a *App) cancelDialogButton() string {
+	if stdruntime.GOOS == "windows" {
+		return "No"
+	}
+
+	return a.i18n.Text("app.close.cancel")
+}
+
+func isConfirmSelection(selection, confirmButton string) bool {
+	trimmedSelection := strings.TrimSpace(selection)
+	return strings.EqualFold(trimmedSelection, "yes") || trimmedSelection == confirmButton
 }
