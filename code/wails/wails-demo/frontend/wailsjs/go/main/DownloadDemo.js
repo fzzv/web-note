@@ -10,10 +10,10 @@ export function Reset() {
   return window['go']['main']['DownloadDemo']['Reset']();
 }
 
-export function SetContext(arg1) {
-  return window['go']['main']['DownloadDemo']['SetContext'](arg1);
-}
-
 export function StartDownload(arg1) {
   return window['go']['main']['DownloadDemo']['StartDownload'](arg1);
+}
+
+export function SyncLanguage() {
+  return window['go']['main']['DownloadDemo']['SyncLanguage']();
 }

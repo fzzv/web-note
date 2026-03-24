@@ -19,26 +19,23 @@ import (
 
 const downloadProgressEventName = "demo:download:progress"
 
-const downloadIdleMessage = "Enter a URL to stream a file and watch backend progress events in real time."
-
-// DownloadDemo demonstrates progress notifications from Go to the frontend.
+// DownloadDemo 负责文件下载进度示例。
 type DownloadDemo struct {
 	mu     sync.RWMutex
 	ctx    context.Context
 	state  DownloadState
 	active bool
+	i18n   *Localizer
 }
 
-func NewDownloadDemo() *DownloadDemo {
-	return &DownloadDemo{
-		state: DownloadState{
-			Status:  "idle",
-			Message: downloadIdleMessage,
-		},
-	}
+func NewDownloadDemo(i18n *Localizer) *DownloadDemo {
+	demo := &DownloadDemo{i18n: i18n}
+	demo.state = demo.newIdleState()
+
+	return demo
 }
 
-func (d *DownloadDemo) SetContext(ctx context.Context) {
+func (d *DownloadDemo) setContext(ctx context.Context) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -57,13 +54,10 @@ func (d *DownloadDemo) Reset() (DownloadState, error) {
 	if d.active {
 		state := d.state
 		d.mu.Unlock()
-		return state, errors.New("a download is still in progress")
+		return state, errors.New(d.i18n.Text("download.reset.busy"))
 	}
 
-	state := DownloadState{
-		Status:  "idle",
-		Message: downloadIdleMessage,
-	}
+	state := d.newIdleState()
 	ctx := d.ctx
 	d.state = state
 	d.mu.Unlock()
@@ -78,28 +72,28 @@ func (d *DownloadDemo) Reset() (DownloadState, error) {
 func (d *DownloadDemo) StartDownload(rawURL string) (DownloadState, error) {
 	trimmedURL := strings.TrimSpace(rawURL)
 	if trimmedURL == "" {
-		return d.GetState(), errors.New("download url cannot be empty")
+		return d.GetState(), errors.New(d.i18n.Text("download.url.empty"))
 	}
 
 	targetURL, err := neturl.ParseRequestURI(trimmedURL)
 	if err != nil {
-		return d.GetState(), fmt.Errorf("invalid download url: %w", err)
+		return d.GetState(), fmt.Errorf(d.i18n.Text("download.url.invalid"), err)
 	}
 
 	fileName := fileNameFromURL(targetURL)
 	destinationDir := resolveDownloadDirectory()
 	if err := os.MkdirAll(destinationDir, 0o755); err != nil {
-		return d.GetState(), fmt.Errorf("create download directory: %w", err)
+		return d.GetState(), fmt.Errorf(d.i18n.Text("download.dir.create"), err)
 	}
 
 	destination, err := nextAvailableFilePath(destinationDir, fileName)
 	if err != nil {
-		return d.GetState(), fmt.Errorf("prepare download path: %w", err)
+		return d.GetState(), fmt.Errorf(d.i18n.Text("download.path.prepare"), err)
 	}
 
 	state := DownloadState{
 		Status:      "starting",
-		Message:     "Preparing request and waiting for response headers...",
+		Message:     d.i18n.Text("download.starting"),
 		URL:         trimmedURL,
 		FileName:    filepath.Base(destination),
 		Destination: destination,
@@ -110,7 +104,7 @@ func (d *DownloadDemo) StartDownload(rawURL string) (DownloadState, error) {
 	if d.active {
 		current := d.state
 		d.mu.Unlock()
-		return current, errors.New("a download is already running")
+		return current, errors.New(d.i18n.Text("download.busy"))
 	}
 
 	ctx := d.ctx
@@ -132,13 +126,13 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
-		d.finishWithError(rawURL, destination, fileName, 0, -1, fmt.Errorf("build request: %w", err))
+		d.finishWithError(rawURL, destination, fileName, 0, -1, fmt.Errorf(d.i18n.Text("download.request.build"), err))
 		return
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		d.finishWithError(rawURL, destination, fileName, 0, -1, fmt.Errorf("send request: %w", err))
+		d.finishWithError(rawURL, destination, fileName, 0, -1, fmt.Errorf(d.i18n.Text("download.request.send"), err))
 		return
 	}
 	defer resp.Body.Close()
@@ -150,7 +144,7 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 			fileName,
 			0,
 			resp.ContentLength,
-			fmt.Errorf("unexpected response status: %s", resp.Status),
+			fmt.Errorf(d.i18n.Text("download.response.status"), resp.Status),
 		)
 		return
 	}
@@ -163,7 +157,7 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 			fileName,
 			0,
 			resp.ContentLength,
-			fmt.Errorf("create local file: %w", err),
+			fmt.Errorf(d.i18n.Text("download.file.create"), err),
 		)
 		return
 	}
@@ -172,7 +166,7 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 	totalBytes := resp.ContentLength
 	d.publish(DownloadState{
 		Status:      "downloading",
-		Message:     "Response received. Streaming file contents from Go to disk...",
+		Message:     d.i18n.Text("download.running"),
 		URL:         rawURL,
 		FileName:    fileName,
 		Destination: destination,
@@ -194,7 +188,7 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 					fileName,
 					downloadedBytes,
 					totalBytes,
-					fmt.Errorf("write local file: %w", err),
+					fmt.Errorf(d.i18n.Text("download.file.write"), err),
 				)
 				return
 			}
@@ -203,7 +197,7 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 			if shouldEmitProgress(totalBytes, downloadedBytes, lastEmitAt) {
 				d.publish(DownloadState{
 					Status:          "downloading",
-					Message:         progressMessage(downloadedBytes, totalBytes),
+					Message:         d.progressMessage(downloadedBytes, totalBytes),
 					URL:             rawURL,
 					FileName:        fileName,
 					Destination:     destination,
@@ -225,7 +219,7 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 				fileName,
 				downloadedBytes,
 				totalBytes,
-				fmt.Errorf("read response body: %w", readErr),
+				fmt.Errorf(d.i18n.Text("download.response.read"), readErr),
 			)
 			return
 		}
@@ -233,7 +227,7 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 
 	d.publish(DownloadState{
 		Status:          "completed",
-		Message:         fmt.Sprintf("Download complete. Saved %s to %s", formatBytes(downloadedBytes), destination),
+		Message:         d.i18n.Format("download.complete", formatBytes(downloadedBytes), destination),
 		URL:             rawURL,
 		FileName:        fileName,
 		Destination:     destination,
@@ -241,6 +235,27 @@ func (d *DownloadDemo) runDownload(rawURL, destination string) {
 		TotalBytes:      downloadedBytes,
 		Progress:        100,
 	}, false)
+}
+
+// SyncLanguage 用当前语言刷新已有状态文案。
+func (d *DownloadDemo) SyncLanguage() {
+	d.mu.RLock()
+	state := d.state
+	ctx := d.ctx
+	d.mu.RUnlock()
+
+	nextState := d.localizeState(state)
+	if nextState.Message == state.Message {
+		return
+	}
+
+	d.mu.Lock()
+	d.state = nextState
+	d.mu.Unlock()
+
+	if ctx != nil {
+		runtime.EventsEmit(ctx, downloadProgressEventName, nextState)
+	}
 }
 
 func (d *DownloadDemo) finishWithError(rawURL, destination, fileName string, downloadedBytes, totalBytes int64, err error) {
@@ -268,6 +283,32 @@ func (d *DownloadDemo) publish(state DownloadState, active bool) {
 	if ctx != nil {
 		runtime.EventsEmit(ctx, downloadProgressEventName, state)
 	}
+}
+
+func (d *DownloadDemo) newIdleState() DownloadState {
+	return DownloadState{
+		Status:  "idle",
+		Message: d.i18n.Text("download.idle"),
+	}
+}
+
+func (d *DownloadDemo) localizeState(state DownloadState) DownloadState {
+	switch state.Status {
+	case "idle":
+		state.Message = d.i18n.Text("download.idle")
+	case "starting":
+		state.Message = d.i18n.Text("download.starting")
+	case "downloading":
+		if state.DownloadedBytes > 0 {
+			state.Message = d.progressMessage(state.DownloadedBytes, state.TotalBytes)
+		} else {
+			state.Message = d.i18n.Text("download.running")
+		}
+	case "completed":
+		state.Message = d.i18n.Format("download.complete", formatBytes(state.DownloadedBytes), state.Destination)
+	}
+
+	return state
 }
 
 func fileNameFromURL(targetURL *neturl.URL) string {
@@ -328,12 +369,12 @@ func calculateProgress(downloadedBytes, totalBytes int64) float64 {
 	return float64(downloadedBytes) / float64(totalBytes) * 100
 }
 
-func progressMessage(downloadedBytes, totalBytes int64) string {
+func (d *DownloadDemo) progressMessage(downloadedBytes, totalBytes int64) string {
 	if totalBytes <= 0 {
-		return fmt.Sprintf("Downloaded %s", formatBytes(downloadedBytes))
+		return d.i18n.Format("download.progress.partial", formatBytes(downloadedBytes))
 	}
 
-	return fmt.Sprintf("Downloaded %s of %s", formatBytes(downloadedBytes), formatBytes(totalBytes))
+	return d.i18n.Format("download.progress.total", formatBytes(downloadedBytes), formatBytes(totalBytes))
 }
 
 func formatBytes(size int64) string {

@@ -26,6 +26,7 @@ func main() {
 		OnBeforeClose:    app.beforeClose,
 		OnShutdown:       app.shutdown,
 		Bind: []interface{}{
+			app,
 			app.counterDemo,
 			app.downloadDemo,
 		},

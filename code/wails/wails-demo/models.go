@@ -1,11 +1,11 @@
 package main
 
-// CounterState is the persisted counter payload.
+// CounterState 表示计数器持久化到本地的内容。
 type CounterState struct {
 	Count int `json:"count"`
 }
 
-// DownloadState is emitted to the frontend during the download demo.
+// DownloadState 表示下载示例推送给前端的状态。
 type DownloadState struct {
 	Status          string  `json:"status"`
 	Message         string  `json:"message"`

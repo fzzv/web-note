@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-// CounterDemo keeps the persistent counter sample isolated from other demos.
+// CounterDemo 负责持久化计数器示例。
 type CounterDemo struct {
 	mu        sync.RWMutex
 	count     int
@@ -19,18 +19,18 @@ func NewCounterDemo() *CounterDemo {
 	return &CounterDemo{}
 }
 
-func (d *CounterDemo) SetStateFile(path string) {
+func (d *CounterDemo) setStateFile(path string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	d.stateFile = path
 }
 
-func (d *CounterDemo) Startup() error {
+func (d *CounterDemo) startup() error {
 	return d.load()
 }
 
-func (d *CounterDemo) Shutdown() error {
+func (d *CounterDemo) shutdown() error {
 	return d.save()
 }
 

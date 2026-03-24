@@ -13,15 +13,3 @@ export function GetCount() {
 export function Increment() {
   return window['go']['main']['CounterDemo']['Increment']();
 }
-
-export function SetStateFile(arg1) {
-  return window['go']['main']['CounterDemo']['SetStateFile'](arg1);
-}
-
-export function Shutdown() {
-  return window['go']['main']['CounterDemo']['Shutdown']();
-}
-
-export function Startup() {
-  return window['go']['main']['CounterDemo']['Startup']();
-}

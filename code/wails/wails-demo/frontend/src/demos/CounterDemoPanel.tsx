@@ -1,7 +1,12 @@
 import {useEffect, useState} from 'react';
 import {Decrement, GetCount, Increment} from '../../wailsjs/go/main/CounterDemo';
+import type {Messages} from '../i18n';
 
-function CounterDemoPanel() {
+type CounterDemoPanelProps = {
+    messages: Messages;
+};
+
+function CounterDemoPanel({messages}: CounterDemoPanelProps) {
     const [count, setCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -43,45 +48,43 @@ function CounterDemoPanel() {
     };
 
     if (loading) {
-        return <div className="status-card">Loading counter state...</div>;
+        return <div className="status-card">{messages.counterPanel.loading}</div>;
     }
 
     return (
         <section className="demo-panel">
             <div className="panel-head">
-                <p className="panel-kicker">Isolated module</p>
-                <h3>Counter demo stays intact.</h3>
-                <p className="panel-copy">
-                    The counter logic now lives in its own backend file, but it still restores state during startup and writes JSON on shutdown.
-                </p>
+                <p className="panel-kicker">{messages.counterPanel.kicker}</p>
+                <h3>{messages.counterPanel.title}</h3>
+                <p className="panel-copy">{messages.counterPanel.description}</p>
             </div>
 
             <div className="counter-display">
-                <span className="counter-label">Current count</span>
+                <span className="counter-label">{messages.counterPanel.countLabel}</span>
                 <strong>{count}</strong>
             </div>
 
             <div className="action-row">
                 <button className="action-button secondary" onClick={() => void changeCount(Decrement)} type="button">
-                    Decrement
+                    {messages.counterPanel.decrement}
                 </button>
                 <button className="action-button primary" onClick={() => void changeCount(Increment)} type="button">
-                    Increment
+                    {messages.counterPanel.increment}
                 </button>
             </div>
 
             <dl className="meta-grid">
                 <div>
-                    <dt>Startup</dt>
-                    <dd>Reads the saved count from a local JSON file before the React UI renders.</dd>
+                    <dt>{messages.counterPanel.startupLabel}</dt>
+                    <dd>{messages.counterPanel.startupDescription}</dd>
                 </div>
                 <div>
-                    <dt>Before Close</dt>
-                    <dd>Shows a confirmation dialog so lifecycle hooks are visible while testing the demo.</dd>
+                    <dt>{messages.counterPanel.beforeCloseLabel}</dt>
+                    <dd>{messages.counterPanel.beforeCloseDescription}</dd>
                 </div>
                 <div>
-                    <dt>Shutdown</dt>
-                    <dd>Persists the current count automatically, so reopening the app resumes the previous state.</dd>
+                    <dt>{messages.counterPanel.shutdownLabel}</dt>
+                    <dd>{messages.counterPanel.shutdownDescription}</dd>
                 </div>
             </dl>
 

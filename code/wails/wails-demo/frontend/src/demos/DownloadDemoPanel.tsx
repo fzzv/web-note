@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {GetState, Reset, StartDownload} from '../../wailsjs/go/main/DownloadDemo';
 import {EventsOn} from '../../wailsjs/runtime/runtime';
+import type {Messages} from '../i18n';
 
 const downloadProgressEventName = 'demo:download:progress';
 const defaultDownloadURL = 'https://raw.githubusercontent.com/wailsapp/wails/master/README.md';
@@ -16,9 +17,13 @@ type DownloadState = {
     progress: number;
 };
 
+type DownloadDemoPanelProps = {
+    messages: Messages;
+};
+
 const idleState: DownloadState = {
     status: 'idle',
-    message: 'Enter a URL to stream a file and watch backend progress events in real time.',
+    message: '',
     url: '',
     fileName: '',
     destination: '',
@@ -27,9 +32,12 @@ const idleState: DownloadState = {
     progress: 0,
 };
 
-function DownloadDemoPanel() {
+function DownloadDemoPanel({messages}: DownloadDemoPanelProps) {
     const [downloadURL, setDownloadURL] = useState(defaultDownloadURL);
-    const [state, setState] = useState<DownloadState>(idleState);
+    const [state, setState] = useState<DownloadState>({
+        ...idleState,
+        message: messages.downloadPanel.loading,
+    });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -94,48 +102,45 @@ function DownloadDemoPanel() {
     };
 
     if (loading) {
-        return <div className="status-card">Loading download demo...</div>;
+        return <div className="status-card">{messages.downloadPanel.loading}</div>;
     }
 
     const inProgress = state.status === 'starting' || state.status === 'downloading';
     const progress = state.status === 'completed' ? 100 : clampProgress(state.progress);
+    const statusLabel = messages.downloadPanel.statusLabels[state.status as keyof typeof messages.downloadPanel.statusLabels] ?? state.status;
 
     return (
         <section className="demo-panel">
             <div className="panel-head">
-                <p className="panel-kicker">runtime.EventsEmit</p>
-                <h3>Watch backend download progress arrive as events.</h3>
-                <p className="panel-copy">
-                    Starting a download returns immediately. The Go backend keeps streaming the response, writes it to disk, and emits progress objects that React subscribes to with <code>EventsOn</code>.
-                </p>
+                <p className="panel-kicker">{messages.downloadPanel.kicker}</p>
+                <h3>{messages.downloadPanel.title}</h3>
+                <p className="panel-copy" dangerouslySetInnerHTML={{__html: messages.downloadPanel.description}}/>
             </div>
 
             <div className="input-card">
                 <label className="field-label">
-                    Download URL
+                    {messages.downloadPanel.urlLabel}
                     <input
                         onChange={(event) => setDownloadURL(event.target.value)}
-                        placeholder="https://example.com/file.zip"
+                        placeholder={messages.downloadPanel.urlPlaceholder}
                         type="url"
                         value={downloadURL}
                     />
                 </label>
-                <p className="field-note">
-                    The file is saved into your local <code>Downloads/wails-demo</code> folder. Use any reachable HTTP or HTTPS file URL.
-                </p>
+                <p className="field-note" dangerouslySetInnerHTML={{__html: messages.downloadPanel.note}}/>
                 <div className="action-row">
                     <button className="action-button primary" disabled={inProgress} onClick={() => void handleStart()} type="button">
-                        {inProgress ? 'Downloading...' : 'Start download'}
+                        {inProgress ? messages.downloadPanel.downloading : messages.downloadPanel.start}
                     </button>
                     <button className="action-button ghost" disabled={inProgress} onClick={() => void handleReset()} type="button">
-                        Reset status
+                        {messages.downloadPanel.reset}
                     </button>
                 </div>
             </div>
 
             <div className="progress-card">
                 <div className="status-row">
-                    <span className={`status-pill ${state.status}`}>{state.status || 'idle'}</span>
+                    <span className={`status-pill ${state.status}`}>{statusLabel}</span>
                     <strong className="progress-value">{progress.toFixed(0)}%</strong>
                 </div>
 
@@ -148,23 +153,23 @@ function DownloadDemoPanel() {
 
             <dl className="meta-grid">
                 <div>
-                    <dt>File</dt>
-                    <dd>{state.fileName || 'Waiting for a new download'}</dd>
+                    <dt>{messages.downloadPanel.fileLabel}</dt>
+                    <dd>{state.fileName || messages.downloadPanel.waitingFile}</dd>
                 </div>
                 <div>
-                    <dt>Transferred</dt>
+                    <dt>{messages.downloadPanel.transferredLabel}</dt>
                     <dd>{formatTransferred(state.downloadedBytes, state.totalBytes)}</dd>
                 </div>
                 <div>
-                    <dt>Saved To</dt>
-                    <dd>{state.destination || 'Downloads/wails-demo'}</dd>
+                    <dt>{messages.downloadPanel.savedToLabel}</dt>
+                    <dd>{state.destination || messages.downloadPanel.savedToPlaceholder}</dd>
                 </div>
             </dl>
 
             <ul className="hint-list">
-                <li>Go starts the request in a goroutine, so the UI thread is never blocked.</li>
-                <li>Each event carries a full <code>DownloadState</code> payload that React can render directly.</li>
-                <li>When the request finishes or fails, the backend emits one final terminal state.</li>
+                {messages.downloadPanel.hints.map((hint) => (
+                    <li key={hint}>{hint}</li>
+                ))}
             </ul>
 
             {error ? <p className="feedback error">{error}</p> : null}
