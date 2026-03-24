@@ -2,35 +2,29 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"os"
-	"path/filepath"
-	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// App struct
+// App wires lifecycle hooks to individual demos.
 type App struct {
-	ctx       context.Context
-	mu        sync.RWMutex
-	count     int
-	stateFile string
+	counterDemo  *CounterDemo
+	downloadDemo *DownloadDemo
 }
 
-// NewApp creates a new App application struct
+// NewApp creates a composed demo application.
 func NewApp() *App {
-	return &App{}
+	return &App{
+		counterDemo:  NewCounterDemo(),
+		downloadDemo: NewDownloadDemo(),
+	}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
-	a.stateFile = resolveStateFile()
+	a.counterDemo.SetStateFile(resolveCounterStateFile())
+	a.downloadDemo.SetContext(ctx)
 
-	if err := a.loadCount(); err != nil {
+	if err := a.counterDemo.Startup(); err != nil {
 		runtime.LogErrorf(ctx, "load counter state failed: %v", err)
 	}
 }
@@ -38,8 +32,8 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) beforeClose(ctx context.Context) (prevent bool) {
 	selection, err := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
 		Type:          runtime.QuestionDialog,
-		Title:         "Close counter?",
-		Message:       "Do you want to close the app? The current count will be saved on shutdown.",
+		Title:         "Close demos?",
+		Message:       "Do you want to close the demo workspace? Counter state will be saved on shutdown.",
 		Buttons:       []string{"Yes", "No"},
 		DefaultButton: "No",
 		CancelButton:  "No",
@@ -53,77 +47,7 @@ func (a *App) beforeClose(ctx context.Context) (prevent bool) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
-	if err := a.saveCount(); err != nil {
+	if err := a.counterDemo.Shutdown(); err != nil {
 		runtime.LogErrorf(ctx, "save counter state failed: %v", err)
 	}
-}
-
-func (a *App) Increment() int {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	a.count++
-	return a.count
-}
-
-func (a *App) Decrement() int {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	a.count--
-	return a.count
-}
-
-func (a *App) GetCount() int {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-
-	return a.count
-}
-
-func (a *App) loadCount() error {
-	data, err := os.ReadFile(a.stateFile)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	var state CounterState
-	if err := json.Unmarshal(data, &state); err != nil {
-		return err
-	}
-
-	a.mu.Lock()
-	a.count = state.Count
-	a.mu.Unlock()
-
-	return nil
-}
-
-func (a *App) saveCount() error {
-	a.mu.RLock()
-	state := CounterState{Count: a.count}
-	a.mu.RUnlock()
-
-	if err := os.MkdirAll(filepath.Dir(a.stateFile), 0o755); err != nil {
-		return err
-	}
-
-	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(a.stateFile, data, 0o644)
-}
-
-func resolveStateFile() string {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "counter-state.json"
-	}
-
-	return filepath.Join(configDir, "wails-demo", "counter-state.json")
 }

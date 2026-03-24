@@ -6,3 +6,9 @@ export function Decrement():Promise<number>;
 export function GetCount():Promise<number>;
 
 export function Increment():Promise<number>;
+
+export function SetStateFile(arg1:string):Promise<void>;
+
+export function Shutdown():Promise<void>;
+
+export function Startup():Promise<void>;

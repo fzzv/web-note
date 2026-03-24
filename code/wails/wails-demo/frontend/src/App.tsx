@@ -1,89 +1,87 @@
-import {useEffect, useState} from 'react';
+import {useState} from 'react';
 import './App.css';
-import {Decrement, GetCount, Increment} from "../wailsjs/go/main/App";
+import {CounterDemoPanel} from './demos/CounterDemoPanel';
+import {DownloadDemoPanel} from './demos/DownloadDemoPanel';
+
+type DemoId = 'counter' | 'download';
+
+type DemoDefinition = {
+    id: DemoId;
+    badge: string;
+    title: string;
+    summary: string;
+    focus: string;
+};
+
+const demos: DemoDefinition[] = [
+    {
+        id: 'counter',
+        badge: 'Lifecycle',
+        title: 'Persistent Counter',
+        summary: 'Keep the original counter demo, but isolate it as a reusable module with startup restore and shutdown persistence.',
+        focus: 'Wails lifecycle hooks + local state persistence',
+    },
+    {
+        id: 'download',
+        badge: 'Events',
+        title: 'Download Progress Notifications',
+        summary: 'Stream a file from Go, emit progress events through Wails, and render the download state live in React.',
+        focus: 'runtime.EventsEmit / EventsOn + async backend work',
+    },
+];
 
 function App() {
-    const [count, setCount] = useState(0);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+    const [activeDemo, setActiveDemo] = useState<DemoId>('counter');
 
-    useEffect(() => {
-        let cancelled = false;
-
-        GetCount()
-            .then((value) => {
-                if (!cancelled) {
-                    setCount(value);
-                }
-            })
-            .catch((err) => {
-                if (!cancelled) {
-                    setError(err instanceof Error ? err.message : String(err));
-                }
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setLoading(false);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    const changeCount = async (action: () => Promise<number>) => {
-        setError('');
-
-        try {
-            const nextCount = await action();
-            setCount(nextCount);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="page-shell">
-                <div className="status-card">Loading counter state...</div>
-            </div>
-        );
-    }
+    const currentDemo = demos.find((demo) => demo.id === activeDemo) ?? demos[0];
 
     return (
-        <div className="page-shell">
-            <section className="counter-card">
-                <div className="counter-header">
-                    <p className="eyebrow">Lifecycle Demo</p>
-                    <h1>Persistent Counter</h1>
-                    <p className="subtitle">
-                        The count is loaded during startup, confirmed before close, and written back on shutdown.
+        <div className="workspace-shell">
+            <aside className="catalog-panel">
+                <div className="catalog-header">
+                    <p className="catalog-kicker">Wails Demo Lab</p>
+                    <h1>Multiple examples in one project.</h1>
+                    <p className="catalog-copy">
+                        Use the project as a small demo workspace: each sample keeps its own backend module and frontend panel.
                     </p>
                 </div>
 
-                <div className="counter-display">
-                    <span className="counter-label">Current count</span>
-                    <strong>{count}</strong>
-                </div>
+                <div className="catalog-list">
+                    {demos.map((demo, index) => {
+                        const active = demo.id === activeDemo;
 
-                <div className="actions">
-                    <button className="action-button secondary" onClick={() => void changeCount(Decrement)}>
-                        Decrement
-                    </button>
-                    <button className="action-button primary" onClick={() => void changeCount(Increment)}>
-                        Increment
-                    </button>
+                        return (
+                            <button
+                                key={demo.id}
+                                className={`catalog-item ${active ? 'active' : ''}`}
+                                onClick={() => setActiveDemo(demo.id)}
+                                type="button"
+                            >
+                                <span className="catalog-index">0{index + 1}</span>
+                                <div>
+                                    <span className="catalog-badge">{demo.badge}</span>
+                                    <strong>{demo.title}</strong>
+                                    <p>{demo.summary}</p>
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
+            </aside>
 
-                <div className="notes">
-                    <p>Startup reads the previous count from a local JSON file.</p>
-                    <p>Before closing, Wails shows a confirmation dialog.</p>
-                    <p>Shutdown persists the latest count automatically.</p>
-                </div>
+            <main className="demo-stage">
+                <header className="stage-header">
+                    <p className="stage-badge">{currentDemo.badge} Demo</p>
+                    <h2>{currentDemo.title}</h2>
+                    <p>{currentDemo.summary}</p>
+                    <div className="stage-focus">
+                        <span>Learning focus</span>
+                        <strong>{currentDemo.focus}</strong>
+                    </div>
+                </header>
 
-                {error ? <p className="feedback error">{error}</p> : null}
-            </section>
+                {activeDemo === 'counter' ? <CounterDemoPanel/> : <DownloadDemoPanel/>}
+            </main>
         </div>
     );
 }

@@ -12,23 +12,22 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
 	app := NewApp()
 
-	// Create application with options
 	err := wails.Run(&options.App{
 		Title:  "wails-demo",
-		Width:  1024,
-		Height: 768,
+		Width:  1220,
+		Height: 820,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		BackgroundColour: &options.RGBA{R: 11, G: 17, B: 27, A: 1},
 		OnStartup:        app.startup,
 		OnBeforeClose:    app.beforeClose,
 		OnShutdown:       app.shutdown,
 		Bind: []interface{}{
-			app,
+			app.counterDemo,
+			app.downloadDemo,
 		},
 	})
 
