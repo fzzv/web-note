@@ -101,6 +101,7 @@ export const nav = () => {
       text: 'other',
       items: [
         { text: 'navicat安装', link: '/other/NavicatPremium安装破解' },
+        { text: '每天减脂饮食方案', link: '/other/每天减脂饮食方案' },
       ]
     }
   ]
