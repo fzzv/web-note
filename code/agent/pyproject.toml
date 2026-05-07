@@ -5,10 +5,14 @@ description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
     "dashscope>=1.25.17",
+    "httpx>=0.28.1",
+    "httpx-sse>=0.4.3",
     "langchain>=1.2.15",
     "langchain-community>=0.4.1",
     "langchain-deepseek>=1.0.1",
     "langchain-openai>=1.1.15",
+    "langchainhub>=0.1.21",
     "openai>=2.32.0",
+    "pyjwt>=2.12.1",
     "python-dotenv>=1.2.2",
 ]
