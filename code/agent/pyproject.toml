@@ -12,6 +12,7 @@ dependencies = [
     "langchain-deepseek>=1.0.1",
     "langchain-openai>=1.1.15",
     "langchainhub>=0.1.21",
+    "loguru>=0.7.3",
     "openai>=2.32.0",
     "pyjwt>=2.12.1",
     "python-dotenv>=1.2.2",
