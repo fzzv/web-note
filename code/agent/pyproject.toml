@@ -5,6 +5,7 @@ description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
     "dashscope>=1.25.17",
+    "grandalf>=0.8",
     "httpx>=0.28.1",
     "httpx-sse>=0.4.3",
     "langchain>=1.2.15",
