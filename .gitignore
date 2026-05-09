@@ -15,3 +15,5 @@ pnpm-lock.yaml
 **/.env
 
 .gocache
+
+**/__pycache__
