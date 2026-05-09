@@ -17,4 +17,5 @@ dependencies = [
     "openai>=2.32.0",
     "pyjwt>=2.12.1",
     "python-dotenv>=1.2.2",
+    "redis==5.3.1",
 ]
