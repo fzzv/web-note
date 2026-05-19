@@ -18,6 +18,7 @@ dependencies = [
     "langchain-redis>=0.2.5",
     "langchain-unstructured>=1.0.1",
     "langchainhub>=0.1.21",
+    "langgraph-checkpoint-sqlite>=3.1.0",
     "loguru>=0.7.3",
     "mcp>=1.27.1",
     "openai>=2.32.0",
