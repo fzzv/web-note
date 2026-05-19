@@ -1,4 +1,4 @@
-# MCP 模型上下文协议（model context protocol）
+MCP 模型上下文协议（model context protocol）
 
 ## mcp 介绍
 
@@ -46,6 +46,8 @@ MCP就是比FunctionCalling的更高一级抽像，也是实现智能体Agent的
 
 ## mcp 架构知识
 
+![image-20260518164239048](MCP%E6%A8%A1%E5%9E%8B%E4%B8%8A%E4%B8%8B%E6%96%87%E5%8D%8F%E8%AE%AE.assets/image-20260518164239048.png)
+
 MCP遵循**客户端-服务器架构**包含以下几个核心部分：
 
 - MCP 主机（MCP Hosts）：发起请求的 AI 应用程序，比如聊天机器人、AI 驱动的 IDE 等。
@@ -58,6 +60,8 @@ MCP遵循**客户端-服务器架构**包含以下几个核心部分：
 
 - STDIO(标准输入/输出)：支持标准输入和输出流进行通信，主要用于本地集成、命令行工具等场景
 - SSE (Server-Sent Events)：支持使用 HTTP POST 请求进行服务器到客户端流式处理，以实现客户端到服务器的通信
+
+![image-20260518164314388](MCP%E6%A8%A1%E5%9E%8B%E4%B8%8A%E4%B8%8B%E6%96%87%E5%8D%8F%E8%AE%AE.assets/image-20260518164314388.png)
 
 两者对比：
 
