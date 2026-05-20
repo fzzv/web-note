@@ -16,6 +16,9 @@ import {
   nest,
   go,
   python,
+  langChain,
+  langGraph,
+  photography,
 } from './sidebar'
 
 const config: UserConfig = {
@@ -47,7 +50,10 @@ const config: UserConfig = {
       '/database': database(),
       '/nest': nest(),
       '/go': go(),
-      '/python': python()
+      '/python': python(),
+      '/agent/LangChain': langChain(),
+      '/agent/LangGraph': langGraph(),
+      '/photography': photography(),
     },
     outline: {
       level: 'deep',

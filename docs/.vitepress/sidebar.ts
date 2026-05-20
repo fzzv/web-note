@@ -262,3 +262,49 @@ export const python = () => {
     },
   ]
 }
+
+export const langChain = () => {
+  return [
+    {
+      text: 'LangChain',
+      items: [
+        { text: '模型调用入门', link: '/agent/LangChain/模型调用入门' },
+        { text: 'Ollama安装', link: '/agent/LangChain/ollama安装' },
+        { text: 'Model IO', link: '/agent/LangChain/modelIO' },
+        { text: '提示词模板PromptTemplate和模型调用方法', link: '/agent/LangChain/提示词模板PromptTemplate和模型调用方法' },
+        { text: 'Paser输出解析器', link: '/agent/LangChain/Paser输出解析器' },
+        { text: 'LCEL链式调用', link: '/agent/LangChain/LCEL链式调用' },
+        { text: '记忆缓存', link: '/agent/LangChain/记忆缓存' },
+        { text: 'Tools工具调用', link: '/agent/LangChain/Tools工具调用' },
+        { text: '检索增强生成RAG', link: '/agent/LangChain/检索增强生成RAG' },
+        { text: 'MCP模型上下文协议', link: '/agent/LangChain/MCP模型上下文协议' },
+        { text: 'agent智能体', link: '/agent/LangChain/agent智能体' },
+      ]
+    },
+  ]
+}
+
+export const langGraph = () => {
+  return [
+    {
+      text: 'LangGraph',
+      items: [
+        { text: 'LangGraph', link: '/agent/LangGraph/LangGraph入门' },
+        { text: 'LangGraphAPI', link: '/agent/LangGraph/LangGraphAPI' },
+        { text: 'LangGraph高级特性', link: '/agent/LangGraph/LangGraph高级特性' },
+        { text: 'A2A：AI架构的协议革命', link: '/agent/LangGraph/A2A：AI架构的协议革命' },
+      ]
+    }
+  ]
+}
+
+export const photography = () => {
+  return [
+    {
+      text: '摄影',
+      items: [
+        { text: 'SonyA7C2新手互动指南', link: '/photography/SonyA7C2新手互动指南' },
+      ]
+    }
+  ]
+}

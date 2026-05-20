@@ -81,6 +81,19 @@ export const nav = () => {
         },
       ]
     },
+    {
+      text: 'AI',
+      items: [
+        { text: 'LangChain', link: '/agent/LangChain/模型调用入门' },
+        { text: 'LangGraph', link: '/agent/LangGraph/LangGraph入门' },
+      ]
+    },
+    {
+      text: '摄影',
+      items: [
+        { text: 'SonyA7C2新手互动指南', link: '/photography/SonyA7C2新手互动指南' },
+      ]
+    },
     // {
     //   text: 'Node',
     //   link: '/node'
