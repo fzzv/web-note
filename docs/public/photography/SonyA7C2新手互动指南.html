@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>索尼 A7C2 新手互动指南</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#f8f5f2', // Warm off-white background
+                        secondary: '#e8e0d5', // Slightly darker warm neutral for cards
+                        accent: '#d9534f', // Soft red/orange accent (Sony vibe)
+                        textMain: '#333333',
+                        textMuted: '#666666'
+                    },
+                    fontFamily: {
+                        sans: ['"Helvetica Neue"', 'Arial', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Styles to enforce strict requirements and enhance UI */
+        body {
+            background-color: #f8f5f2;
+            color: #333333;
+        }
+        
+        /* * Chart Container Styling Requirement 
+         * Strictly controls dimensions to prevent layout breaks
+         */
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        @media (max-width: 640px) {
+            .chart-wrapper {
+                height: 280px;
+            }
+        }
+
+        /* Interactive Element Styling */
+        .interactive-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .interactive-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .interactive-btn.active {
+            background-color: #d9534f;
+            color: white;
+            border-color: #d9534f;
+        }
+
+        /* Simulator Styles */
+        .simulator-box {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: #ddd;
+        }
+        .sim-subject {
+            position: relative;
+            z-index: 10;
+            font-size: 4rem;
+            text-align: center;
+            line-height: 200px;
+            text-shadow: 0px 2px 4px rgba(0,0,0,0.3);
+        }
+        .sim-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                #ccc,
+                #ccc 10px,
+                #bbb 10px,
+                #bbb 20px
+            );
+            transition: filter 0.3s ease;
+            z-index: 1;
+        }
+        .sim-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: black;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 20;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased text-textMain">
+
+    <!-- Chosen Palette: Warm Neutrals with Soft Red Accent -->
+    <!-- Application Structure Plan: The SPA is divided into three main sections. 1. 'Hardware Exploration' uses a split layout to let users click virtual buttons and see detailed explanations, solving the problem of a dense manual. 2. 'Exposure Triangle' introduces core photography concepts using interactive sliders that visually simulate aperture (blur) and exposure (brightness) changes, plus a dynamic bar chart comparing settings for different scenarios. 3. 'Quick Settings' provides actionable advice using toggleable cards. This structure moves from physical operation to theoretical understanding to practical application. -->
+    <!-- Visualization & Content Choices: 
+        1. Camera Buttons -> Inform -> Clickable List + Detail Card -> Interaction creates focus on one element at a time, avoiding cognitive overload. -> HTML/CSS/Vanilla JS (NO SVG).
+        2. Exposure Triangle Theory -> Compare -> Grouped Bar Chart -> Compares the relative values of Aperture/Shutter/ISO across different photography styles (Portrait, Action). -> Chart.js.
+        3. Aperture/Exposure Effect -> Inform/Change -> HTML Sliders updating CSS (Blur/Opacity) -> Simulates camera effects directly without needing external images. -> HTML Inputs + JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <div class="max-w-5xl mx-auto px-4 py-12">
+        
+        <!-- Header -->
+        <header class="text-center mb-16">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 tracking-tight">索尼 A7C2 操控与摄影启蒙</h1>
+            <p class="text-lg text-textMuted max-w-2xl mx-auto">恭喜入手 Sony A7C2！这是一款性能强大的全画幅微单。本指南将带你熟悉机身按键，并理解拍出“好看照片”的核心逻辑，助你快速度过新手期。</p>
+        </header>
+
+        <!-- Section 1: 按键图解与功能 -->
+        <section class="mb-20">
+            <div class="mb-8 border-b-2 border-secondary pb-4">
+                <h2 class="text-3xl font-semibold mb-2">第一步：认识你的相机</h2>
+                <p class="text-textMuted">熟悉相机的物理按钮是快速操作的基础。点击左侧的按钮名称，了解它在 A7C2 上的具体作用和使用建议。A7C2 相比前代增加了前波轮，操控性大幅提升。</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Button List -->
+                <div class="md:col-span-1 bg-white p-4 rounded-xl shadow-sm border border-secondary/50 flex flex-col gap-2 h-[400px] overflow-y-auto" id="button-list">
+                    <!-- Buttons will be injected here by JS -->
+                </div>
+
+                <!-- Detail Display -->
+                <div class="md:col-span-2 bg-secondary/30 p-6 md:p-8 rounded-xl flex flex-col justify-center min-h-[300px]" id="button-detail-card">
+                    <div class="text-center text-textMuted" id="empty-state">
+                        <span class="text-4xl mb-2 block">👆</span>
+                        请在左侧选择一个按钮查看详情
+                    </div>
+                    <div id="detail-content" class="hidden">
+                        <h3 class="text-2xl font-bold mb-3 text-accent" id="detail-title">按钮名称</h3>
+                        <div class="bg-white p-4 rounded-lg shadow-sm mb-4">
+                            <h4 class="font-semibold text-sm text-textMuted mb-1">主要作用：</h4>
+                            <p class="text-lg" id="detail-desc">功能描述...</p>
+                        </div>
+                        <div class="bg-primary p-4 rounded-lg border border-accent/20">
+                            <h4 class="font-semibold text-sm text-accent mb-1">💡 新手建议：</h4>
+                            <p id="detail-tip">操作建议...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: 曝光三要素 (核心摄影原理) -->
+        <section class="mb-20">
+            <div class="mb-8 border-b-2 border-secondary pb-4">
+                <h2 class="text-3xl font-semibold mb-2">第二步：掌握曝光三要素</h2>
+                <p class="text-textMuted">拍出好照片的核心在于控制光线。光圈、快门速度和感光度（ISO）构成了“曝光三角”。它们不仅影响画面的明暗，还决定了画面的风格（如背景虚化、动态定格）。</p>
+            </div>
+
+            <!-- Interactive Simulators -->
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <!-- Aperture Simulator -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-secondary/50">
+                    <h3 class="text-xl font-bold mb-2">光圈 (Aperture) - 控制虚化</h3>
+                    <p class="text-sm text-textMuted mb-4">数值越小 (如 f/1.8)，光圈越大，进光量越多，背景越虚化。常用于人像。</p>
+                    
+                    <div class="simulator-box h-48 mb-4">
+                        <div class="sim-bg" id="aperture-bg"></div>
+                        <div class="sim-subject">📷</div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-mono w-12 text-right">f/16</span>
+                        <input type="range" min="1" max="100" value="10" class="w-full accent-accent" id="aperture-slider">
+                        <span class="text-sm font-mono w-12 text-left">f/1.4</span>
+                    </div>
+                    <div class="text-center mt-2 text-sm font-bold text-accent" id="aperture-status">当前状态: 深景深 (背景清晰)</div>
+                </div>
+
+                <!-- Exposure (Shutter/ISO) Simulator -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-secondary/50">
+                    <h3 class="text-xl font-bold mb-2">曝光量 - 控制明暗</h3>
+                    <p class="text-sm text-textMuted mb-4">快门变慢或 ISO 升高都会让画面变亮，但快门太慢会模糊，ISO太高会有噪点。</p>
+                    
+                    <div class="simulator-box h-48 mb-4 bg-white" style="background-color: #eee;">
+                        <div class="sim-overlay" id="exposure-overlay"></div>
+                        <div class="sim-subject">🌳</div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-mono w-12 text-right">暗</span>
+                        <input type="range" min="0" max="100" value="50" class="w-full accent-accent" id="exposure-slider">
+                        <span class="text-sm font-mono w-12 text-left">亮</span>
+                    </div>
+                     <div class="text-center mt-2 text-sm font-bold text-accent" id="exposure-status">当前状态: 正常曝光</div>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="bg-secondary/20 p-6 rounded-xl">
+                <h3 class="text-xl font-bold mb-4 text-center">不同拍摄场景的参数倾向对比</h3>
+                <p class="text-center text-sm text-textMuted mb-6">通过柱状图，直观感受拍人像、拍运动、拍风景时，光圈、快门、ISO 设置思路的差异。（注：数值仅代表相对大小趋势，非实际参数绝对值）</p>
+                
+                <div class="flex justify-center gap-2 mb-6">
+                    <button class="interactive-btn px-4 py-2 border-2 border-accent rounded-full text-accent font-semibold active" onclick="updateChart('portrait')">拍人像 (虚化)</button>
+                    <button class="interactive-btn px-4 py-2 border-2 border-secondary rounded-full text-textMuted font-semibold bg-white" onclick="updateChart('action')">拍运动 (抓拍)</button>
+                    <button class="interactive-btn px-4 py-2 border-2 border-secondary rounded-full text-textMuted font-semibold bg-white" onclick="updateChart('landscape')">拍风景 (清晰)</button>
+                </div>
+
+                <!-- REQUIRED CHART CONTAINER -->
+                <div class="chart-wrapper">
+                    <canvas id="exposureChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: A7C2 新手速成设置 -->
+        <section>
+            <div class="mb-8 border-b-2 border-secondary pb-4">
+                <h2 class="text-3xl font-semibold mb-2">第三步：A7C2 实用功能推荐</h2>
+                <p class="text-textMuted">这台相机拥有强大的计算摄影能力。合理利用这些内置功能，可以让你在不完全精通手动参数的情况下，依然拍出好看的照片。</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Feature Card 1 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-secondary hover:border-accent transition-colors duration-300">
+                    <div class="text-3xl mb-3">🎨</div>
+                    <h3 class="text-lg font-bold mb-2">创意外观 (Creative Look)</h3>
+                    <p class="text-sm text-textMuted mb-3">机内直出色彩预设，省去后期调色烦恼。</p>
+                    <ul class="text-sm space-y-2">
+                        <li><span class="font-bold text-accent">FL (胶片):</span> 适合日常扫街，复古氛围感。</li>
+                        <li><span class="font-bold text-accent">IN (哑光):</span> 适合日系小清新，对比度低。</li>
+                        <li><span class="font-bold text-accent">SH (透明):</span> 适合拍人像，肤色白皙通透。</li>
+                    </ul>
+                </div>
+
+                <!-- Feature Card 2 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-secondary hover:border-accent transition-colors duration-300">
+                    <div class="text-3xl mb-3">👁️</div>
+                    <h3 class="text-lg font-bold mb-2">AI 智能对焦</h3>
+                    <p class="text-sm text-textMuted mb-3">A7C2 搭载了专门的 AI 芯片，识别能力极强。</p>
+                    <ul class="text-sm space-y-2">
+                        <li>进入菜单设置 <strong>“主体识别控制”</strong>。</li>
+                        <li>拍人时选择“人”，相机会死死咬住人物眼睛。</li>
+                        <li>结合 <strong>AF-C (连续对焦)</strong> 模式，拍走动的人或宠物几乎不会失焦。</li>
+                    </ul>
+                </div>
+
+                <!-- Feature Card 3 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-secondary hover:border-accent transition-colors duration-300">
+                    <div class="text-3xl mb-3">⚙️</div>
+                    <h3 class="text-lg font-bold mb-2">自定义键 (C1/C2)</h3>
+                    <p class="text-sm text-textMuted mb-3">将常用功能绑定到快捷键，提高操作效率。</p>
+                    <ul class="text-sm space-y-2">
+                        <li>建议将 <strong>C1</strong> 设置为“对焦区域”切换，方便快速改变对焦范围。</li>
+                        <li>建议将 <strong>C2</strong> 设为“ISO 自动最小快门速度”，在光圈优先(A档)时防止照片拍虚。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="mt-20 pt-8 border-t border-secondary text-center text-textMuted">
+            <p>最好的学习方法是带上相机去实拍。不要怕拍坏，多尝试不同的参数组合。</p>
+            <p class="mt-2 text-sm">© 2024 Interactive Camera Guide</p>
+        </footer>
+
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        /* --- Data Store --- */
+        const cameraButtons = [
+            { id: 'shutter', name: '快门按钮 & 电源开关', type: '顶部', desc: '相机电源开关；半按快门进行自动对焦和测光，全按到底拍摄照片。', tip: '初学者一定要练习“半按”快门，感受到阻力停住，听到“滴滴”声或看到绿框确认对焦后再全按，切忌猛按导致画面抖动。' },
+            { id: 'mode', name: '模式拨盘', type: '顶部', desc: '选择拍摄模式，如 P(程序自动), A(光圈优先), S(快门优先), M(全手动), Auto(全自动) 以及视频模式。', tip: '推荐新手使用 <strong>A档 (光圈优先)</strong>。你只需通过波轮控制光圈大小（决定虚化程度），相机会自动计算快门速度。' },
+            { id: 'front-dial', name: '前波轮', type: '前部', desc: 'A7C2 新增的波轮，位于快门下方。用于快速调节拍摄参数（通常是光圈或快门）。', tip: '相比一代 A7C，前波轮大幅提升了盲操效率。在 A 档下，默认用它来快速调节光圈大小。' },
+            { id: 'rear-dial', name: '后波轮', type: '顶部偏后', desc: '另一个主控波轮。默认与前波轮配合，分别控制光圈和快门速度（在 M 档下）。', tip: '你可以根据习惯在菜单中互换前后波轮的功能。' },
+            { id: 'exposure-dial', name: '曝光补偿拨盘', type: '顶部', desc: '在 P/A/S 档下，用来告诉相机你想让画面“更亮一点”还是“更暗一点”。', tip: '遵循“白加黑减”原则。拍雪景时画面容易发灰，需要增加曝光补偿（+）；拍黑板时容易发白，需要减少补偿（-）。' },
+            { id: 'fn', name: 'Fn (功能) 按钮', type: '背部', desc: '按此键可调出屏幕上的快捷菜单（12个常用选项），可快速修改对焦模式、白平衡、创意外观等。', tip: '这是使用频率极高的按钮！你可以进入菜单自定义这12个槽位，放上你最常用的设置。' },
+            { id: 'control-wheel', name: '控制拨轮 & 中央按钮', type: '背部', desc: '可旋转也可按压的四向按键。用于在菜单中导航，或在拍摄时快速调整 ISO、驱动模式等。', tip: '拍摄界面直接按“右”可快速调节 ISO；按“左”可调节连拍/定时模式。' },
+            { id: 'af-on', name: 'AF-ON 按钮', type: '背部', desc: '按下进行自动对焦。专业摄影师常将其与快门按钮分离，使用“后键对焦”技巧。', tip: '新手可以先忽略后键对焦，保留半按快门对焦的习惯即可。' }
+        ];
+
+        /* --- Section 1: Button Logic --- */
+        const buttonListEl = document.getElementById('button-list');
+        const detailContentEl = document.getElementById('detail-content');
+        const emptyStateEl = document.getElementById('empty-state');
+
+        // Render button list
+        cameraButtons.forEach((btn) => {
+            const btnEl = document.createElement('button');
+            btnEl.className = 'text-left px-4 py-3 rounded-lg border border-transparent bg-primary hover:bg-secondary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-accent interactive-btn';
+            btnEl.innerHTML = `<span class="text-xs text-textMuted block mb-1">[${btn.type}]</span> <span class="font-bold">${btn.name}</span>`;
+            
+            btnEl.addEventListener('click', (e) => {
+                // Remove active class from all
+                document.querySelectorAll('#button-list button').forEach(b => b.classList.remove('bg-secondary', 'border-secondary'));
+                // Add active class to current
+                btnEl.classList.add('bg-secondary', 'border-secondary');
+
+                // Update detail view
+                emptyStateEl.classList.add('hidden');
+                detailContentEl.classList.remove('hidden');
+                
+                document.getElementById('detail-title').innerText = btn.name;
+                document.getElementById('detail-desc').innerText = btn.desc;
+                document.getElementById('detail-tip').innerHTML = btn.tip;
+            });
+            
+            buttonListEl.appendChild(btnEl);
+        });
+
+        /* --- Section 2: Simulator Logic --- */
+        const apertureSlider = document.getElementById('aperture-slider');
+        const apertureBg = document.getElementById('aperture-bg');
+        const apertureStatus = document.getElementById('aperture-status');
+
+        apertureSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value); // 1 to 100 (1=f/16, 100=f/1.4)
+            // Blur goes from 0px (val 1) to ~10px (val 100)
+            const blurAmount = (val / 100) * 8; 
+            apertureBg.style.filter = `blur(${blurAmount}px)`;
+
+            if(val > 70) apertureStatus.innerText = "大光圈: 背景虚化明显，适合人像特写";
+            else if(val > 30) apertureStatus.innerText = "中等光圈: 虚实结合，适合街拍记录";
+            else apertureStatus.innerText = "小光圈: 景深很大，前后都清晰，适合风景";
+        });
+
+        const exposureSlider = document.getElementById('exposure-slider');
+        const exposureOverlay = document.getElementById('exposure-overlay');
+        const exposureStatus = document.getElementById('exposure-status');
+
+        exposureSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value); // 0 (dark) to 100 (bright), 50 is normal
+            
+            if (val < 50) {
+                // Darken
+                const opacity = (50 - val) / 50 * 0.8; // max 0.8 opacity black
+                exposureOverlay.style.backgroundColor = 'black';
+                exposureOverlay.style.opacity = opacity;
+                exposureStatus.innerText = "欠曝: 画面偏暗，可能丢失暗部细节";
+                exposureStatus.style.color = '#333';
+            } else if (val > 50) {
+                // Brighten (simulate by using white overlay)
+                const opacity = (val - 50) / 50 * 0.8;
+                exposureOverlay.style.backgroundColor = 'white';
+                exposureOverlay.style.opacity = opacity;
+                exposureStatus.innerText = "过曝: 画面偏亮，高光部分可能一片死白";
+                exposureStatus.style.color = '#d9534f';
+            } else {
+                exposureOverlay.style.opacity = 0;
+                exposureStatus.innerText = "正常曝光";
+                exposureStatus.style.color = '#d9534f'; // accent color
+            }
+        });
+
+        /* --- Section 2: Chart.js Logic --- */
+        const ctx = document.getElementById('exposureChart').getContext('2d');
+        
+        // Data sets representing relative magnitude of settings
+        // Higher value = Larger Aperture (smaller f-number), Faster Shutter, Higher ISO
+        const chartData = {
+            portrait: [85, 40, 20],   // Large aperture, med shutter, low ISO
+            action: [40, 90, 60],     // Med aperture, fast shutter, higher ISO to compensate
+            landscape: [15, 30, 10]   // Small aperture (f/11), slow shutter, base ISO
+        };
+
+        let currentChart;
+
+        function initChart() {
+            currentChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['光圈大小 (虚化能力)', '快门速度 (定格能力)', '感光度 ISO'],
+                    datasets: [{
+                        label: '参数相对值',
+                        data: chartData.portrait,
+                        backgroundColor: [
+                            'rgba(217, 83, 79, 0.7)', // Accent red
+                            'rgba(153, 153, 153, 0.7)',
+                            'rgba(153, 153, 153, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgb(217, 83, 79)',
+                            'rgb(153, 153, 153)',
+                            'rgb(153, 153, 153)'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // Critical for custom chart container sizing
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: '参数趋势 (非绝对值)' },
+                            ticks: { display: false } // Hide specific numbers to avoid confusing beginners
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (context.dataIndex === 0) return '光圈越大，数值越高，背景越虚化';
+                                    if (context.dataIndex === 1) return '快门越快，数值越高，越能凝固运动瞬间';
+                                    if (context.dataIndex === 2) return 'ISO 越高，画面越亮，但画质可能下降';
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Make function globally available for onclick handlers
+        window.updateChart = function(profile) {
+            // Update UI buttons
+            const btns = document.querySelectorAll('.interactive-btn[onclick^="updateChart"]');
+            btns.forEach(btn => {
+                btn.classList.remove('border-accent', 'text-accent', 'active');
+                btn.classList.add('border-secondary', 'text-textMuted', 'bg-white');
+            });
+            
+            const activeBtn = Array.from(btns).find(b => b.getAttribute('onclick').includes(profile));
+            activeBtn.classList.remove('border-secondary', 'text-textMuted', 'bg-white');
+            activeBtn.classList.add('border-accent', 'text-accent', 'active');
+
+            // Update chart data
+            currentChart.data.datasets[0].data = chartData[profile];
+            
+            // Highlight specific bar based on profile to tell a story
+            let bgColors = ['rgba(153, 153, 153, 0.5)', 'rgba(153, 153, 153, 0.5)', 'rgba(153, 153, 153, 0.5)'];
+            let borderColors = ['rgb(153, 153, 153)', 'rgb(153, 153, 153)', 'rgb(153, 153, 153)'];
+            
+            if(profile === 'portrait') {
+                bgColors[0] = 'rgba(217, 83, 79, 0.8)'; // Highlight Aperture
+                borderColors[0] = 'rgb(217, 83, 79)';
+            } else if (profile === 'action') {
+                bgColors[1] = 'rgba(217, 83, 79, 0.8)'; // Highlight Shutter
+                borderColors[1] = 'rgb(217, 83, 79)';
+            } else if (profile === 'landscape') {
+                // Highlight small aperture (inverse logic) so maybe just highlight low ISO
+                bgColors[0] = 'rgba(80, 150, 200, 0.8)'; // Different color to show it's intentionally small
+                borderColors[0] = 'rgb(80, 150, 200)';
+            }
+
+            currentChart.data.datasets[0].backgroundColor = bgColors;
+            currentChart.data.datasets[0].borderColor = borderColors;
+
+            currentChart.update();
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initChart);
+
+    </script>
+</body>
+</html>
