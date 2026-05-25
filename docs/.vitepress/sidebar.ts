@@ -41,6 +41,21 @@ export const minivue3 = () => {
   ]
 }
 
+export const react = () => {
+  return [
+    {
+      text: 'React相关',
+      items: [
+        { text: 'React基础', link: '/react/react基础' },
+        { text: 'React的一些内置Hooks', link: '/react/hooks' },
+        { text: 'React Router', link: '/react/react-router-6' },
+        { text: 'React ToolKit', link: '/react/react-toolkit' },
+        { text: '虚拟dom和diff算法', link: '/react/虚拟dom和diff算法' },
+      ]
+    }
+  ]
+}
+
 export const interview = () => {
   return [
     {

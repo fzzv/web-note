@@ -14,6 +14,7 @@ export const nav = () => {
     {
       text: 'React',
       items: [
+        { text: 'React基础', link: '/react/react基础' },
         { text: 'React的一些内置Hooks', link: '/react/hooks' },
       ]
     },
