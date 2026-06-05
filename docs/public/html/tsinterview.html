@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TypeScript 核心面试题库 | 50题全家桶</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans SC', sans-serif; background-color: #fcfaf8; color: #3f3f3f; }
+        .chart-container { position: relative; width: 100%; max-width: 320px; margin-left: auto; margin-right: auto; height: 320px; max-height: 320px; }
+        .accordion-content { transition: max-height 0.3s ease-out, padding 0.3s ease; max-height: 0; overflow: hidden; padding: 0 1.5rem; }
+        .accordion-content.open { max-height: 1000px; padding: 1.5rem; }
+        .badge-beginner { background-color: #d1fae5; color: #065f46; }
+        .badge-intermediate { background-color: #fef3c7; color: #92400e; }
+        .badge-advanced { background-color: #ffe4e6; color: #9f1239; }
+        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(229, 231, 235, 0.5); }
+        code { font-family: monospace; background-color: #f3f4f6; padding: 0.2rem 0.4rem; border-radius: 0.25rem; color: #b91c1c; font-size: 0.9em; }
+        pre code { display: block; padding: 1rem; background-color: #1f2937; color: #f3f4f6; overflow-x: auto; border-radius: 0.5rem; margin-top: 0.5rem; }
+    </style>
+    <!-- Chosen Palette: Warm Neutrals (Stone/Warm Gray background #fcfaf8, dark text #3f3f3f) with Emerald, Amber, and Rose accents for difficulty levels. -->
+    <!-- Application Structure Plan: The SPA is structured as an interactive learning dashboard. It features a left-side sticky control panel (or top on mobile) containing a search bar, difficulty filters, and a Chart.js visualization of the question distribution to provide an overview. The right/main area is a scrollable list of questions presented as interactive accordions (flashcards). This structure was chosen because 50 questions is a lot of text; presenting them as a searchable, filterable list with collapsible answers prevents cognitive overload and allows users to self-test before revealing the answer. -->
+    <!-- Visualization & Content Choices: The source data is 50 interview questions categorized by difficulty. Goal: Inform & Organize. Presentation: A Doughnut chart (Chart.js) shows the proportion of Beginner/Intermediate/Advanced questions, giving users a sense of the test's composition. Accordion lists (HTML/Vanilla JS) organize the massive text data. Badges indicate difficulty. Interactions include search (filtering by text), category buttons (filtering by difficulty), and clicking accordions to reveal answers. Library: Chart.js for the visualization. NO SVG/Mermaid used. HTML standard elements stylized with Tailwind for icons (e.g., using Unicode ▼ for dropdowns). -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="antialiased min-h-screen flex flex-col md:flex-row">
+
+    <aside class="w-full md:w-1/3 lg:w-1/4 h-auto md:h-screen sticky top-0 border-r border-stone-200 glass-panel p-6 flex flex-col z-10">
+        <div class="mb-8 text-center md:text-left">
+            <h1 class="text-2xl font-bold text-stone-800 tracking-tight mb-2">TypeScript 面试题库</h1>
+            <p class="text-sm text-stone-500">50道高频考点，从入门到精通，助你全方位掌握 TS 核心概念。</p>
+        </div>
+
+        <div class="mb-8">
+            <div class="chart-container">
+                <canvas id="difficultyChart"></canvas>
+            </div>
+            <p class="text-xs text-center text-stone-400 mt-2">题目难度分布雷达</p>
+        </div>
+
+        <div class="space-y-4 mb-6 flex-grow">
+            <div>
+                <label for="searchInput" class="block text-sm font-medium text-stone-700 mb-1">搜索题目</label>
+                <input type="text" id="searchInput" placeholder="例如: 泛型, 接口, unknown..." class="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-shadow text-sm">
+            </div>
+
+            <div>
+                <span class="block text-sm font-medium text-stone-700 mb-2">难度筛选</span>
+                <div class="flex flex-wrap gap-2">
+                    <button class="filter-btn active px-3 py-1.5 rounded-full text-xs font-medium bg-stone-800 text-white transition-colors" data-filter="all">全部 (50)</button>
+                    <button class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-stone-200 text-stone-700 hover:bg-stone-300 transition-colors" data-filter="入门">入门阶段</button>
+                    <button class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-stone-200 text-stone-700 hover:bg-stone-300 transition-colors" data-filter="进阶">进阶阶段</button>
+                    <button class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-stone-200 text-stone-700 hover:bg-stone-300 transition-colors" data-filter="高级">高级特性</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-auto text-xs text-stone-400 text-center md:text-left">
+            点击题目展开查看详细解析。
+        </div>
+    </aside>
+
+    <main class="w-full md:w-2/3 lg:w-3/4 p-6 md:p-10 overflow-y-auto">
+        <div class="max-w-4xl mx-auto">
+            <div class="mb-8">
+                <h2 class="text-xl font-bold text-stone-800 mb-2" id="currentSectionTitle">全部题目清单</h2>
+                <p class="text-sm text-stone-600">在此区域浏览和检索您需要学习的内容。建议先思考答案再展开查看解析。</p>
+            </div>
+
+            <div id="questionsContainer" class="space-y-4">
+            </div>
+
+            <div id="noResults" class="hidden text-center py-20 text-stone-500">
+                <div class="text-4xl mb-4">🔍</div>
+                <p>未找到匹配的题目，请尝试更换关键词。</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const questionsData = [
+            { id: 1, difficulty: '入门', category: '基础', question: 'TypeScript 是什么？它和 JavaScript 有什么本质区别？', answer: 'TypeScript 是 JavaScript 的一个超集，主要提供了类型系统和对 ES6+ 的支持。本质区别：JS 是动态类型、弱类型语言，在运行时才会暴露类型错误；TS 是静态类型、弱类型语言（编译期），在代码编写和编译阶段就能发现大量的类型错误。TS 最终会被编译成纯 JS 运行。' },
+            { id: 2, difficulty: '入门', category: '类型', question: 'TypeScript 中的基本类型有哪些？', answer: '包括：boolean（布尔）、number（数字）、string（字符串）、array（数组）、tuple（元组）、enum（枚举）、any（任意类型）、unknown（未知类型）、void（无返回值）、null 和 undefined、never（永不存在的值的类型）、object（非原始类型）。' },
+            { id: 3, difficulty: '入门', category: '类型', question: 'any 和 unknown 的区别是什么？', answer: '`any` 会跳过类型检查，允许访问任何属性和方法，相当于回到原生 JS 时代，不安全。`unknown` 是一种安全的 `any`，它是所有类型的父类型，但在对其进行操作之前，必须先进行类型断言或类型收窄（Type Guard），否则会报错。' },
+            { id: 4, difficulty: '入门', category: '类型', question: 'void 和 never 类型的区别？', answer: '`void` 表示没有任何类型，通常用于没有返回值的函数。即使是 void 返回类型的函数也可以返回 undefined。`never` 表示永远不会有返回值的情况，例如函数内部抛出异常（throw error）或者存在死循环。' },
+            { id: 5, difficulty: '入门', category: '接口与类型', question: 'Interface（接口）和 Type Alias（类型别名）的区别？', answer: '两者都能定义对象结构。主要区别：1. 语法不同。2. Interface 只能声明对象类型，Type 可以声明基本类型别名、联合类型、元组等。3. Interface 支持声明合并（同名接口会自动合并属性），Type 不支持，同名会报错。4. 扩展方式不同，Interface 使用 extends，Type 使用交叉类型(&)。' },
+            { id: 6, difficulty: '入门', category: '枚举', question: '什么是 Enum（枚举）？有哪些分类？', answer: '枚举用于定义一组命名常量。分类：1. 数字枚举（默认从0开始递增，支持反向映射）。2. 字符串枚举（每个成员必须用字符串字面量初始化，不支持反向映射）。3. 异构枚举（数字和字符串混合，不推荐）。4. 常量枚举（用 const enum 定义，编译时会被内联，不会生成额外的 JS 对象）。' },
+            { id: 7, difficulty: '入门', category: '类型', question: '什么是 Tuple（元组）？与数组的区别？', answer: '元组是已知元素数量和每个元素类型的数组。各元素的类型不必相同。数组通常用于表示相同类型元素的集合（如 `number[]`），而元组可以精确约束每个位置的类型（如 `[string, number]`）。注意：元组可以通过 push 越界添加元素，但越界元素必须是元组联合类型之一，且无法通过索引安全访问越界元素。' },
+            { id: 8, difficulty: '入门', category: '类型', question: '联合类型（Union Types）和交叉类型（Intersection Types）是什么？', answer: '联合类型使用 `|` 分隔，表示值可以是多种类型中的一种（如 `string | number`）。交叉类型使用 `&` 分隔，将多个类型合并为一个类型，新类型包含了所有类型的特性（常用于对象混入）。' },
+            { id: 9, difficulty: '入门', category: '断言', question: '什么是类型断言（Type Assertion）？', answer: '类型断言好比其他语言里的类型转换，但不进行特殊的数据检查和解构。它告诉编译器“相信我，我知道自己在干什么”。语法有尖括号语法 `<Type>value` 和 as 语法 `value as Type`（在 React TSX 中只能用 as 语法）。' },
+            { id: 10, difficulty: '入门', category: '泛型', question: '什么是泛型（Generics）？为什么需要泛型？', answer: '泛型是指在定义函数、接口或类的时候，不预先指定具体的类型，而在使用的时候再指定类型的一种特性。需要泛型是为了实现可复用的组件，支持多种类型的数据，同时又能保留类型检查的严格性，避免使用 `any` 导致类型丢失。' },
+            { id: 11, difficulty: '入门', category: '函数', question: '如何在 TS 中定义函数类型？', answer: '可以通过几种方式：1. 直接声明：`function add(x: number, y: number): number {}`。2. 接口定义：`interface Add { (x: number, y: number): number }`。3. 类型别名：`type Add = (x: number, y: number) => number`。' },
+            { id: 12, difficulty: '入门', category: '修饰符', question: 'TS 类中的 public、private、protected、readonly 有什么区别？', answer: '`public`：默认，公有，在哪都能访问。`private`：私有，只能在声明它的类内部访问。`protected`：受保护，在类及其子类内部可以访问，实例不可访问。`readonly`：只读属性，必须在声明时或构造函数里被初始化。' },
+            { id: 13, difficulty: '入门', category: '操作符', question: '可选链（?.）和空值合并运算符（??）的作用？', answer: '`?.`（可选链）允许在尝试访问对象深处属性时，如果中间属性为 null 或 undefined，则短路返回 undefined，避免抛出错误。`??`（空值合并）当左侧操作数为 null 或 undefined 时，返回其右侧操作数，否则返回左侧。它比 `||` 更严谨，因为 `||` 会对所有假值（如 0, ""）起作用。' },
+            { id: 14, difficulty: '入门', category: '配置', question: 'tsconfig.json 文件有什么作用？', answer: '它是 TypeScript 项目的配置文件。用于指定编译项目所需的根文件和编译选项。比如指定 target（编译成的 JS 版本）、module（模块系统）、strict（是否开启严格类型检查）等。' },
+            { id: 15, difficulty: '入门', category: '类型守卫', question: '什么是类型推论（Type Inference）？', answer: '如果代码中没有明确指出类型，TS 编译器会根据变量的初始值、函数默认参数或返回值自动推断出该变量的类型。例如 `let x = 3;` 会被推论为 number 类型。' },
+            
+            { id: 16, difficulty: '进阶', category: '泛型', question: '什么是泛型约束（Generic Constraints）？', answer: '当我们想对泛型进行限制时使用。比如要求传入的泛型必须具有 length 属性，我们可以定义一个接口 `interface Lengthwise { length: number; }`，然后使用 `extends` 关键字进行约束：`<T extends Lengthwise>`。这样传入的参数如果没有 length 属性就会报错。' },
+            { id: 17, difficulty: '进阶', category: '操作符', question: 'keyof 操作符有什么用？', answer: '`keyof` 操作符接受一个对象类型，并生成其键名组成的字符串或数字字面量联合类型。例如 `type Point = { x: number; y: number }; type P = keyof Point;`，则 P 的类型为 `"x" | "y"`。常用于约束对象属性的访问。' },
+            { id: 18, difficulty: '进阶', category: '操作符', question: 'typeof 操作符在 TS 中的特殊用法？', answer: '在 JS 中 typeof 返回变量的数据类型字符串。在 TS 中，`typeof` 可以用于类型上下文中获取一个变量或属性的推断类型。例如 `const obj = { a: 1 }; type ObjType = typeof obj;`，这样就能直接拿到 obj 的类型定义。' },
+            { id: 19, difficulty: '进阶', category: '工具类型', question: '请解释 Partial、Required、Readonly 工具类型的实现原理。', answer: '`Partial<T>` 将 T 的所有属性变为可选（使用 `?` 和映射类型）。\n`Required<T>` 将 T 的所有属性变为必填（使用 `-?` 移除可选）。\n`Readonly<T>` 将 T 所有属性变为只读（添加 `readonly` 修饰符）。' },
+            { id: 20, difficulty: '进阶', category: '工具类型', question: 'Pick 和 Omit 的区别和作用？', answer: '`Pick<T, K>`：从类型 T 中挑选出部分属性 K 构造新的类型。实现原理：`type Pick<T, K extends keyof T> = { [P in K]: T[P]; }`。\n`Omit<T, K>`：从类型 T 中剔除部分属性 K。实现原理基于 Pick 和 Exclude：`type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>`。' },
+            { id: 21, difficulty: '进阶', category: '类型守卫', question: '什么是类型守卫（Type Guards）？有哪些常用的类型守卫？', answer: '类型守卫是可执行运行时检查的一种表达式，用于确保该类型在一定的范围内。常用方式有：1. `typeof` 检查基本类型。2. `instanceof` 检查类实例。3. `in` 关键字检查属性是否存在。4. 自定义类型守卫（返回 `param is Type` 谓词的函数）。' },
+            { id: 22, difficulty: '进阶', category: '高级类型', question: '什么是条件类型（Conditional Types）？', answer: '语法类似于三元运算符：`T extends U ? X : Y`。意思是如果类型 T 能够赋值给类型 U，那么结果是类型 X，否则是类型 Y。它是 TS 高级类型体操的基础。' },
+            { id: 23, difficulty: '进阶', category: '高级类型', question: '映射类型（Mapped Types）是什么？', answer: '一种基于旧类型创建新类型的方式。它的语法类似于索引签名，使用 `in` 关键字遍历一个联合类型（通常配合 keyof）。例如：`type OptionsFlags<Type> = { [Property in keyof Type]: boolean; };`，会将源类型的所有属性值转为布尔类型。' },
+            { id: 24, difficulty: '进阶', category: '关键字', question: '解释一下 infer 关键字的作用。', answer: '`infer` 表示在 extends 条件语句中待推断的类型变量。它允许我们在条件类型的 true 分支中提取类型。例如提取函数返回值的内置类型 `ReturnType` 就是用 `infer R` 捕获返回值类型并返回。' },
+            { id: 25, difficulty: '进阶', category: '类与接口', question: '抽象类（Abstract Class）和接口（Interface）的区别？', answer: '抽象类不仅可以定义抽象方法（不含实现），还可以包含具体的方法实现和属性，但不能被直接实例化。接口只能定义结构，不能包含任何实现（ES规范中不包含接口概念，编译后接口完全消失）。子类只能继承一个抽象类，但可以实现多个接口。' },
+            { id: 26, difficulty: '进阶', category: '函数', question: '什么是函数重载（Function Overloading）？', answer: '允许一个函数接受不同数量或类型的参数时，作出不同的处理。在 TS 中，需要先编写多个函数重载签名（只定义类型不包含实现），最后编写一个包含实现的函数体（其签名需要兼容所有的重载签名）。' },
+            { id: 27, difficulty: '进阶', category: '装饰器', question: '什么是装饰器（Decorators）？有哪些种类？', answer: '装饰器是一种特殊类型的声明，它能够被附加到类声明，方法，访问符，属性或参数上，用于在不修改原代码的情况下扩展功能（元编程）。种类包括：类装饰器、方法装饰器、访问器装饰器、属性装饰器、参数装饰器。' },
+            { id: 28, difficulty: '进阶', category: '配置', question: 'tsconfig 中的 strict 模式具体包含了哪些检查？', answer: '开启 `strict: true` 会同时开启多个严格检查标志，包括：`noImplicitAny`（禁止隐式any）、`strictNullChecks`（严格的 null 检查）、`strictFunctionTypes`（严格检查函数类型兼容性）、`strictBindCallApply`、`strictPropertyInitialization`、`noImplicitThis`、`alwaysStrict`。' },
+            { id: 29, difficulty: '进阶', category: '索引类型', question: '什么是索引访问类型（Indexed Access Types）？', answer: '可以通过 `T[K]` 的形式来查询另外一个类型的特定属性的类型。比如 `type Person = { age: number; name: string }; type Age = Person["age"];` (Age 被推断为 number)。' },
+            { id: 30, difficulty: '进阶', category: '字面量', question: '什么是字面量类型（Literal Types）？', answer: '不仅可以使用 string、number 这种宽泛的类型，还可以将具体的字符串、数字或布尔值作为类型。例如 `let direction: "up" | "down" | "left" | "right"`，这种方式比普通 string 提供了更精确的约束。' },
+            { id: 31, difficulty: '进阶', category: '断言', question: '双重断言（Double Assertion）是什么？有何风险？', answer: '当 TS 不允许直接将一个类型断言为另一个差异很大的类型时，可以先将其断言为 `unknown` 或 `any`，再断言为目标类型。如 `val as unknown as TargetType`。风险是绕过了 TS 的类型安全检查，容易在运行时引发错误。' },
+            { id: 32, difficulty: '进阶', category: '断言', question: '非空断言操作符（!）的作用是什么？', answer: '在变量后加上 `!`，用于告诉编译器该表达式的值不是 `null` 或 `undefined`。常用于在开启了 strictNullChecks 的情况下，当开发者确信值一定存在，而编译器无法推断时使用。' },
+            { id: 33, difficulty: '进阶', category: '合并', question: '什么是声明合并（Declaration Merging）？', answer: 'TS 编译器会将程序中多个具有相同名称的声明合并为一个定义。最常见的是 Interface 的合并。命名空间（Namespace）也可以与同名类、函数、枚举等合并，以实现功能的扩展。' },
+            { id: 34, difficulty: '进阶', category: '模块', question: '命名空间（Namespace）和模块（Module）的区别？', answer: '早期 TS 用命名空间组织代码（通过全局对象实现隔离）。ES6 模块系统普及后，官方推荐使用 ES Modules（import/export）。模块声明依赖关系明确，利于打包工具 tree-shaking；命名空间现在主要用于遗留代码或定义全局类型（`.d.ts`）。' },
+            { id: 35, difficulty: '进阶', category: '工具类型', question: 'Record 工具类型的作用？', answer: '`Record<K, T>` 用于构造一个对象类型，其属性键为 K，属性值为 T。常用于将一个类型的属性映射到另一个类型。比如 `const map: Record<string, number> = { a: 1, b: 2 };`。' },
+
+            { id: 36, difficulty: '高级', category: '类型体操', question: '什么是协变（Covariance）和逆变（Contravariance）？', answer: '描述类型兼容性的概念。协变：允许子类型赋值给父类型（常见于对象属性、函数返回值）。逆变：允许父类型赋值给子类型（在 TS 中开启 strictFunctionTypes 时，函数的参数类型是逆变的）。目的是保证类型安全。' },
+            { id: 37, difficulty: '高级', category: '声明文件', question: '如何编写 .d.ts 声明文件？declare 关键字的作用？', answer: '`.d.ts` 文件用于为没有 TS 类型的 JS 库或全局变量提供类型定义，内部不包含实现。`declare` 关键字用于告诉编译器某个变量、函数、类已经在其他地方存在（例如全局引入的 jQuery 的 `$`），只需对其进行类型声明，不要编译它。' },
+            { id: 38, difficulty: '高级', category: '操作符', question: 'as const (const assertions) 的作用是什么？', answer: '它告诉编译器推断出最具体的字面量类型，而不是宽泛的类型。例如将对象的所有属性变为 `readonly` 的字面量类型，数组变为只读元组。如 `const arr = [1, 2] as const` 被推断为 `readonly [1, 2]`。' },
+            { id: 39, difficulty: '高级', category: '操作符', question: 'satisfies 操作符（TS 4.9+）解决了什么问题？', answer: '使用 `as` 会丢失类型推断的细节，而直接声明类型可能会导致属性变为可选类型的联合类型。`satisfies` 允许我们验证一个表达式是否匹配某个类型，同时保留该表达式自身的特定类型推断。例如确保对象符合类型规范，但又能精准推断每个属性的具体值。' },
+            { id: 40, difficulty: '高级', category: '模板字面量', question: '什么是模板字面量类型（Template Literal Types）？', answer: '基于 ES 模板字符串语法的类型层面实现。可以组合或操作字符串类型。例如 `type Event = "click" | "hover"; type Handler = \`on${Capitalize<Event>}\`` 会生成 `"onClick" | "onHover"`。' },
+            { id: 41, difficulty: '高级', category: '类型体操', question: '如何使用 TS 实现一个 DeepReadonly 类型？', answer: '使用条件类型和映射类型进行递归：\n`type DeepReadonly<T> = { readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P]; };`（注：严格来说还需要处理函数和内置对象类型的边界情况）。' },
+            { id: 42, difficulty: '高级', category: '类型体操', question: '内置工具类型 Exclude 和 Extract 的原理是什么？', answer: '两者都依赖条件类型的分布式特性（当条件类型作用于联合类型时，会自动分发）。\n`Exclude<T, U>`（排除）：`T extends U ? never : T`。\n`Extract<T, U>`（提取）：`T extends U ? T : never`。' },
+            { id: 43, difficulty: '高级', category: '编译', question: '简述 TypeScript 的编译过程。', answer: '主要经历四个阶段：1. Scanner（扫描器）生成 token。2. Parser（解析器）生成 AST（抽象语法树）。3. Binder（绑定器）创建符号表（Symbols），建立作用域关系。4. Checker（检查器）进行类型推导和检查。最后 Emitter 生成 JS 和声明文件。' },
+            { id: 44, difficulty: '高级', category: '混入', question: '如何在 TS 中实现 Mixins（混入）模式？', answer: '利用类继承和交叉类型的特性。编写一个返回类的函数，该函数接收一个构造函数作为参数，并在这个类中扩展新的功能。然后将多个 mixin 函数串联，利用类型交叉 `&` 来推导出最终实例的类型。' },
+            { id: 45, difficulty: '高级', category: '类型体操', question: '什么是分布式条件类型（Distributive Conditional Types）？如何阻止其分发？', answer: '当条件类型的被检查类型是一个裸类型参数（如泛型 T），且 T 为联合类型时，条件类型会自动分发。例如 `T extends U ? X : Y` 遇到 `A | B` 会变成 `(A extends U ? X : Y) | (B extends U ? X : Y)`。阻止分发的方法是将类型包装在元组中：`[T] extends [U] ? X : Y`。' },
+            { id: 46, difficulty: '高级', category: '模块', question: 'TS 中的 moduleResolution 配置项 node 和 node16/nodenext 有什么区别？', answer: '`node` 采用传统的 CommonJS 解析策略。而 `node16` / `nodenext` 支持原生的 Node.js ECMAScript Modules (ESM) 解析规则，要求在 import 相对路径时必须带上 `.js` 扩展名，并严格遵循 package.json 中的 `exports` 和 `type` 字段。' },
+            { id: 47, difficulty: '高级', category: '性能', question: '在大型项目中，如何优化 TypeScript 编译性能？', answer: '1. 使用 Project References（项目引用）拆分大型项目。2. 优化 tsconfig：设置 `skipLibCheck: true` 跳过第三方库类型检查，精确配置 `include` 和 `exclude`。3. 尽量减少复杂的深度递归类型推导。4. 使用打包工具（如 esbuild, swc）剥离类型进行转译，用 tsc 仅做类型检查（Type Checking）。' },
+            { id: 48, difficulty: '高级', category: '环境', question: '什么是环境声明（Ambient Declarations）？', answer: '使用 `declare` 关键字编写的声明，用于描述存在于当前代码上下文之外的代码形状。常见的有环境模块（`declare module "xyz"`）或环境命名空间，通常保存在 `.d.ts` 文件中，为外部不可预见的脚本库提供类型支持。' },
+            { id: 49, difficulty: '高级', category: '类型体操', question: '如何推断 Promise 的返回值类型？', answer: '使用内置工具类型 `Awaited<T>`。其内部使用递归和 `infer` 关键字来实现：如果类型是 Promise，则提取内部的类型，如果提取出的类型依然是 Promise，继续递归，直到获得非 Promise 的基础类型。' },
+            { id: 50, difficulty: '高级', category: '内置类型', question: 'TypeScript 中的 Opaque Types（不透明类型 / 品牌类型）如何实现？', answer: 'TS 使用结构化类型系统（鸭子类型）。为了实现名义类型系统（Nominal Typing，例如区分 userId 和 orderId 虽然都是 string），可以使用交叉类型加上一个虚拟的属性标识（Brand）：`type UserId = string & { readonly __brand: unique symbol };`。这样即使两个类型结构相同，TS 也会认为它们不同。' }
+        ];
+
+        let currentChart = null;
+
+        function getBadgeClass(difficulty) {
+            if (difficulty === '入门') return 'badge-beginner';
+            if (difficulty === '进阶') return 'badge-intermediate';
+            return 'badge-advanced';
+        }
+
+        function renderQuestions(data) {
+            const container = document.getElementById('questionsContainer');
+            const noResults = document.getElementById('noResults');
+            container.innerHTML = '';
+
+            if (data.length === 0) {
+                noResults.classList.remove('hidden');
+            } else {
+                noResults.classList.add('hidden');
+                data.forEach((q, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'glass-panel rounded-xl overflow-hidden transition-all duration-300 hover:shadow-md';
+                    
+                    const badgeClass = getBadgeClass(q.difficulty);
+                    
+                    item.innerHTML = `
+                        <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none focus:bg-stone-50 transition-colors" onclick="toggleAccordion(this)">
+                            <div class="flex items-center gap-4 pr-4">
+                                <span class="text-stone-400 font-mono text-sm w-6">${q.id}.</span>
+                                <h3 class="font-medium text-stone-800 text-base leading-relaxed">${q.question}</h3>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="px-2.5 py-1 rounded-md text-xs font-semibold ${badgeClass}">${q.difficulty}</span>
+                                <span class="text-stone-400 text-xs transition-transform duration-300 transform accordion-icon">▼</span>
+                            </div>
+                        </button>
+                        <div class="accordion-content bg-stone-50 border-t border-stone-100">
+                            <div class="text-stone-600 text-sm leading-loose py-2">
+                                <strong class="text-stone-800 block mb-2">解析：</strong>
+                                ${formatAnswer(q.answer)}
+                            </div>
+                            <div class="mt-4 pb-2 text-right">
+                                <span class="text-xs text-stone-400 bg-stone-200 px-2 py-1 rounded">分类: ${q.category}</span>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            }
+        }
+
+        function formatAnswer(text) {
+            let formatted = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+            formatted = formatted.replace(/\n/g, '<br>');
+            return formatted;
+        }
+
+        window.toggleAccordion = function(button) {
+            const content = button.nextElementSibling;
+            const icon = button.querySelector('.accordion-icon');
+            const isOpen = content.classList.contains('open');
+
+            document.querySelectorAll('.accordion-content').forEach(el => el.classList.remove('open'));
+            document.querySelectorAll('.accordion-icon').forEach(el => el.style.transform = 'rotate(0deg)');
+
+            if (!isOpen) {
+                content.classList.add('open');
+                icon.style.transform = 'rotate(180deg)';
+            }
+        };
+
+        function initChart() {
+            const ctx = document.getElementById('difficultyChart').getContext('2d');
+            const counts = {
+                '入门': questionsData.filter(q => q.difficulty === '入门').length,
+                '进阶': questionsData.filter(q => q.difficulty === '进阶').length,
+                '高级': questionsData.filter(q => q.difficulty === '高级').length
+            };
+
+            if (currentChart) currentChart.destroy();
+
+            currentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['入门阶段', '进阶阶段', '高级特性'],
+                    datasets: [{
+                        data: [counts['入门'], counts['进阶'], counts['高级']],
+                        backgroundColor: ['#10b981', '#f59e0b', '#e11d48'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#57534e', usePointStyle: true, padding: 15, font: { family: "'Noto Sans SC', sans-serif" } } },
+                        tooltip: { backgroundColor: 'rgba(28, 25, 23, 0.9)', titleFont: { family: "'Noto Sans SC', sans-serif" }, bodyFont: { family: "'Noto Sans SC', sans-serif" }, padding: 12, cornerRadius: 8 }
+                    }
+                }
+            });
+        }
+
+        function filterData() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const activeFilterBtn = document.querySelector('.filter-btn.active');
+            const difficultyFilter = activeFilterBtn.dataset.filter;
+
+            let filtered = questionsData;
+
+            if (difficultyFilter !== 'all') {
+                filtered = filtered.filter(q => q.difficulty === difficultyFilter);
+                document.getElementById('currentSectionTitle').innerText = `${difficultyFilter} 面试题`;
+            } else {
+                document.getElementById('currentSectionTitle').innerText = `全部题目清单`;
+            }
+
+            if (searchTerm) {
+                filtered = filtered.filter(q => 
+                    q.question.toLowerCase().includes(searchTerm) || 
+                    q.answer.toLowerCase().includes(searchTerm) ||
+                    q.category.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            renderQuestions(filtered);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', filterData);
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-stone-800', 'text-white');
+                    b.classList.add('bg-stone-200', 'text-stone-700');
+                });
+                const current = e.target;
+                current.classList.add('active', 'bg-stone-800', 'text-white');
+                current.classList.remove('bg-stone-200', 'text-stone-700');
+                filterData();
+            });
+        });
+
+        initChart();
+        renderQuestions(questionsData);
+    </script>
+</body>
+</html>

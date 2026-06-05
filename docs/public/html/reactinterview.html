@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React 100道核心面试题全解析 | 交互式学习图谱</title>
+    
+    <!-- Chosen Palette: Warm Neutrals & Indigo (Slate-50 bg, Indigo-600 accents, Slate-800 text) -->
+    <!-- Application Structure Plan: A dashboard-style single-page application designed for learning and exploration. It features a top analytics section (showing question distribution), a sticky sidebar for category filtering and search, and a main content area with interactive accordion-style question cards. This structure allows users to logically digest 100 questions by breaking them down into focus areas, tracking their study path, and avoiding cognitive overload compared to reading a static text document. -->
+    <!-- Visualization & Content Choices: 
+         - Stats: Chart.js Doughnut Chart -> Goal: Show category distribution -> Interaction: Hover tooltips -> Justification: Gives users a visual overview of the topic weightings -> Method: Chart.js (NO SVG).
+         - Question List: JS-driven Accordions -> Goal: Readably present Q&A -> Interaction: Click to expand/collapse -> Justification: Saves screen real estate, encourages active recall before reading the answer -> Method: HTML/Tailwind/Vanilla JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; }
+        
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        
+        /* Custom Scrollbar for a polished look */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .accordion-content {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+        .accordion-content.active {
+            max-height: 1000px; /* Large enough to hold content */
+            opacity: 1;
+        }
+        .code-block {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            overflow-x: auto;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen antialiased flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-brand-900 flex items-center gap-2">
+                <span class="text-3xl text-brand-600">⚛</span> React 百题斩
+            </h1>
+            <div class="text-sm text-slate-500 font-medium">从基础应用到源码剖析</div>
+        </div>
+    </header>
+
+    <!-- Main App Container -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Sidebar: Analytics & Controls -->
+        <aside class="lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- Dashboard / Overview -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-800 mb-2 border-b border-slate-100 pb-2">🎯 题型分布雷达</h2>
+                <p class="text-xs text-slate-500 mb-4">通过图表了解各知识模块的比重，针对性复习。</p>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-2 text-center text-sm">
+                    <div class="bg-brand-50 p-2 rounded-lg"><span class="block font-bold text-brand-600 text-lg" id="totalCount">100</span>总题数</div>
+                    <div class="bg-emerald-50 p-2 rounded-lg"><span class="block font-bold text-emerald-600 text-lg" id="sourceCount">20</span>源码深度题</div>
+                </div>
+            </div>
+
+            <!-- Search & Filters -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 sticky top-24">
+                <h2 class="text-lg font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">🔍 检索与筛选</h2>
+                
+                <div class="relative mb-6">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">⌨</span>
+                    <input type="text" id="searchInput" placeholder="搜索题目关键字 (如: Hook, Fiber)..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm">
+                </div>
+
+                <h3 class="text-sm font-medium text-slate-700 mb-3">知识模块分类</h3>
+                <div id="categoryFilters" class="flex flex-col gap-2">
+                    <!-- Filters injected by JS -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content: Question List -->
+        <section class="lg:col-span-8">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800" id="currentSectionTitle">全部题目</h2>
+                        <p class="text-sm text-slate-500 mt-1" id="currentSectionDesc">全面覆盖 React 开发核心技能栈。</p>
+                    </div>
+                    <span class="text-sm font-medium bg-brand-100 text-brand-700 py-1 px-3 rounded-full" id="resultCount">共 100 题</span>
+                </div>
+                
+                <div id="questionContainer" class="divide-y divide-slate-100">
+                    <!-- Questions injected by JS -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden p-12 text-center">
+                    <span class="text-4xl text-slate-300 mb-4 block">📭</span>
+                    <h3 class="text-lg font-medium text-slate-700">没有找到相关题目</h3>
+                    <p class="text-slate-500 text-sm mt-1">请尝试更换搜索关键词或分类。</p>
+                    <button onclick="resetFilters()" class="mt-4 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 transition">重置筛选</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- 1. DATA: 100 React Interview Questions ---
+        const questionsData = [
+            // Category: 基础概念 (15)
+            { id: 1, cat: "基础概念", diff: "简单", q: "什么是 React？它的核心特点是什么？", a: "React 是一个用于构建用户界面的开源 JavaScript 库，由 Facebook 维护。核心特点包括：1) 声明式设计：通过数据驱动视图变更；2) 组件化：UI 被拆分为独立的、可复用的组件；3) 虚拟 DOM：在内存中维护 DOM 树，通过 Diff 算法最小化真实 DOM 操作；4) 单向数据流：数据从父组件流向子组件，状态更容易追踪。" },
+            { id: 2, cat: "基础概念", diff: "简单", q: "真实 DOM 和虚拟 DOM (Virtual DOM) 的区别？", a: "真实 DOM 是浏览器渲染的实际节点，操作成本高，引发重排重绘。虚拟 DOM 是 React 内存中的 JavaScript 对象，它是对真实 DOM 的轻量级描述。React 先在虚拟 DOM 上进行计算比对，最后将差异（Patch）一次性更新到真实 DOM 上，从而提升性能。" },
+            { id: 3, cat: "基础概念", diff: "简单", q: "什么是 JSX？为什么浏览器无法直接读取 JSX？", a: "JSX 是一种 JavaScript 语法扩展，允许在 JS 中书写类似 HTML 的标签。浏览器只能识别原生的 JS 代码，所以 JSX 必须经过 Babel 等工具编译为 `React.createElement(component, props, ...children)` 函数调用后，才能被浏览器执行。" },
+            { id: 4, cat: "基础概念", diff: "简单", q: "React 元素 (Element) 和组件 (Component) 的区别？", a: "元素是 React 应用中最小的构建块，是一个普通的 JS 对象（描述屏幕上所见的内容）。组件是由元素构成的集合，可以接收参数（Props），拥有自身状态（State），并返回 React 元素树。组件是函数或类，元素是它们返回的结果。" },
+            { id: 5, cat: "基础概念", diff: "中等", q: "为什么 React 列表渲染中必须引入键（Key）？", a: "Key 是 React 在渲染列表时用于追踪元素变化（添加、修改、删除）的唯一标识。在 Diff 阶段，React 通过 Key 匹配新旧树的子节点，复用已有 DOM 节点，避免不必要的重新渲染或状态错乱。不要使用索引 (index) 作为动态列表的 key。" },
+            { id: 6, cat: "基础概念", diff: "简单", q: "State（状态）和 Props（属性）有什么区别？", a: "Props 是父组件传递给子组件的只读数据，子组件不能修改 props。State 是组件内部私有的、可变的数据，用于记录随时间变化且影响界面的数据，可以通过 setState 更新。" },
+            { id: 7, cat: "基础概念", diff: "中等", q: "什么是 React 中的单向数据流？", a: "指数据仅沿着组件树从上到下（父到子）单向传递。子组件不能直接修改父组件的数据，必须通过调用父组件传递下来的回调函数来请求状态变更。这使得应用状态更容易预测和调试。" },
+            { id: 8, cat: "基础概念", diff: "中等", q: "受控组件和非受控组件的区别？", a: "受控组件：表单元素的值由 React state 完全控制，输入改变触发 state 更新，视图重新渲染。非受控组件：表单数据交由 DOM 节点自行管理，通过 Ref 获取当前值（类似原生 HTML 行为）。" },
+            { id: 9, cat: "基础概念", diff: "困难", q: "什么是合成事件（SyntheticEvent）？为什么用它？", a: "合成事件是 React 模拟原生 DOM 事件所有能力的一个跨浏览器包装器。目的：1) 抹平不同浏览器之间的 API 差异，提供一致的事件对象；2) React 使用事件委托，将所有事件绑定在 Root 节点上统一分发，减少内存消耗，提升性能。" },
+            { id: 10, cat: "基础概念", diff: "中等", q: "什么是 Fragments？", a: "Fragment 允许你将子列表分组，而无需向 DOM 添加额外节点。语法上可以使用 `<React.Fragment>` 或简写 `<></>`。用于解决一个组件必须返回单一根节点的问题。" },
+            { id: 11, cat: "基础概念", diff: "中等", q: "什么是严格模式（StrictMode）？", a: "StrictMode 是一个用来突出显示应用程序中潜在问题的工具。它不渲染任何可见的 UI。它为其后代元素触发额外的检查和警告（如：识别不安全的生命周期、警告过时 API、二次调用函数以检测副作用等）。仅在开发模式下运行。" },
+            { id: 12, cat: "基础概念", diff: "简单", q: "为什么不能直接修改 State？", a: "直接修改 `this.state.x = 1` 不会触发组件重新渲染。必须使用 `setState` 或 `useState` 的更新函数。因为 React 需要知道状态改变了，从而将组件放入更新队列并触发协调（Reconciliation）过程。" },
+            { id: 13, cat: "基础概念", diff: "中等", q: "setState 是同步还是异步的？", a: "在 React 18 之前，在生命周期函数和合成事件中是异步（批量更新机制机制）的，在原生事件和 setTimeout 中是同步的。React 18 之后，默认情况下所有的 setState 都是开启批量更新的（视觉上都是“异步”的），通过 `flushSync` 可以强制同步更新。" },
+            { id: 14, cat: "基础概念", diff: "简单", q: "React 中的 constructor 主要有什么作用？", a: "在 React 类组件中，constructor 主要用于：1) 通过赋值给 `this.state` 初始化内部 state；2) 为事件处理函数绑定实例 (`this.handleClick = this.handleClick.bind(this)`)。如果不做这两件事，通常不需要实现 constructor。" },
+            { id: 15, cat: "基础概念", diff: "简单", q: "React 采用什么设计模式？", a: "主要采用了观察者模式（状态驱动视图更新）、组合模式（组件嵌套）、高阶组件本质上运用了装饰器模式的思想。" },
+
+            // Category: 组件与生命周期 (15)
+            { id: 16, cat: "组件与生命周期", diff: "中等", q: "函数组件和类组件的主要区别？", a: "类组件需要继承 `React.Component`，有实例、生命周期方法和 `this` 指向问题，侧重于面向对象思想。函数组件是纯函数，没有实例，在 Hooks 出现前无状态无生命周期，有了 Hooks 后可以管理状态和副作用，侧重于函数式编程，代码更简洁、易于测试。" },
+            { id: 17, cat: "组件与生命周期", diff: "中等", q: "什么是高阶组件（HOC）？", a: "HOC 是一个纯函数，它接收一个组件作为参数，并返回一个新的复用组件。它本身不是组件，而是一种基于 React 组合特性的模式。常用于：权限控制、日志打点、渲染劫持、复用逻辑（如 withRouter）。" },
+            { id: 18, cat: "组件与生命周期", diff: "中等", q: "什么是 Render Props 模式？", a: "指一种在 React 组件之间使用一个值为函数的 prop 共享代码的简单技术。组件接受一个返回 React 元素的函数作为 prop，并在内部调用该函数渲染。与 HOC 目的相似（逻辑复用），但避免了 HOC 容易产生的命名冲突和嵌套地狱问题。" },
+            { id: 19, cat: "组件与生命周期", diff: "中等", q: "React 类组件的生命周期（v16.4+）分为哪三个阶段？", a: "1) 挂载阶段(Mounting): constructor -> static getDerivedStateFromProps -> render -> componentDidMount；<br>2) 更新阶段(Updating): static getDerivedStateFromProps -> shouldComponentUpdate -> render -> getSnapshotBeforeUpdate -> componentDidUpdate；<br>3) 卸载阶段(Unmounting): componentWillUnmount。" },
+            { id: 20, cat: "组件与生命周期", diff: "中等", q: "React 16 废弃了哪些生命周期，为什么？", a: "废弃了 `componentWillMount`, `componentWillReceiveProps`, `componentWillUpdate`。原因：React 16 引入了 Fiber 异步渲染架构，Render 阶段会被打断和重启，导致这些将要执行的生命周期可能会被调用多次，产生不可预期的副作用。" },
+            { id: 21, cat: "组件与生命周期", diff: "中等", q: "getDerivedStateFromProps 的作用？", a: "这是一个静态方法，代替了 `componentWillReceiveProps`。它在调用 render 方法之前被调用，并在初始挂载及后续更新时都会被调用。它应返回一个对象来更新 state，如果返回 null 则不更新任何内容。常用于 state 依赖于 props 变化的场景。" },
+            { id: 22, cat: "组件与生命周期", diff: "困难", q: "getSnapshotBeforeUpdate 的作用？", a: "在最近一次渲染输出（提交到 DOM 节点）之前调用。它使得组件能在发生更改之前从 DOM 中捕获一些信息（例如，滚动位置）。此生命周期方法的任何返回值将作为参数传递给 `componentDidUpdate`。" },
+            { id: 23, cat: "组件与生命周期", diff: "中等", q: "componentDidMount 和 componentWillMount 的应用场景区别？", a: "网络请求、DOM 操作、订阅事件必须在 `componentDidMount` 中进行。如果放在 `componentWillMount`，在 Fiber 架构下可能会被调用多次导致请求多次发送，且获取不到真实的 DOM。" },
+            { id: 24, cat: "组件与生命周期", diff: "中等", q: "React.PureComponent 和 React.Component 的区别？", a: "`PureComponent` 内部自动实现了一个浅比较的 `shouldComponentUpdate`。当 props 或 state 发生变化时，它会对比新旧属性/状态的引用是否相同，如果相同则不更新，从而提升性能。注意：深层数据突变（如数组 push）可能导致不更新的问题。" },
+            { id: 25, cat: "组件与生命周期", diff: "简单", q: "如何实现组件卸载前的数据清理？", a: "在类组件中，在 `componentWillUnmount` 阶段清理；在函数组件中，在 `useEffect` 的返回函数（cleanup 函数）中清理。清理内容包括：清除定时器、取消网络请求、解绑事件监听等，防止内存泄漏。" },
+            { id: 26, cat: "组件与生命周期", diff: "中等", q: "什么是错误边界（Error Boundaries）？", a: "部分 UI 的 JavaScript 错误不应该导致整个应用崩溃。错误边界是一种 React 组件（必须是类组件，实现 `static getDerivedStateFromError` 或 `componentDidCatch`），用于捕获其子组件树中发生的 JS 错误，并渲染降级 UI。注：无法捕获异步代码、事件处理程序中的错误。" },
+            { id: 27, cat: "组件与生命周期", diff: "中等", q: "什么是 Portals（传送门）？", a: "Portals 提供了一种将子节点渲染到存在于父组件以外的 DOM 节点（如 document.body）的方案：`ReactDOM.createPortal(child, container)`。典型应用场景：Modal 对话框、Tooltip 提示框，可以突破外层组件的 CSS `overflow: hidden` 或 z-index 限制。" },
+            { id: 28, cat: "组件与生命周期", diff: "简单", q: "Context API 的作用和使用场景？", a: "提供了一种在组件树间传递数据的方法，而不必显式地通过组件树的逐层传递 props（避免 prop drilling）。使用场景：全局主题色、当前登录用户信息、多语言配置等。" },
+            { id: 29, cat: "组件与生命周期", diff: "中等", q: "组件间跨层级通信有哪些方式？", a: "1) Props 层层透传（不推荐深层）；2) Context API；3) 第三方状态管理库（Redux, MobX, Zustand）；4) Event Bus (发布订阅模式)。" },
+            { id: 30, cat: "组件与生命周期", diff: "简单", q: "父子组件如何通信？", a: "父 -> 子：通过 Props 传递数据。子 -> 父：父组件通过 Props 将回调函数传递给子组件，子组件在需要时调用该回调并将数据作为参数传入。父组件使用 ref 获取子组件实例也可通信。" },
+
+            // Category: Hooks 原理与使用 (20)
+            { id: 31, cat: "Hooks 原理与使用", diff: "中等", q: "为什么 React 团队要引入 Hooks？", a: "1) 组件间复用状态逻辑很难（HOC 和 Render Props 导致嵌套地狱）；2) 复杂组件变得难以理解（生命周期中充斥着不相关的逻辑，相关的逻辑被分散）；3) 难以理解的 class (`this` 指向问题)。Hooks 让函数组件也具备了 State 和生命周期特性。" },
+            { id: 32, cat: "Hooks 原理与使用", diff: "简单", q: "Hooks 的使用规则是什么？", a: "1) 只能在最顶层调用 Hook，不要在循环，条件或嵌套函数中调用 Hook（为了保证 Hook 的调用顺序稳定，因为底层依赖链表结构）；2) 只能在 React 函数组件或自定义 Hook 中调用 Hook。" },
+            { id: 33, cat: "Hooks 原理与使用", diff: "困难", q: "useState 的工作原理？", a: "useState 在源码层面对应一个 Fiber 节点上的 `memoizedState` 链表。每次调用 useState 产生一个 hook 对象存入链表。更新时，通过更新队列计算出新的 state。调用 setter 时，触发 Fiber 树的调度更新机制。" },
+            { id: 34, cat: "Hooks 原理与使用", diff: "中等", q: "useEffect 和 useLayoutEffect 的区别？", a: "执行时机不同。`useEffect` 是在浏览器完成绘制（Paint）之后异步执行，不会阻塞页面渲染；`useLayoutEffect` 是在 DOM 变更之后、浏览器绘制之前同步执行。如果要操作 DOM 且引起样式改变，使用 useLayoutEffect 避免页面闪烁。" },
+            { id: 35, cat: "Hooks 原理与使用", diff: "中等", q: "useEffect 的依赖数组怎么工作？", a: "如果未传入依赖数组，每次渲染都会执行；如果传入空数组 `[]`，仅在挂载时执行一次；如果传入变量 `[a, b]`，只有当 a 或 b 的值（浅比较 Object.is）在重新渲染之间发生改变时，副作用才会执行。" },
+            { id: 36, cat: "Hooks 原理与使用", diff: "困难", q: "什么是 Hooks 的闭包陷阱（Stale Closures）？如何解决？", a: "由于函数组件每次渲染都是独立的闭包，如果 useEffect 等 Hook 中引用了外部的 state 且没有将其加入依赖数组，就会导致读取到的始终是旧渲染周期中的变量值。解决：1) 正确配置依赖数组；2) 使用 useRef 保存最新值；3) useState 使用函数式更新 `setCount(c => c + 1)`。" },
+            { id: 37, cat: "Hooks 原理与使用", diff: "中等", q: "useCallback 的作用和使用场景？", a: "返回一个 memoized（缓存的）回调函数。仅在某个依赖项改变时才会更新函数引用。主要用于配合 `React.memo` 优化子组件的渲染。如果将内联函数直接传给被 memo 包装的子组件，每次父组件渲染都会生成新函数导致子组件被动更新，useCallback 能避免这个问题。" },
+            { id: 38, cat: "Hooks 原理与使用", diff: "中等", q: "useMemo 的作用和使用场景？", a: "返回一个 memoized 的计算值。仅在依赖项改变时重新计算。用于避免在每次渲染时都进行昂贵的计算（如复杂的数据过滤、排序计算）。它也是性能优化手段。" },
+            { id: 39, cat: "Hooks 原理与使用", diff: "简单", q: "useRef 的两个主要作用？", a: "1) 访问 DOM 节点或 React 元素实例；2) 作为一个可变的容器，保存跨渲染周期的可变数据（类似于 class 实例的变量），修改 ref.current 不会触发组件重新渲染。" },
+            { id: 40, cat: "Hooks 原理与使用", diff: "中等", q: "forwardRef 和 useImperativeHandle 的配合使用？", a: "`React.forwardRef` 允许组件向子组件转发 ref。结合 `useImperativeHandle`，可以在函数组件中向父组件暴露自定义的实例值或方法，而不是暴露整个 DOM 节点，实现更细粒度的控制封装。" },
+            { id: 41, cat: "Hooks 原理与使用", diff: "简单", q: "useContext 的作用？", a: "接收一个 context 对象（`React.createContext` 的返回值）并返回该 context 的当前值。比在类组件中使用 `Context.Consumer` 更加简洁直观。" },
+            { id: 42, cat: "Hooks 原理与使用", diff: "中等", q: "useReducer 相比 useState 有什么优势？", a: "当组件的状态逻辑非常复杂，包含多个子值，或者下一个 state 依赖于之前的 state 时，useReducer 更适用。它使得可以将更新逻辑集中在一个 reducer 函数中管理（类似 Redux），易于测试。" },
+            { id: 43, cat: "Hooks 原理与使用", diff: "简单", q: "什么是自定义 Hook？", a: "自定义 Hook 是一个函数，其名称以 `use` 开头，函数内部可以调用其他的 Hook。它是一种提取和复用组件逻辑的机制，而不是复用 UI 视图。" },
+            { id: 44, cat: "Hooks 原理与使用", diff: "中等", q: "自定义 Hook 的返回值有什么规范？", a: "React 没有强制规范。如果返回两个值（如状态和改变状态的函数），通常返回数组 `[state, setState]` 以方便解构重命名；如果返回多个值或方法，通常返回对象 `{ state, method1, method2 }`。" },
+            { id: 45, cat: "Hooks 原理与使用", diff: "中等", q: "React Hooks 是如何模拟 componentDidMount 的？", a: "使用 `useEffect(() => { /* mount 逻辑 */ }, [])`，依赖项为空数组，表示副作用不依赖任何变量，因此只在初次渲染挂载后执行一次。" },
+            { id: 46, cat: "Hooks 原理与使用", diff: "困难", q: "React 18: useTransition 的作用是什么？", a: "用于将某些状态更新标记为非阻塞的“过渡更新”（Transitions）。React 会优先处理紧急更新（如输入框打字），而将过渡更新（如渲染长列表）延后或打断，从而保持 UI 的流畅响应。" },
+            { id: 47, cat: "Hooks 原理与使用", diff: "困难", q: "React 18: useDeferredValue 的作用？", a: "它接受一个值，并返回该值的新副本，该副本将推迟到更紧急的更新之后更新。常用于延迟昂贵的 UI 渲染（例如搜索时下面庞大列表的渲染），当输入频繁时，延迟值会滞后，直到输入停止才会最终更新。" },
+            { id: 48, cat: "Hooks 原理与使用", diff: "中等", q: "React 18: useId 的作用是什么？", a: "生成在整个应用中唯一的 ID 字符串。主要用于为无障碍属性（如 aria-describedby、label 的 htmlFor）生成唯一标识，支持 SSR 服务端渲染（保证客户端与服务端生成的 ID 匹配避免 hydrate 报错）。" },
+            { id: 49, cat: "Hooks 原理与使用", diff: "中等", q: "useEffect 返回的清理函数什么时候执行？", a: "1) 组件卸载时执行；2) 在下一次 useEffect 的主体函数执行之前执行（即每次依赖更新导致副作用重新执行前，先清理上一次的副作用）。" },
+            { id: 50, cat: "Hooks 原理与使用", diff: "中等", q: "为什么不能在 if/for 循环中使用 Hook？", a: "React 内部通过单向链表结构来维护各个 Hook 的状态。React 依赖 Hooks 的调用顺序来将状态与对应的 Hook 匹配。如果在条件语句中使用，导致某次渲染跳过了一个 Hook，后续所有 Hook 的指针都会错乱，引发状态错误。" },
+
+            // Category: 状态管理与生态 (15)
+            { id: 51, cat: "状态管理与生态", diff: "中等", q: "Redux 的三大核心原则是什么？", a: "1) 单一数据源：整个应用的 state 被储存在一棵 object tree 中，并且这个 object tree 只存在于唯一一个 store 中；2) State 是只读的：唯一改变 state 的方法就是触发 action；3) 使用纯函数来执行修改：通过编写 reducers 来描述 action 如何改变 state tree。" },
+            { id: 52, cat: "状态管理与生态", diff: "简单", q: "简述 Redux 的工作流程？", a: "视图（View）通过 dispatch 派发 Action，Store 接收到 Action 并传递给 Reducer，Reducer 根据当前的 State 和 Action 计算并返回新的 State，Store 状态更新后触发订阅该状态的视图重新渲染。" },
+            { id: 53, cat: "状态管理与生态", diff: "中等", q: "Redux Thunk 和 Redux Saga 的区别？", a: "两者都是处理异步的中间件。Thunk 允许 action creator 返回一个函数而不是对象，在函数内执行异步操作。Saga 利用 ES6 的 Generator 机制，将异步操作和副作用提取到 saga 文件中集中处理，代码更容易测试，处理复杂异步流（如竞态、节流）更优雅。" },
+            { id: 54, cat: "状态管理与生态", diff: "中等", q: "什么是 Redux Toolkit (RTK)？", a: "是官方推荐的编写 Redux 逻辑的方法。它封装了核心功能，解决了 Redux 配置复杂、样板代码多、需引入多个包的问题。提供了 `configureStore`, `createSlice` 等 API，内置了 Immer 和 Thunk。" },
+            { id: 55, cat: "状态管理与生态", diff: "中等", q: "MobX 和 Redux 的核心区别？", a: "Redux 是函数式编程思想，单一 Store，状态不可变（Immutable），纯函数 Reducer；MobX 是面向对象/响应式编程思想，多 Store，状态可变（Mutable），通过拦截器（Proxy/defineProperty）自动收集依赖和触发更新，样板代码少。" },
+            { id: 56, cat: "状态管理与生态", diff: "简单", q: "Zustand 状态库为什么现在很火？特点是？", a: "Zustand 是一个轻量级状态管理方案。特点：极简的 API（不需要 Provider 嵌套），基于 Hooks 风格，无需大量样板代码，天然支持异步，通过 selector 可以避免不必要的渲染，性能好。" },
+            { id: 57, cat: "状态管理与生态", diff: "中等", q: "React Router v6 相比 v5 有哪些重大更新？", a: "移除了 `<Switch>`，引入 `<Routes>`；`<Route>` 的 `component` 属性改为 `element` 接收 JSX；引入嵌套路由的新写法和 `<Outlet>`；引入大量新 Hooks (`useNavigate`, `useParams` 等)；移除 `useHistory`；天然支持路径通配符排名匹配。" },
+            { id: 58, cat: "状态管理与生态", diff: "中等", q: "HashRouter 和 BrowserRouter 的区别？", a: "HashRouter 带有 `#` 号，原理是监听 `hashchange` 事件，兼容性好，不需要后端配置。BrowserRouter 是标准的 URL，基于 HTML5 History API (`pushState`/`replaceState`)，需要服务器配置回退（Fallback）到 index.html 以防止 404。" },
+            { id: 59, cat: "状态管理与生态", diff: "简单", q: "React Router 中的动态路由如何获取参数？", a: "在定义路由时使用冒号标识变量，如 `<Route path="/user/:id" />`。在组件内部通过 Hook `const { id } = useParams()` 来获取该参数。" },
+            { id: 60, cat: "状态管理与生态", diff: "中等", q: "如何在 React Router 中实现路由守卫（鉴权）？", a: "React Router 本身不提供类似 Vue Router 的全局钩子。通常通过封装一个高阶组件（如 `<PrivateRoute>`）或包裹一层布局组件来实现。在组件内判断登录状态，未登录则渲染 `<Navigate to="/login" replace />` 进行重定向。" },
+            { id: 61, cat: "状态管理与生态", diff: "中等", q: "什么是 CSS-in-JS？它的优缺点？", a: "是一种将 CSS 样式由 JavaScript 生成并维护的模式。优点：解决全局命名冲突，支持动态样式（通过 JS 变量），更好的死代码消除。缺点：运行时性能损耗（解析 JS 生成 CSS），增加打包体积，失去部分传统 CSS 缓存优势。" },
+            { id: 62, cat: "状态管理与生态", diff: "中等", q: "Styled-components 的工作原理？", a: "利用 ES6 的标签模板字符串语法。它在运行时动态创建一个拥有随机 Hash 字符串 className 的 React 组件，并将相应的 CSS 样式注入到 document head 的 `<style>` 标签中。" },
+            { id: 63, cat: "状态管理与生态", diff: "简单", q: "什么是 CSS Modules？", a: "是一种在构建阶段（如 Webpack）将 CSS 类名局部化（生成哈希后缀）的技术。在 React 中引入时作为一个对象使用 `import styles from './App.module.css'; <div className={styles.container}>`，有效避免样式冲突。" },
+            { id: 64, cat: "状态管理与生态", diff: "中等", q: "客户端渲染 (CSR) 和服务端渲染 (SSR) 的区别？", a: "CSR：服务器返回空 HTML，所有组件和逻辑依赖下载执行 JS 后在浏览器生成 DOM，首屏慢，SEO 差。SSR：服务器执行 React 代码生成包含真实内容的 HTML 字符串，首屏快，SEO 好；到达浏览器后再进行注水（Hydration）绑定事件。" },
+            { id: 65, cat: "状态管理与生态", diff: "简单", q: "Next.js 的核心特性是什么？", a: "Next.js 是 React 的元框架。核心特性包括：开箱即用的 SSR/SSG/ISR 渲染策略、基于文件系统的路由、内置的 API Routes、自动代码拆分、内置 Image 等优化组件。" },
+
+            // Category: 性能优化 (15)
+            { id: 66, cat: "性能优化", diff: "中等", q: "React 性能优化的常见手段有哪些？", a: "1) 使用 React.memo/PureComponent 避免不必要渲染；2) useMemo/useCallback 缓存计算结果和函数；3) 懒加载组件 (React.lazy) 和路由；4) 使用 Fragment 减少 DOM 层级；5) 长列表使用虚拟滚动；6) 合理设置 Key；7) 避免内联对象/函数作为 props；8) 状态下放，缩小渲染范围。" },
+            { id: 67, cat: "性能优化", diff: "中等", q: "什么是组件的无意义渲染（Re-render）？", a: "当组件的状态或 props 并未发生实质性改变，或者父组件渲染带动完全不需要更新的子组件渲染时。这会浪费计算资源。通过性能工具 Profiler 可以排查此类问题。" },
+            { id: 68, cat: "性能优化", diff: "中等", q: "React.memo() 的作用？", a: "它是一个高阶组件，用于函数组件。默认情况下，它会对复杂的 props 进行浅比较。如果 props 没有变化，则跳过该组件的渲染并复用最近一次的结果。可以通过第二个参数传入自定义的比较函数来进行深度比较。" },
+            { id: 69, cat: "性能优化", diff: "中等", q: "shouldComponentUpdate 的作用是什么？", a: "在类组件中，这是一个生命周期钩子，接收 nextProps 和 nextState，返回布尔值。如果返回 false，React 将跳过当前组件及其子组件的 render 和更新过程，是早期的核心优化手段。" },
+            { id: 70, cat: "性能优化", diff: "简单", q: "什么是代码分割和懒加载？", a: "利用 Webpack 等打包工具的动态 `import()` 功能，将大型应用拆分为多个小 bundle。在用户路由跳转到特定页面或触发特定交互时，才异步下载对应的 JS 文件，从而极大地提升首页加载速度。" },
+            { id: 71, cat: "性能优化", diff: "中等", q: "React.lazy 和 Suspense 如何使用？", a: "`const LazyComponent = React.lazy(() => import('./Component'));`。使用时，必须将该组件包裹在 `<Suspense fallback={<Loading/>}>` 中。在异步加载完组件代码前，UI 会显示 fallback 的内容。" },
+            { id: 72, cat: "性能优化", diff: "困难", q: "什么是虚拟列表（Virtual List）？其基本原理是什么？", a: "当需要渲染上万条数据时，全量渲染会导致 DOM 节点过多卡死。虚拟列表只渲染当前视口可见区域的那几条（或略多几条）DOM 节点。原理：通过计算滚动容器的 scrollTop 算出可见的起始索引和结束索引，绝对定位并渲染这些元素，用一个空白撑开总高度以出现原生滚动条。常见库：react-window, react-virtualized。" },
+            { id: 73, cat: "性能优化", diff: "困难", q: "Web Worker 在 React 中的应用场景？", a: "JS 是单线程的，复杂计算会阻塞主线程导致 React 渲染掉帧。可以将极大量数据的解析、复杂的加密/解密、大型图像处理等工作丢给 Web Worker 在后台线程处理，完成后再通过 postMessage 通知 React 更新状态。" },
+            { id: 74, cat: "性能优化", diff: "中等", q: "如何分析和诊断 React 应用的性能瓶颈？", a: "1) 使用 React DevTools 的 Profiler 标签，录制交互过程，查看每个组件的渲染耗时和渲染原因；2) Chrome 开发者工具的 Performance 面板查看主线程的火焰图；3) Lighthouse 分析首屏 FCP/LCP 指标。" },
+            { id: 75, cat: "性能优化", diff: "简单", q: "为什么建议把 State 放到离使用它的组件最近的层级？", a: "这就是“状态下放”（State Colocation）。如果在顶层组件挂载一个只在某个深层子节点使用的 State，一旦状态更新，整棵树都会进入协调比对。下放状态可以将渲染范围控制在最小局部区域内。" },
+            { id: 76, cat: "性能优化", diff: "简单", q: "节流（Throttle）和防抖（Debounce）在 React 中的应用？", a: "搜索输入框联想词请求（防抖，停止输入后才请求）、监听窗口 resize 或滚动条事件（节流，控制触发频率）。由于 React 每次渲染会重新创建函数，这些函数通常需结合 useCallback 或 useRef 保存实例。" },
+            { id: 77, cat: "性能优化", diff: "中等", q: "如何在 React 中实现图片懒加载？", a: "1) 使用原生 HTML 属性 `<img loading="lazy" />`；2) 使用 IntersectionObserver API 监听图片是否进入视口，进入后再将真实的 src 赋值给 img 标签；3) 配合第三方库如 react-lazyload。" },
+            { id: 78, cat: "性能优化", diff: "简单", q: "避免将匿名函数或内联对象直接传给 props 有什么好处？", a: `如 \`<Button style={{color: 'red'}} onClick={() => doSomething()} />\`。每次父组件渲染时，这些内联对象/函数都会生成新的内存地址引用。如果 Button 组件使用了 React.memo，由于浅比较失败，它仍会被迫重新渲染。` },
+            { id: 79, cat: "性能优化", diff: "中等", q: "如何优化 Context 的频繁更新导致的组件全量渲染？", a: "Context 数据更新会导致所有消费了该 Context 的组件重新渲染，无视 React.memo。优化方法：拆分 Context（变动频繁的和不频繁的拆开）、将消费 Context 的逻辑提取到子组件中，或使用状态库代替全局大 Context。" },
+            { id: 80, cat: "性能优化", diff: "中等", q: "什么是 Tree Shaking？", a: "它是一种通过清除多余代码方式来优化打包体积的技术，依赖 ES Modules 的静态分析。在 React 项目中，可以通过不引入整个库（如按需引入 lodash/Echarts 组件）来配合构建工具实现摇树优化。" },
+
+            // Category: 源码与底层原理 (20)
+            { id: 81, cat: "源码与底层原理", diff: "困难", q: "React Fiber 是什么？为什么需要它？", a: "Fiber 是 React 16 引入的新的协调引擎。以前的栈协调是同步且递归的，一旦开始无法中断，当 DOM 树庞大时会导致主线程长时间被阻塞，页面掉帧。Fiber 将渲染工作分割成一个个可以中断/恢复的微任务单位（基于单链表树结构），让出主线程给高优先级任务（如交互动画）。" },
+            { id: 82, cat: "源码与底层原理", diff: "困难", q: "简述 Fiber 树的双缓存策略（Double Buffering）？", a: "React 在内存中存在两棵 Fiber 树：一个是当前正显示在屏幕上的 `current` 树，另一个是在内存中构建的 `workInProgress` (WIP) 树。更新都在 WIP 树上进行，完成后，只需将根指针 `current` 指向 WIP 树即可瞬间完成切换，防止屏幕闪烁。" },
+            { id: 83, cat: "源码与底层原理", diff: "困难", q: "React 的渲染分为哪两个主要阶段？", a: "1) Render 阶段：此阶段在内存中进行，找出所有需要变更的节点，构建 WIP 树，计算副作用（Effect）。这个阶段是可以被中断和丢弃的。<br>2) Commit 阶段：同步执行，不可中断。将 Render 阶段计算出的所有变更一次性应用到真实的 DOM 上，并执行各种生命周期/Hooks 副作用。" },
+            { id: 84, cat: "源码与底层原理", diff: "困难", q: "Diff 算法的三大启发式策略（核心思想）是什么？", a: "React Diff 是 O(n) 复杂度的，基于三个假设：1) 同层级比较（只对树的同一层节点比较，不跨层级）；2) 类型比较（不同类型的元素会产生不同的树，直接销毁重建）；3) key 比较（开发者通过 key 暗示哪些子元素在不同的渲染下能保持稳定复用）。" },
+            { id: 85, cat: "源码与底层原理", diff: "困难", q: "React 数组节点 Diff 的大致过程？", a: "包含两轮遍历：第一轮从头对比新旧节点，如果 key 和 type 相同则复用，直到遇到不能复用的节点跳出。第二轮将剩下的旧节点存入一个 Map (key -> Fiber)，遍历剩下的新节点，从 Map 中寻找能复用的节点，如果没有则标记插入。最后将 Map 中未被使用到的旧节点标记删除。涉及到移动的判定依据是当前元素的挂载索引是否小于已记录的最大旧索引。" },
+            { id: 86, cat: "源码与底层原理", diff: "困难", q: "Lane 模型（车道模型）是什么？", a: "React 17 之前用 expirationTime 表示任务优先级。React 17+ 引入 Lane 模型，用 32 位二进制的位运算来表示不同的优先级。它的优势在于可以处理并行的更新，以及更方便地表示批处理概念（如合并同一赛道的任务）。位越高优先级越高（如 SyncLane）。" },
+            { id: 87, cat: "源码与底层原理", diff: "困难", q: "Scheduler（调度器）的核心原理是什么？", a: "Scheduler 是 React 独立的一个包，负责时间分片和任务优先级调度。它在一个帧内（通常分配约 5ms）执行任务，如果时间到了任务没执行完，它会挂起任务并主动让出控制权给浏览器渲染绘制，利用事件循环在下一帧继续调度剩余任务。" },
+            { id: 88, cat: "源码与底层原理", diff: "困难", q: "为什么 Scheduler 中使用 MessageChannel 而不是 setTimeout 宏任务？", a: "setTimeout 的最小延迟通常存在 4ms 的限制（HTML5标准），这对于 16.6ms 一帧的动画来说浪费太严重。MessageChannel 不存在这种默认延迟，可以在浏览器完成渲染后立即触发下一次宏任务回调，更适合实现高频的时间分片。" },
+            { id: 89, cat: "源码与底层原理", diff: "困难", q: "Hooks 的底层数据存储结构是怎样的？", a: "函数组件中调用 Hooks 时，所有的 Hooks 数据（状态、副作用函数等）按照调用顺序被连接成一个单向链表，挂载在当前组件对应 Fiber 节点的 `memoizedState` 属性上。这就是为什么不能在条件语句中使用 Hook，会导致链表节点错位。" },
+            { id: 90, cat: "源码与底层原理", diff: "困难", q: "React 18 中的批处理更新（Batching Update）源码层面是如何实现的？", a: "React 内部有一个执行上下文标记。当事件被触发时，会处于特定的上下文中，所有产生的更新（update对象）只会被推入 Fiber 的更新队列 (updateQueue) 而不立即执行。直到事件回调执行完毕，React 才从上下文中退出并统一调度一次宏观更新。" },
+            { id: 91, cat: "源码与底层原理", diff: "困难", q: "React 18 并发模式（Concurrent Mode）的本质是什么？", a: "并发模式不是真的多线程，而是通过 Fiber 架构和 Scheduler 实现的**可中断渲染**。React 会根据任务的优先级来打断低优先级的渲染，去响应高优先级的交互操作，随后恢复或抛弃原来的低优先级渲染任务。相关 API 如 startTransition。" },
+            { id: 92, cat: "源码与底层原理", diff: "困难", q: "为什么 React 放弃使用 requestIdleCallback 实现调度？", a: "1) 浏览器兼容性不佳；2) requestIdleCallback 的触发频率极不稳定（比如用户切 Tab 就不触发了），无法保证帧率的稳定性；3) API 只在浏览器空闲时执行，无法满足 React 对于高优先级任务立即调度的需求。因此 React 团队用 MessageChannel 模拟实现了自己的调度策略。" },
+            { id: 93, cat: "源码与底层原理", diff: "困难", q: "Bailout（提前跳过更新）机制的条件是什么？", a: "在 render 阶段开始时，React 会检查：1) oldProps === newProps (浅比较引用); 2) 当前节点没有遗留的更新任务（如 Context 的变化或自身 state 改变）且优先级不够。如果满足，就会触发 bailoutOnAlreadyFinishedWork 逻辑，直接复用当前 Fiber 节点并停止向下遍历。" },
+            { id: 94, cat: "源码与底层原理", diff: "困难", q: "React v17 的事件代理机制有什么重大变化？", a: "在 v16 及之前，React 会将所有的原生事件绑定到 `document` 对象上。在 v17 之后，事件委托到了挂载 React 应用的根 DOM 容器上（比如 `div#root`）。这解决了在同一个页面运行多个 React 版本、或者 React 与微前端框架嵌套时的事件冲突问题。" },
+            { id: 95, cat: "源码与底层原理", diff: "困难", q: "useEffect 的副作用函数是在哪个阶段执行的？", a: "在 Commit 阶段之后异步执行。Commit 阶段的最后，调度器会发起一个普通的宏任务，在这个任务里去遍历执行当前树上收集到的 passive effect（即 useEffect）。这也是为什么它不会阻塞屏幕更新。" },
+            { id: 96, cat: "源码与底层原理", diff: "困难", q: "useState 和 useReducer 在源码层面是同一个东西吗？", a: "是的。在 React 源码中，`useState` 底层实际上就是调用了 `useReducer` 的核心逻辑。它只是一个预设了默认 reducer（将旧值替换为新值的函数）的语法糖。" },
+            { id: 97, cat: "源码与底层原理", diff: "困难", q: "React 源码中 updateQueue (更新队列) 的结构是怎样的？", a: "它是一个环形单向链表。每次调用 setState 产生的 Update 对象会被插入到环形链表的末尾（`pending` 指针指向最后一个插入的更新，其 next 指向第一个）。在 Render 阶段处理时，会打断链表并遍历计算最终状态。环形链表方便快速找到头尾节点。" },
+            { id: 98, cat: "源码与底层原理", diff: "困难", q: "合成事件中 e.nativeEvent 和原生事件完全等价吗？", a: "不完全等价。虽然它持有原生事件对象的引用，但由于事件池和事件委托机制，合成事件的属性已经被 React 规范化过了。且在 v16 中存在事件池缓存现象（异步读取事件属性会报错），需调用 `e.persist()`，但在 v17 已被移除。" },
+            { id: 99, cat: "源码与底层原理", diff: "困难", q: "Context 的底层实现原理简述？", a: "当渲染到 Provider 时，React 会将新的 value 压入一个内部栈栈顶；当遍历结束出栈。当遇到 Consumer/useContext 时，直接读取当前栈顶的值。如果 Provider 的 value 改变，由于 Fiber 机制，它会深度遍历找到所有依赖该 Context 的节点强制标记更新（绕过 bail out）。" },
+            { id: 100, cat: "源码与底层原理", diff: "困难", q: "createRoot 和旧版 render 源码执行流程的差异？", a: "旧版 `ReactDOM.render` 会创建 LegacyRoot，采用同步渲染模式。新版 `createRoot` 创建 ConcurrentRoot，开启并发模式。后续所有的更新（无论是否使用过渡API）都将进入并发调度的车道模型处理体系中。" }
+        ];
+
+        // --- 2. STATE & INIT ---
+        let currentFilter = 'All';
+        let searchQuery = '';
+        let chartInstance = null;
+
+        const categories = ["基础概念", "组件与生命周期", "Hooks 原理与使用", "状态管理与生态", "性能优化", "源码与底层原理"];
+        const diffColors = {
+            "简单": "bg-green-100 text-green-700",
+            "中等": "bg-blue-100 text-blue-700",
+            "困难": "bg-red-100 text-red-700"
+        };
+
+        // --- 3. DOM ELEMENTS ---
+        const questionContainer = document.getElementById('questionContainer');
+        const categoryFiltersContainer = document.getElementById('categoryFilters');
+        const searchInput = document.getElementById('searchInput');
+        const emptyState = document.getElementById('emptyState');
+        const currentSectionTitle = document.getElementById('currentSectionTitle');
+        const currentSectionDesc = document.getElementById('currentSectionDesc');
+        const resultCount = document.getElementById('resultCount');
+        const totalCountEl = document.getElementById('totalCount');
+        const sourceCountEl = document.getElementById('sourceCount');
+
+        // --- 4. RENDER LOGIC ---
+
+        function init() {
+            renderCategoryFilters();
+            renderQuestions();
+            initChart();
+            
+            // Events
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase();
+                renderQuestions();
+            });
+            
+            // Stats
+            totalCountEl.textContent = questionsData.length;
+            sourceCountEl.textContent = questionsData.filter(q => q.cat === '源码与底层原理').length;
+        }
+
+        function renderCategoryFilters() {
+            let html = `
+                <button onclick="setFilter('All')" class="category-btn w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentFilter === 'All' ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'}">
+                    📚 全部题库 (${questionsData.length})
+                </button>
+            `;
+            
+            categories.forEach(cat => {
+                const count = questionsData.filter(q => q.cat === cat).length;
+                let icon = '📖';
+                if(cat === 'Hooks 原理与使用') icon = '⚓';
+                if(cat === '源码与底层原理') icon = '⚙️';
+                if(cat === '性能优化') icon = '⚡';
+                if(cat === '状态管理与生态') icon = '🌐';
+                if(cat === '组件与生命周期') icon = '🧩';
+
+                html += `
+                    <button onclick="setFilter('${cat}')" class="category-btn w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentFilter === cat ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'}">
+                        ${icon} ${cat} (${count})
+                    </button>
+                `;
+            });
+            categoryFiltersContainer.innerHTML = html;
+        }
+
+        function setFilter(cat) {
+            currentFilter = cat;
+            renderCategoryFilters(); // update active state
+            renderQuestions();
+            
+            // Update Headers
+            if (cat === 'All') {
+                currentSectionTitle.textContent = '全部题目';
+                currentSectionDesc.textContent = '全面覆盖 React 开发核心技能栈。';
+            } else {
+                currentSectionTitle.textContent = cat;
+                currentSectionDesc.textContent = `专注于【${cat}】相关的面试考点。`;
+            }
+        }
+
+        function resetFilters() {
+            searchInput.value = '';
+            searchQuery = '';
+            setFilter('All');
+        }
+
+        function toggleAccordion(id) {
+            const content = document.getElementById(`ans-${id}`);
+            const icon = document.getElementById(`icon-${id}`);
+            const isActive = content.classList.contains('active');
+            
+            // Optional: Close others (accordion style)
+            // document.querySelectorAll('.accordion-content').forEach(el => el.classList.remove('active'));
+            // document.querySelectorAll('[id^="icon-"]').forEach(el => el.style.transform = 'rotate(0deg)');
+
+            if (isActive) {
+                content.classList.remove('active');
+                content.style.paddingTop = '0';
+                content.style.paddingBottom = '0';
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                content.classList.add('active');
+                content.style.paddingTop = '1rem';
+                content.style.paddingBottom = '1.5rem';
+                icon.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        function renderQuestions() {
+            let filtered = questionsData.filter(q => {
+                const matchCat = currentFilter === 'All' || q.cat === currentFilter;
+                const matchSearch = q.q.toLowerCase().includes(searchQuery) || q.a.toLowerCase().includes(searchQuery);
+                return matchCat && matchSearch;
+            });
+
+            resultCount.textContent = `共 ${filtered.length} 题`;
+
+            if (filtered.length === 0) {
+                questionContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            let html = '';
+            filtered.forEach((q, index) => {
+                const diffBadge = `<span class="text-xs px-2 py-0.5 rounded-full ${diffColors[q.diff]} font-medium ml-2">${q.diff}</span>`;
+                const catBadge = currentFilter === 'All' ? `<span class="text-xs text-slate-400 border border-slate-200 px-2 py-0.5 rounded-md ml-2">${q.cat}</span>` : '';
+                
+                // Minimal styling for code-like text in answers
+                let formattedAnswer = q.a.replace(/`(.*?)`/g, '<code class="bg-slate-100 text-pink-600 px-1 py-0.5 rounded text-sm font-mono">$1</code>');
+
+                html += `
+                    <div class="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
+                        <button class="w-full text-left px-6 py-4 focus:outline-none flex justify-between items-start" onclick="toggleAccordion(${q.id})">
+                            <div class="pr-8 flex-1">
+                                <div class="flex items-center flex-wrap gap-y-2 mb-1">
+                                    <span class="text-sm font-bold text-brand-600 mr-2">Q${q.id}.</span>
+                                    <h3 class="text-base font-semibold text-slate-800 inline-block">${q.q}</h3>
+                                    ${diffBadge}
+                                    ${catBadge}
+                                </div>
+                            </div>
+                            <span id="icon-${q.id}" class="text-slate-400 transition-transform duration-300 mt-1">▼</span>
+                        </button>
+                        <div id="ans-${q.id}" class="accordion-content px-6 text-slate-600 text-sm leading-relaxed border-l-2 border-brand-500 ml-6 mr-6 bg-white shadow-inner rounded-r-lg mb-2">
+                            <div class="font-medium text-slate-700 mb-1 flex items-center"><span class="text-brand-500 mr-2 text-lg">💡</span> 核心解答：</div>
+                            <p>${formattedAnswer}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            questionContainer.innerHTML = html;
+        }
+
+        // --- 5. CHART LOGIC ---
+        function initChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            const catCounts = categories.map(cat => questionsData.filter(q => q.cat === cat).length);
+            
+            // Brand palette derived colors
+            const bgColors = [
+                'rgba(99, 102, 241, 0.8)',   // indigo
+                'rgba(14, 165, 233, 0.8)',   // sky
+                'rgba(16, 185, 129, 0.8)',   // emerald
+                'rgba(245, 158, 11, 0.8)',   // amber
+                'rgba(236, 72, 153, 0.8)',   // pink
+                'rgba(139, 92, 246, 0.8)'    // violet
+            ];
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: categories,
+                    datasets: [{
+                        data: catCounts,
+                        backgroundColor: bgColors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            display: false // Hide default legend, relying on UI filters
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.label}: ${context.raw} 题`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Run on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

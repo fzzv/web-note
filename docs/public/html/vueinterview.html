@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue.js 面试题全解析 (100题)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Custom scrollbar and animations */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .accordion-content { transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out; max-height: 0; overflow: hidden; }
+        .accordion-content.open { max-height: 2000px; padding-bottom: 1rem; }
+        .rotate-180 { transform: rotate(180deg); }
+        pre { background-color: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; font-family: monospace; font-size: 0.875rem; margin-top: 0.5rem; margin-bottom: 0.5rem;}
+        code { font-family: monospace; }
+        .category-btn.active { background-color: #10b981; color: white; border-color: #10b981; }
+    </style>
+</head>
+<body class="bg-[#faf9f6] text-gray-800 font-sans antialiased">
+
+<!-- Chosen Palette: Warm Neutral with Vue Emerald Accents (Background: #faf9f6, Primary: #10b981, Dark: #1f2937, Text: gray-800) -->
+<!-- Application Structure Plan: Dashboard layout with a fixed sidebar for category filtering and visual statistics (Chart.js), and a main scrollable area for an interactive accordion-based list of the 100 interview questions. This allows users to easily search, filter by category, and focus on one question at a time without being overwhelmed by massive walls of text. -->
+<!-- Visualization & Content Choices: 
+     1. Chart.js Doughnut Chart -> Goal: Inform -> Shows distribution of questions by category to set expectations -> Interactive hover tooltips. 
+     2. Interactive Accordions -> Goal: Organize/Explore -> Hides complex answers and code until requested, reducing cognitive load -> Vanilla JS toggle. 
+     3. Category Filters & Search -> Goal: Organize/Filter -> Allows targeted study sessions -> Vanilla JS array filtering. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<div class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10 hidden md:flex">
+        <div class="p-6 border-b border-gray-200">
+            <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <span class="text-[#10b981] text-3xl">V</span>
+                Vue 题库引擎
+            </h1>
+            <p class="text-sm text-gray-500 mt-2">100道精选面试题 (Vue2 & Vue3)</p>
+        </div>
+        
+        <div class="p-6 border-b border-gray-200 flex-none">
+            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">题目分布</h2>
+            <div class="chart-container relative w-full mx-auto" style="height: 200px; max-width: 250px;">
+                <canvas id="statsChart"></canvas>
+            </div>
+        </div>
+
+        <div class="p-6 flex-1 overflow-y-auto">
+            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">分类筛选</h2>
+            <div class="flex flex-col gap-2" id="category-filters">
+                <!-- Filters injected by JS -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-[#faf9f6]">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-200 p-4 shadow-sm flex items-center justify-between sticky top-0 z-20">
+            <div class="w-full max-w-2xl relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    &#128269; <!-- Unicode Search Icon -->
+                </span>
+                <input type="text" id="searchInput" placeholder="搜索题目关键字 (如：响应式、nextTick、生命周期)..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#10b981] focus:border-transparent transition-all shadow-sm">
+            </div>
+            <div class="hidden md:block text-sm text-gray-500 ml-4 font-medium" id="result-count">
+                共 100 题
+            </div>
+        </header>
+
+        <!-- Intro Section -->
+        <div class="p-6 md:p-10 pb-2 max-w-5xl mx-auto w-full flex-none">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6 border-l-4 border-l-[#10b981]">
+                <h2 class="text-lg font-bold text-gray-800 mb-2">关于本题库指南</h2>
+                <p class="text-gray-600 text-sm leading-relaxed">
+                    本指南囊括了100道前端面试中最高频的 Vue 框架问题，从 Vue2 的基础概念到 Vue3 的 Composition API 进阶，再到虚拟 DOM、响应式原理及性能优化等核心源码级解析。点击下方各个题目即可展开查看详细解答与代码示例。使用左侧边栏（桌面端）进行快速分类筛选，或使用顶部搜索框进行精准查找。
+                </p>
+            </div>
+        </div>
+
+        <!-- Questions List -->
+        <div class="flex-1 overflow-y-auto p-6 md:p-10 pt-0 max-w-5xl mx-auto w-full">
+            <div class="space-y-4" id="questions-container">
+                <!-- Questions injected by JS -->
+            </div>
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden flex-col items-center justify-center py-20 text-gray-500">
+                <span class="text-4xl mb-4">&#128565;</span>
+                <p>未找到匹配的题目，请尝试其他关键词或分类。</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Mobile menu button (Simplified for strictly single-file no external icons) -->
+    <button id="mobileMenuBtn" class="md:hidden fixed bottom-6 right-6 bg-[#10b981] text-white p-4 rounded-full shadow-lg z-50 text-xl">
+        &#9776;
+    </button>
+</div>
+
+<!-- Mobile Sidebar Overlay (Hidden by default) -->
+<div id="mobileSidebar" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden transition-opacity">
+    <div class="w-4/5 h-full bg-white flex flex-col transform -translate-x-full transition-transform" id="mobileSidebarContent">
+        <!-- Content mirrored via JS -->
+    </div>
+</div>
+
+<script>
+// --- Data Source: 100 Vue Interview Questions ---
+const vueQuestions = [
+    // 基础与核心 (1-20)
+    { id: 1, category: '基础与核心', version: 'Vue2/3', title: 'v-if 和 v-show 的区别及使用场景？', answer: '<b>v-if</b> 是真正的条件渲染，它会确保在切换过程中条件块内的事件监听器和子组件适当地被销毁和重建。只有当条件为真时才会渲染。<br><b>v-show</b> 只是简单地控制元素的 CSS 属性 <code>display</code>。元素始终会被渲染并保留在 DOM 中。<br><br><b>场景：</b>频繁切换显示状态用 <code>v-show</code>，条件很少改变时用 <code>v-if</code>。' },
+    { id: 2, category: '基础与核心', version: 'Vue2/3', title: '为什么 v-for 必须设置 key？能用 index 做 key 吗？', answer: '<code>key</code> 是虚拟 DOM 算法的提示，用于识别 VNodes。在更新子节点树时，Vue 基于 key 来决定是否可复用现有元素，而不是重新渲染。这大大提升了渲染性能。<br><br><b>不能用 index 做 key 的原因：</b>如果列表顺序发生变化（如插入、删除、反转），由于 index 是按顺序排列的，会导致 Vue 错误地复用 DOM 节点，产生渲染错误或不必要的性能损耗。应使用唯一标识符（如数据的 id）。' },
+    { id: 3, category: '基础与核心', version: 'Vue2', title: 'v-if 和 v-for 为什么不建议一起使用？', answer: '在 <b>Vue 2</b> 中，<code>v-for</code> 的优先级高于 <code>v-if</code>。如果一起使用，每次渲染都会先循环整个列表，再进行条件判断，浪费性能。<br><i>在 Vue 3 中，v-if 的优先级高于 v-for，但依然不建议在同一元素上使用。</i><br><br><b>解决：</b>在外层套一个 <code>&lt;template v-if="condition"&gt;</code>，或在计算属性 (computed) 中先过滤好数据。' },
+    { id: 4, category: '基础与核心', version: 'Vue2/3', title: 'computed 和 watch 的区别和使用场景？', answer: '<b>computed (计算属性)：</b>依赖其它响应式数据计算得出，具有<b>缓存特性</b>。只有依赖的数据发生变化时才会重新计算。不支持异步。<br><b>watch (侦听器)：</b>用于监听数据的变化并执行特定的<b>副作用操作</b>（如异步请求、操作 DOM、定时器）。没有缓存。<br><br><b>场景：</b>需要根据现有数据派生出新值并渲染时用 computed；需要在数据变化时执行异步或开销较大的操作时用 watch。' },
+    { id: 5, category: '基础与核心', version: 'Vue2', title: '简述 Vue2 的生命周期钩子？', answer: 'Vue2 生命周期主要分为四个阶段：<br>1. <b>创建前后：</b> <code>beforeCreate</code> (数据和方法未初始化) -> <code>created</code> (数据观测完成，可访问 data/methods，未挂载 DOM)。<br>2. <b>挂载前后：</b> <code>beforeMount</code> (模板编译完成) -> <code>mounted</code> (DOM挂载完成，可操作DOM发起请求)。<br>3. <b>更新前后：</b> <code>beforeUpdate</code> (数据改变，DOM更新前) -> <code>updated</code> (DOM更新完毕)。<br>4. <b>销毁前后：</b> <code>beforeDestroy</code> (实例销毁前，用于清理定时器/事件绑定) -> <code>destroyed</code> (完全销毁)。' },
+    { id: 6, category: '基础与核心', version: 'Vue3', title: 'Vue3 的生命周期钩子有哪些变化？', answer: 'Vue3 的 Composition API 引入了带 <code>on</code> 前缀的生命周期函数。主要变化：<br>- <code>beforeCreate</code> 和 <code>created</code> 被 <code>setup()</code> 替代。<br>- <code>beforeMount</code> -> <code>onBeforeMount</code><br>- <code>mounted</code> -> <code>onMounted</code><br>- <code>beforeUpdate</code> -> <code>onBeforeUpdate</code><br>- <code>updated</code> -> <code>onUpdated</code><br>- <code>beforeDestroy</code> 更名为 <code>onBeforeUnmount</code><br>- <code>destroyed</code> 更名为 <code>onUnmounted</code><br>- 增加了调试钩子：<code>onRenderTracked</code>, <code>onRenderTriggered</code>。' },
+    { id: 7, category: '基础与核心', version: 'Vue2', title: 'Vue2 中为什么 data 必须是一个函数？', answer: '在 Vue 组件中，如果 <code>data</code> 是一个对象，由于对象是引用类型，所有复用该组件的实例将共享同一个 data 数据对象。造成状态污染。<br>将 <code>data</code> 定义为函数，每次组件实例化时都会执行该函数并返回一个全新的对象副本，保证了每个组件实例拥有独立的数据作用域。' },
+    { id: 8, category: '基础与核心', version: 'Vue2/3', title: '双向绑定 v-model 的原理是什么？', answer: '<code>v-model</code> 本质上是语法糖。<br>在原生表单元素上，它默认相当于：<code>:value="数据"</code> + <code>@input="数据 = $event.target.value"</code>。<br><br>在自定义组件上：<br>- <b>Vue2：</b> 默认通过 <code>:value</code> 和 <code>@input</code> 实现。可通过 <code>model</code> 选项修改 prop 和 event。<br>- <b>Vue3：</b> 默认通过 <code>:modelValue</code> 和 <code>@update:modelValue</code> 实现。并支持多个 v-model (如 <code>v-model:title</code>)。', code: `<input v-model="searchText">
+<!-- 等价于 -->
+<input :value="searchText" @input="searchText = $event.target.value">` },
+    { id: 9, category: '基础与核心', version: 'Vue2/3', title: '什么是虚拟 DOM (Virtual DOM)？为什么要用它？', answer: '虚拟 DOM 是用普通 JS 对象来描述真实 DOM 树的一种数据结构。包含了标签名、属性、子节点等信息。<br><br><b>优点：</b><br>1. <b>跨平台：</b> 不依赖底层宿主API，可用于 SSR、Weex 等。<br>2. <b>性能保障：</b> 直接操作频繁改变的大量 DOM 非常消耗性能。虚拟 DOM 配合 Diff 算法，将多次变更合并并在 JS 层面计算出最小差异，最后再一次性批量更新真实 DOM，保证了下限性能。' },
+    { id: 10, category: '基础与核心', version: 'Vue2/3', title: 'Vue 中的 key 有什么作用？', answer: '1. 主要用在 Vue 的虚拟 DOM 算法，在新旧 nodes 对比时辨识 VNodes。<br>2. 避免就地复用带来的状态问题。<br>3. 用于强制替换元素/组件而不是修改它。例如给 <code>&lt;router-view :key="$route.fullPath"&gt;</code> 加 key，可以在路由参数变化时强制重新触发生命周期。' },
+    { id: 11, category: '基础与核心', version: 'Vue2', title: 'Vue2 怎么检测数组和对象的变化？', answer: '<b>对象：</b>通过 <code>Object.defineProperty</code> 劫持 getter/setter。如果是新增属性或删除属性，Vue 无法检测，需用 <code>Vue.set()</code> 或 <code>Vue.delete()</code>。<br><b>数组：</b>并没有使用 defineProperty 去劫持索引（性能考量），而是重写了数组的 7 个变异方法（push, pop, shift, unshift, splice, sort, reverse）。直接修改索引 <code>arr[0] = 1</code> 无法触发响应式，需用 <code>splice</code> 或 <code>$set</code>。' },
+    { id: 12, category: '基础与核心', version: 'Vue2/3', title: '单页面应用 (SPA) 的优缺点是什么？', answer: '<b>优点：</b><br>1. 用户体验好，流畅度高，页面切换无白屏刷新。<br>2. 服务器压力小，只在初始化时请求资源，后续只交互数据。<br>3. 前后端分离更彻底。<br><br><b>缺点：</b><br>1. 首屏加载慢（打包文件过大），需按需加载/懒加载。<br>2. SEO 不友好，爬虫难以抓取 JS 渲染的内容（可通过 SSR / SSG 解决）。<br>3. 需自行管理路由栈。' },
+    { id: 13, category: '基础与核心', version: 'Vue2/3', title: '什么是 nextTick？应用场景是什么？', answer: 'Vue 在更新 DOM 时是<b>异步执行</b>的。当数据发生变化，Vue 将开启一个队列，并缓冲在同一事件循环中发生的所有数据变更。如果同一个 watcher 被多次触发，只会被推入到队列中一次。<br><code>nextTick</code> 的作用是在下次 DOM 更新循环结束之后执行延迟回调。<br><br><b>场景：</b>在修改数据之后立即想要获取更新后的 DOM 状态（如获取计算后的高度、自动聚焦输入框等）。' },
+    { id: 14, category: '基础与核心', version: 'Vue2/3', title: 'Vue 模板中 {{}} 渲染时闪烁怎么办？', answer: '当网速较慢或组件解析耗时较长时，未经编译的 Mustache 标签 <code>{{ message }}</code> 会直接暴露给用户显示。可以使用 <code>v-cloak</code> 指令解决。<br>配合 CSS：<code>[v-cloak] { display: none; }</code>。<br>Vue 解析完成替换掉模板后，会自动移除该指令，从而展示真实内容。' },
+    { id: 15, category: '基础与核心', version: 'Vue2/3', title: '谈谈对修饰符 .sync 的理解？(Vue3中变化)', answer: '在 Vue2 中，<code>.sync</code> 是一种语法糖，用于实现父子组件属性的"双向绑定"。本质上是绑定属性并监听 <code>update:属性名</code> 的事件。<br>在 Vue3 中，<code>.sync</code> 修饰符已被移除，统一使用带有参数的 <code>v-model:propName</code> 来替代。' },
+    { id: 16, category: '基础与核心', version: 'Vue2/3', title: 'Vue 常用修饰符有哪些？', answer: '<b>事件修饰符：</b> <code>.stop</code> (阻止冒泡), <code>.prevent</code> (阻止默认行为), <code>.capture</code> (捕获模式), <code>.self</code> (只在直接作用于该元素时触发), <code>.once</code> (只触发一次)。<br><b>按键修饰符：</b> <code>.enter</code>, <code>.esc</code> 等。<br><b>表单修饰符：</b> <code>.lazy</code> (将 input 事件转为 change 事件), <code>.number</code> (自动转为数值型), <code>.trim</code> (自动过滤首尾空格)。' },
+    { id: 17, category: '基础与核心', version: 'Vue2', title: '怎么在 Vue2 强制刷新组件？', answer: '1. <b>使用 key 改变：</b> 给组件绑定 <code>:key="someVar"</code>，更新 someVar 的值即可重新渲染重建。<br>2. <b>$forceUpdate()：</b> 调用当前实例的方法强制 Vue 重新渲染（仅仅影响当前实例和插入插槽内容的子组件，而不是所有子组件）。但尽量避免，通常是因为响应式数据绑定错误导致。' },
+    { id: 18, category: '基础与核心', version: 'Vue2/3', title: 'v-html 的使用有哪些风险？', answer: '<code>v-html</code> 会将内容作为普通 HTML 插入，容易导致 <b>XSS (跨站脚本) 攻击</b>。<br>绝对不要对用户提供的内容使用 <code>v-html</code>。只能在你确信为安全的 HTML 片段上使用。如果必须渲染用户输入的内容，应使用专门的库进行过滤/转义（如 DOMPurify）。' },
+    { id: 19, category: '基础与核心', version: 'Vue2/3', title: '谈谈对 mixin 的理解及它的缺点？', answer: 'Mixin 提供了一种非常灵活的方式，来分发 Vue 组件中的可复用功能。<br><b>缺点：</b><br>1. <b>命名冲突：</b> 不同 mixin 或 mixin 与组件间的 data、methods 可能重名导致覆盖。<br>2. <b>数据来源不清晰：</b> 当引入多个 mixin 时，很难追踪某个属性或方法到底来自哪个 mixin。<br><i>（Vue3 推荐使用 Composition API 的 Hooks 来完全替代 Mixin 解决此问题）</i>。' },
+    { id: 20, category: '基础与核心', version: 'Vue2/3', title: '过滤器 filter 的作用？Vue3 还在用吗？', answer: 'Vue2 中过滤器常用于文本格式化（如日期、金额），可以用在双花括号插值和 v-bind 表达式中。通过管道符 <code>|</code> 调用。<br><b>在 Vue3 中，过滤器已被完全移除。</b> 官方推荐直接使用计算属性 <code>computed</code> 或普通的方法 <code>methods</code> 来进行格式化，以降低学习成本和提升模板可读性。' },
+
+    // 组件化开发 (21-40)
+    { id: 21, category: '组件化开发', version: 'Vue2/3', title: '组件之间通信方式有哪些？（汇总版）', answer: '1. 父子通信：<code>props</code> / <code>$emit</code><br>2. 子访问父/根：<code>$parent</code> / <code>$root</code><br>3. 父访问子：<code>ref</code> / <code>$refs</code><br>4. 跨级组件：<code>provide</code> / <code>inject</code><br>5. 兄弟/全局通信：EventBus (Vue2 <code>new Vue()</code>, Vue3 用 <code>mitt</code>库)<br>6. 全局状态管理：Vuex / Pinia<br>7. 透传：Vue2 <code>$attrs</code>/<code>$listeners</code>，Vue3 合并为 <code>$attrs</code>' },
+    { id: 22, category: '组件化开发', version: 'Vue2/3', title: '详细解释 props 和 $emit', answer: '<b>Props：</b> 父组件通过自定义属性向子组件传递数据。子组件内部通过 <code>props</code> 选项接收。数据是单向数据流，子组件不能直接修改 props。<br><b>$emit：</b> 子组件通过 <code>this.$emit(\'事件名\', payload)</code> 派发自定义事件，父组件在调用子组件时用 <code>@事件名="处理函数"</code> 监听并接收数据，以此实现子向父通信。' },
+    { id: 23, category: '组件化开发', version: 'Vue2/3', title: '什么是单向数据流？', answer: 'Vue 中 props 使得父子组件之间形成了一个单向下行绑定。父级 prop 的更新会向下流动到子组件中，但是反过来则不行。这样防止从子组件意外变更父级组件的状态，导致应用的数据流向难以理解。<br>如果子组件要修改 prop，应通过 <code>$emit</code> 通知父组件修改，或者在子组件内定义一个本地变量拷贝 prop 的值。' },
+    { id: 24, category: '组件化开发', version: 'Vue2/3', title: 'Provide / Inject 是什么？', answer: '用于祖先组件向所有子孙后代注入依赖（数据或方法），不论组件层次有多深，并在其上下游关系成立的时间里始终生效。<br>在祖先组件中使用 <code>provide</code> 选项提供数据，在后代组件中使用 <code>inject</code> 选项提取数据。常用于开发底层组件库或极深的嵌套结构。注意：默认情况它是非响应式的，除非传入的是响应式对象（如 Vue3 的 <code>ref</code>/<code>reactive</code>）。' },
+    { id: 25, category: '组件化开发', version: 'Vue2/3', title: '什么是 slot (插槽)？有哪些种类？', answer: '插槽是 Vue 实现的内容分发 API，允许父组件向子组件指定位置插入 HTML 或组件。<br>1. <b>默认插槽：</b> 子组件暴露一个 <code>&lt;slot&gt;&lt;/slot&gt;</code>，父组件传入内容默认放在这里。<br>2. <b>具名插槽：</b> 带有 name 属性的插槽，父组件通过 <code>v-slot:name</code> (缩写 <code>#name</code>) 将内容分发到对应名字的位置。<br>3. <b>作用域插槽：</b> 子组件在 <code>&lt;slot&gt;</code> 标签上绑定数据，父组件使用 <code>v-slot="slotProps"</code> 接收数据并决定如何渲染。' },
+    { id: 26, category: '组件化开发', version: 'Vue2', title: '$attrs 和 $listeners 是干嘛的？', answer: '用于解决跨级传递属性。当父组件向子组件传递了属性，但子组件并没有在 <code>props</code> 中声明时，这些属性会收集在 <code>$attrs</code> 中（class 和 style 除外）。<br><code>$listeners</code> 包含了父组件中的 (不含 .native 修饰器的) v-on 事件监听器。<br>可以通过 <code>v-bind="$attrs" v-on="$listeners"</code> 迅速传递给内部深层的组件。' },
+    { id: 27, category: '组件化开发', version: 'Vue2/3', title: '如何写一个高阶组件 (HOC)？Vue 推荐 HOC 吗？', answer: '高阶组件本质是一个函数，接收一个组件作为参数，返回一个新的组件。在 Vue 中，可以通过渲染函数 `render` 返回包裹原有组件的 VNode 来实现。<br><b>但 Vue 不推荐大量使用 HOC。</b> 因为 Vue 模板编译机制决定了组件主要是以模板形式编写，HOC 容易导致 props/slots 传递变得复杂。Vue 更推荐使用 <b>Mixins (Vue2)</b> 或 <b>Composition API Hooks (Vue3)</b> 以及 <b>作用域插槽</b> 来实现代码逻辑复用。' },
+    { id: 28, category: '组件化开发', version: 'Vue3', title: 'Vue3 的 Teleport 是什么？', answer: '<code>Teleport</code> (传送门) 是一种能够将组件内部的 DOM 节点插入到当前组件结构之外的其它 DOM 节点（如 <code>body</code>）上的内置组件。<br><b>场景：</b> 用于全屏模态框 (Modal)、全局 Toast、下拉菜单等。因为这类组件的逻辑属于触发它的父组件，但其 CSS 层叠上下文（z-index）通常需要置于最顶层，直接挂载到 body 可以避免父容器 <code>overflow: hidden</code> 带来的问题。' },
+    { id: 29, category: '组件化开发', version: 'Vue2/3', title: '异步组件是什么？如何使用？', answer: '在大型应用中，我们可能需要将应用分割成小一些的代码块，并且只在需要的时候才从服务器加载一个模块。Vue 允许你以一个工厂函数的方式定义你的组件，这个工厂函数会异步解析你的组件定义。<br><b>Vue2：</b> <code>components: { AsyncComp: () => import(\'./MyComp.vue\') }</code><br><b>Vue3：</b> 引入 <code>defineAsyncComponent</code>：<code>const AsyncComp = defineAsyncComponent(() => import(\'./MyComp.vue\'))</code>。' },
+    { id: 30, category: '组件化开发', version: 'Vue2/3', title: '动态组件如何保持状态？', answer: '使用内置组件 <code>&lt;keep-alive&gt;</code> 包裹动态组件 <code>&lt;component :is="currentTab"&gt;</code>。<br><code>keep-alive</code> 会缓存不活动的组件实例，而不是销毁它们。被缓存的组件会触发 <code>activated</code> 和 <code>deactivated</code> 生命周期钩子，而不会再触发 <code>created</code>/<code>mounted</code> 等。' },
+    { id: 31, category: '组件化开发', version: 'Vue3', title: 'Vue3 的 Suspense 是什么？', answer: '<code>&lt;Suspense&gt;</code> 是一项内置组件（实验性），用于在组件树中协调对异步依赖的处理。当组件树中存在异步组件或组件中有顶级 await（或 setup 返回 Promise）时，它可以让我们在等待这些异步操作完成前显示后备内容 (fallback UI，如 Loading 动画)。<br>它提供了 <code>#default</code> 和 <code>#fallback</code> 两个具名插槽。' },
+    { id: 32, category: '组件化开发', version: 'Vue2/3', title: '自定义组件如何支持 v-model？', answer: '要支持 <code>v-model</code>，组件需要：<br>1. 接收一个 prop。<br>2. 当内容改变时，向外触发一个对应的更新事件。<br><b>Vue2：</b> 默认 prop 为 <code>value</code>，事件为 <code>input</code>。可使用 <code>model</code> 选项重命名。<br><b>Vue3：</b> 默认 prop 为 <code>modelValue</code>，事件为 <code>update:modelValue</code>。', code: `// Vue3 子组件 setup 示例
+const props = defineProps(['modelValue'])
+const emit = defineEmits(['update:modelValue'])
+function onChange(val) {
+  emit('update:modelValue', val)
+}` },
+    { id: 33, category: '组件化开发', version: 'Vue2/3', title: '组件的 name 属性有什么用？', answer: '1. <b>递归调用：</b> 组件自身需要递归调用自己时，必须有 name 属性。<br>2. <b>keep-alive：</b> 配合 <code>include</code> 和 <code>exclude</code> 属性时，必须有 name，用于匹配哪些组件需要被缓存。<br>3. <b>调试工具：</b> 在 Vue DevTools 中作为组件的标签名称显示，便于定位。' },
+    { id: 34, category: '组件化开发', version: 'Vue3', title: 'Vue3 中的 Fragments (碎片) 是什么？', answer: '在 Vue2 中，每个组件模板必须且只能有一个单一的根节点。如果写了同级的多个节点，会报错。<br>Vue3 引入了 Fragments，组件现在支持有多个根节点。这减少了无意义的包裹 <code>&lt;div&gt;</code> 渲染。本质上，Vue 内部会用一个不可见的 Fragment VNode 包裹它们。' },
+    { id: 35, category: '组件化开发', version: 'Vue2/3', title: '如何给组件绑定原生事件？', answer: '<b>Vue2：</b> 使用 <code>.native</code> 修饰符，例如 <code>&lt;MyComp @click.native="handleClick" /&gt;</code>。<br><b>Vue3：</b> 移除了 <code>.native</code> 修饰符。现在，如果你在组件上绑定事件（如 <code>@click</code>），且组件内部没有用 <code>emits: [\'click\']</code> 声明它，该事件将作为 $attrs 透传并自动绑定到子组件的根节点上。' },
+    { id: 36, category: '组件化开发', version: 'Vue2/3', title: '样式穿透深度选择器有哪些？', answer: '在使用了 <code>&lt;style scoped&gt;</code> 的组件中，如果想要覆盖子组件（例如 UI 框架的组件）的样式，需要使用深度选择器：<br>1. <b>Vue2：</b> 经常使用 <code>>>></code>，或在 SASS/LESS 中使用 <code>/deep/</code> 或 <code>::v-deep</code>。<br>2. <b>Vue3：</b> 推荐统一使用 <code>:deep(类名)</code> 伪类语法，例如 <code>:deep(.el-input__inner) { color: red; }</code>。' },
+    { id: 37, category: '组件化开发', version: 'Vue2/3', title: 'scoped 原理是什么？为什么能避免样式污染？', answer: '当 style 标签加上 <code>scoped</code> 属性后，Vue 模板编译时会为当前组件模板内的所有 HTML 元素添加一个独一无二的 <code>data-v-hash</code> 自定义属性。<br>同时，CSS 编译也会给所有对应的选择器加上这个属性选择器（如 <code>.box[data-v-xxxxx]</code>）。从而确保这些样式只会作用于带有对应 hash 属性的 DOM 元素，实现样式隔离。' },
+    { id: 38, category: '组件化开发', version: 'Vue2', title: 'Vue.use() 的原理是什么？', answer: '<code>Vue.use(plugin)</code> 用于安装 Vue 插件。如果插件是一个对象，必须提供 <code>install</code> 方法。如果插件是一个函数，它会被作为 install 方法。<br><code>install</code> 方法调用时，会将 Vue 构造函数作为第一个参数传入，以及可选的选项参数。<br><b>原理：</b>内部会维护一个 installedPlugins 数组防止重复注册，然后调用 plugin 的 install 方法去执行全局组件注册、指令注册、混入等操作。' },
+    { id: 39, category: '组件化开发', version: 'Vue2/3', title: '什么是函数式组件？', answer: '函数式组件 (Functional Component) 是一种没有内部状态（没有响应式数据/实例 <code>this</code>），也没有生命周期的方法。它只接收 props 并返回 VNode。<br><b>优点：</b> 渲染开销极小，性能高。<br><b>Vue3：</b> 由于普通组件的性能大幅提升，函数式组件的性能优势已经不再明显。Vue3 中只推荐将其作为接收 props 的普通纯函数使用。' },
+    { id: 40, category: '组件化开发', version: 'Vue2/3', title: '组件的 render 函数和 template 的关系？', answer: 'Vue 在构建时（或运行时），会将 <code>&lt;template&gt;</code> 模板字符串编译成 JavaScript 的渲染函数 (render function)。当组件重新渲染时，会执行这个 <code>render</code> 函数生成 Virtual DOM。<br>如果直接写 <code>render</code> 函数（如使用 JSX），则跳过了模板编译阶段。优先级：<code>render</code> 函数 > <code>template</code> 选项 > 挂载元素的 <code>outerHTML</code>。' },
+
+    // Vue3新特性 (41-60)
+    { id: 41, category: 'Vue3新特性', version: 'Vue3', title: 'Vue3 相比 Vue2 有哪些重大更新？', answer: '1. <b>底层重构：</b> 响应式系统从 Object.defineProperty 换成了 <b>Proxy</b>，支持监听 Map/Set、数组索引和新增属性。<br>2. <b>语法 API：</b> 引入 <b>Composition API</b> (组合式 API)，解决 Options API 逻辑碎片化问题，更有利于 TypeScript 推导和逻辑复用。<br>3. <b>性能提升：</b> 静态提升 (Static Hoisting)、按需编译、事件监听缓存，包体积更小，渲染更快。<br>4. <b>新组件：</b> 引入 Fragment、Teleport、Suspense。' },
+    { id: 42, category: 'Vue3新特性', version: 'Vue3', title: 'Options API 和 Composition API 的区别与优劣？', answer: '<b>Options API (选项式)：</b> 按 data, methods, computed 等选项组织代码。在组件变大时，相同逻辑关注点的代码会被迫拆分在各处，导致难以维护。<br><b>Composition API (组合式)：</b> 将同一个逻辑关注点的代码组织在一个函数里（Hooks）。优点：代码高内聚、易于提取复用、对 TS 极其友好。缺点：灵活性高导致代码风格需要更好的规范约束。' },
+    { id: 43, category: 'Vue3新特性', version: 'Vue3', title: 'ref 和 reactive 的区别是什么？', answer: '两者都用于创建响应式数据。<br><b>ref：</b> 接收任何类型的值，通常用于基本数据类型（String, Number, Boolean）。它返回一个带有 <code>.value</code> 属性的 Ref 对象。在模板中使用会自动解包（不需写 .value）。<br><b>reactive：</b> 只能接收对象类型（Object, Array, Map, Set）。返回该对象的 Proxy 代理。在代码中直接访问属性，不能被重新赋值为一个新对象（会丢失响应式）。' },
+    { id: 44, category: 'Vue3新特性', version: 'Vue3', title: '为什么在 setup 中必须使用 .value 访问 ref？', answer: 'JavaScript 无法通过值传递实现基本数据类型（如数字、字符串）的响应式。Vue 通过将原始值包裹在一个对象（RefImpl）中，拦截对其内部 <code>value</code> 属性的 getter 和 setter 来实现响应追踪。因此在 JS 逻辑中必须 <code>.value</code>。' },
+    { id: 45, category: 'Vue3新特性', version: 'Vue3', title: 'watch 和 watchEffect 的区别？', answer: '<b>watch：</b> 需要明确指明监听哪个数据源（响应式对象或 getter 函数），只有被监听的数据变化时才执行回调。可获取新旧值，懒执行（默认数据变化才执行）。<br><b>watchEffect：</b> 自动收集依赖。立即执行一次回调函数，函数执行期间访问到的响应式数据都会被作为依赖。当这些依赖变化时，重新执行该回调。无法获取旧值。' },
+    { id: 46, category: 'Vue3新特性', version: 'Vue3', title: 'setup() 函数有什么特点？', answer: '1. 它是 Composition API 的入口点。<br>2. 执行时机极早，在 <code>beforeCreate</code> 之前执行。<br>3. 内部没有 <code>this</code> (指向 undefined)，不能访问 Vue2 的选项实例。<br>4. 接收两个参数：<code>props</code> (响应式) 和 <code>context</code> (包含 attrs, slots, emit, expose)。<br>5. 必须返回一个对象（暴露给模板使用），或返回一个渲染函数。' },
+    { id: 47, category: 'Vue3新特性', version: 'Vue3', title: '什么是 <script setup> 语法糖？', answer: '它是 Vue3.2 引入的单文件组件编译时语法糖。在里面声明的顶层绑定（变量、函数导入等）会自动暴露给模板使用，无需手动 <code>return</code>。<br>它拥有更简洁的代码编写体验、更好的类型推断，并且可以直接使用顶级 <code>await</code>。<br>通过 <code>defineProps</code> 和 <code>defineEmits</code> 来声明组件的输入输出。' },
+    { id: 48, category: 'Vue3新特性', version: 'Vue3', title: 'toRef 和 toRefs 的作用是什么？', answer: '当你尝试解构 <code>reactive</code> 对象时，解构出的基本类型变量会丢失响应式。<br><b>toRef(obj, key)：</b> 为源响应式对象上的某个属性创建一个 ref。它和源对象的属性保持同步。<br><b>toRefs(obj)：</b> 将一个响应式对象转换为一个普通对象，这个普通对象的每个属性都是指向源对象相应属性的 ref。常用于在 <code>setup</code> 中返回结构后的响应式数据：<code>return { ...toRefs(state) }</code>。' },
+    { id: 49, category: 'Vue3新特性', version: 'Vue3', title: 'shallowRef 和 shallowReactive 的作用？', answer: '用于浅层响应式优化，避免深度递归转换 Proxy，节省性能。<br><b>shallowRef：</b> 只有对 <code>.value</code> 整个重新赋值才触发响应，内部对象的属性改变不触发（如果是对象）。<br><b>shallowReactive：</b> 只有对象最外层的属性具有响应式，深层嵌套的对象属性没有。' },
+    { id: 50, category: 'Vue3新特性', version: 'Vue3', title: 'Vue3 中如何获取 DOM 元素节点 (refs)？', answer: '在 Options API 中，用 <code>this.$refs.name</code>。<br>在 Composition API <code>&lt;script setup&gt;</code> 中，声明一个名字和模板中 <code>ref="name"</code> 完全相同的 <code>ref</code> 变量。<br>', code: `<script setup>
+import { ref, onMounted } from 'vue'
+const myDiv = ref(null) // 变量名需等于 ref 属性值
+onMounted(() => console.log(myDiv.value))
+<\/script>
+<template><div ref="myDiv"></div></template>` },
+    { id: 51, category: 'Vue3新特性', version: 'Vue3', title: 'Custom Hooks (自定义 Hook) 怎么写？它的核心思想？', answer: '自定义 Hook 本质上是一个普通的 JS 函数，按照约定以 <code>use</code> 开头（如 <code>useMousePosition</code>）。<br>内部使用 Vue 的 Composition API (ref, onMounted, watch 等) 封装可复用的逻辑状态。最终返回组件所需的响应式数据或方法。<br><b>核心思想：</b> 状态与 UI 分离，将具有独立逻辑的响应式状态及其修改函数抽离复用。' },
+    { id: 52, category: 'Vue3新特性', version: 'Vue3', title: 'defineExpose 是做什么用的？', answer: '在使用 <code>&lt;script setup&gt;</code> 时，组件默认是关闭的，即父组件通过模板 ref 获取组件实例时，无法访问其内部的数据和方法。<br>使用 <code>defineExpose({ a, b })</code> 编译器宏可以显式地将特定属性和方法暴露出去，供父组件调用。' },
+    { id: 53, category: 'Vue3新特性', version: 'Vue3', title: 'computed 如何实现 getter 和 setter？', answer: '在 Vue3 中，如果只传一个回调给 computed，它是只读的（只有 getter）。<br>如果需要可写的计算属性，传递一个具有 <code>get</code> 和 <code>set</code> 方法的对象。', code: `const count = ref(1)
+const plusOne = computed({
+  get: () => count.value + 1,
+  set: (val) => { count.value = val - 1 }
+})` },
+    { id: 54, category: 'Vue3新特性', version: 'Vue3', title: 'Vue3 的 v-memo 指令有什么用？', answer: '<code>v-memo="[a, b]"</code> 类似 React 的 <code>useMemo</code>。它记录模板树的一部分的渲染。只有当数组里的值发生改变时，这部分模板及子节点才会重新渲染。如果值不变，复用上一次的 VNode。<br>用于微观级别的性能优化，极少情况如渲染超大型列表（v-for配合v-memo）时才需要。' },
+    { id: 55, category: 'Vue3新特性', version: 'Vue3', title: 'Vue3 支持多个根节点底层是怎么处理的？', answer: '在 AST 编译阶段，当检测到 <code>&lt;template&gt;</code> 下有多个平级的根节点时，Vue 编译器会自动生成一个 <code>Fragment</code> (片段) 类型的虚拟 DOM 节点作为它们的父节点，从而满足虚拟树的结构要求，而在渲染成真实 DOM 时，Fragment 本身不会产生任何真实的包裹元素。' },
+    { id: 56, category: 'Vue3新特性', version: 'Vue3', title: 'Vue3 响应式 API 中的 raw 是什么？markRaw 和 toRaw？', answer: '<b>toRaw：</b> 返回 reactive 或 readonly 代理的原始对象（剥离代理）。用于读取且不引起代理追踪的开销。<br><b>markRaw：</b> 标记一个对象，使其永远不会再成为响应式代理。常用于大对象、第三方类库实例（如 Echarts 实例、复杂的非响应式配置对象），提升性能。' },
+    { id: 57, category: 'Vue3新特性', version: 'Vue3', title: '如何理解 readonly API？', answer: '<code>readonly</code> 接受一个对象 (不论是响应式还是普通的) 或 ref，并返回一个深层只读的代理。<br>尝试修改代理的状态将被忽略并控制台警告。<br>常用于依赖注入 <code>provide</code> 时，父组件传给子组件状态但希望它是只读的，防止子组件非法篡改。' },
+    { id: 58, category: 'Vue3新特性', version: 'Vue3', title: 'Composition API 是如何处理生命周期的？为什么能在 setup 里调用？', answer: 'Vue3 内部维护了一个当前组件实例的全局变量。当调用 <code>onMounted</code> 等生命周期 Hook 时，内部会通过 <code>getCurrentInstance()</code> 获取当前执行 setup 的组件实例，并将回调函数注册到该实例的生命周期钩子数组中。这也就是为什么生命周期 Hook 只能在 <code>setup()</code> 的同步执行期间被正确调用的原因。' },
+    { id: 59, category: 'Vue3新特性', version: 'Vue3', title: 'CSS v-bind() 在单文件组件中的作用？', answer: 'Vue3 单文件组件的 <code>&lt;style&gt;</code> 标签支持使用 <code>v-bind(响应式变量)</code>。<br>它允许 CSS 值直接链接到组件的状态，底层原理是 Vue 自动将 CSS 变量注入到了组件挂载的最外层 DOM 节点上。', code: `<script setup>
+const themeColor = ref('red')
+<\/script>
+<style scoped>
+.text { color: v-bind(themeColor); }
+</style>` },
+    { id: 60, category: 'Vue3新特性', version: 'Vue3', title: 'Tree-shaking 在 Vue3 中是如何体现的？', answer: 'Tree-shaking 是基于 ES6 模块语法的静态分析死代码消除技术。Vue3 使用函数式 API 大幅重构，使得大部分核心 API（如 <code>ref, computed, watch, nextTick</code>）都可以作为独立的 ES 模块导出。<br>如果你在代码中没有 <code>import</code> 这些功能，打包工具（如 Vite/Webpack）就会在生产构建时把它们剔除，从而极大地减小了打包体积。' },
+
+    // 状态管理与路由 (61-80)
+    { id: 61, category: '状态管理与路由', version: 'Vue2/3', title: 'Vue Router 的 hash 模式和 history 模式区别？', answer: '<b>Hash 模式：</b> URL 带有 <code>#</code>（如 <code>/#/about</code>）。背后的原理是监听 <code>onhashchange</code> 事件。兼容性好，不需要后端服务器配置，刷新不报 404。<br><b>History 模式：</b> URL 干净真实（如 <code>/about</code>）。背后的原理是 HTML5 的 <code>pushState</code> 和 <code>replaceState</code> API，以及 <code>onpopstate</code> 事件监听。需要后端配置 Nginx，将所有匹配不到静态资源的请求都重定向到 <code>index.html</code>，否则刷新会 404。' },
+    { id: 62, category: '状态管理与路由', version: 'Vue2/3', title: 'Vue Router 有哪些导航守卫 (生命周期)？', answer: '全局守卫：<code>beforeEach</code>, <code>beforeResolve</code>, <code>afterEach</code><br>路由独享守卫：<code>beforeEnter</code> (在路由配置中定义)<br>组件内守卫：<code>beforeRouteEnter</code>, <code>beforeRouteUpdate</code>, <code>beforeRouteLeave</code>。<br>常用于权限拦截（验证 Token 等）。' },
+    { id: 63, category: '状态管理与路由', version: 'Vue2/3', title: '如何获取路由参数 (Params vs Query)？', answer: '<b>Query：</b> 路径像 <code>/user?id=123</code>。用 <code>$route.query.id</code> 获取。刷新页面参数存在。传参用 <code>{ path: \'/user\', query: { id: 123 } }</code>。<br><b>Params：</b> 路径像 <code>/user/123</code> (需配置动态路由 <code>/user/:id</code>)，或隐式 params。用 <code>$route.params.id</code> 获取。传参必须用 name <code>{ name: \'User\', params: { id: 123 } }</code>。隐式 params 刷新页面会丢失。' },
+    { id: 64, category: '状态管理与路由', version: 'Vue2/3', title: '$router 和 $route 的区别？', answer: '<code>$router</code> 是全局路由的实例（Router Object），包含所有的路由方法，如 <code>push</code>, <code>replace</code>, <code>go</code>，用于实现编程式导航。<br><code>$route</code> 是当前正在活跃的路由对象（Route Location），包含了当前 URL 解析的信息，如 <code>path</code>, <code>query</code>, <code>params</code>, <code>meta</code> 等。是只读属性。' },
+    { id: 65, category: '状态管理与路由', version: 'Vue2/3', title: '什么是路由懒加载？如何配置？', answer: '当打包应用时，JS 包会非常大，导致首屏加载缓慢。路由懒加载可以把不同路由对应的组件分割成不同的代码块，当路由被访问时才加载对应的组件。<br><b>配置：</b> 结合 Vue 的异步组件和 Webpack/Vite 代码分割功能，使用箭头函数加 <code>import()</code> 的方式定义组件：<br><code>component: () => import(\'../views/About.vue\')</code>。' },
+    { id: 66, category: '状态管理与路由', version: 'Vue2/3', title: 'Vuex 核心概念有哪些？', answer: '1. <b>State：</b> 存放唯一单一状态树。<br>2. <b>Getters：</b> 类似 Vue 的 computed，从 state 派生出新状态。<br>3. <b>Mutations：</b> 唯一合法修改 state 的方法，必须是<b>同步函数</b>。<br>4. <b>Actions：</b> 包含任意<b>异步操作</b>，通过提交 mutation 间接改变状态。<br>5. <b>Modules：</b> 将 store 分割成模块，方便维护大型应用。' },
+    { id: 67, category: '状态管理与路由', version: 'Vue2/3', title: 'Vuex 中为什么 Mutation 必须是同步的？', answer: 'Vuex 内部集成了一个开发者工具 (Vue DevTools)，它会记录所有的 mutation 操作以实现 "Time-travel" (时间穿梭) 调试。如果 mutation 里有异步操作，当 mutation 触发时，异步回调还没执行，DevTools 捕获到的 state 快照就不准确了，导致调试和状态追踪变得极度困难。' },
+    { id: 68, category: '状态管理与路由', version: 'Vue3', title: 'Pinia 和 Vuex 的区别？为什么 Vue3 推荐 Pinia？', answer: '1. <b>API 更简：</b> 去掉了 <code>mutations</code>，状态更新直接通过 actions（支持同步/异步）或直接修改状态。<br>2. <b>TS 完美支持：</b> 不再需要像 Vuex 那样写复杂的类型推断包装器，开箱即用。<br>3. <b>无嵌套模块：</b> 设计扁平化，没有嵌套模块的烦恼，各个 Store 独立挂载，互相可以直接导入使用。<br>4. <b>体积更小</b>，且支持 Vue2 和 Vue3。' },
+    { id: 69, category: '状态管理与路由', version: 'Vue3', title: 'Pinia 中如何跨 Store 互相调用？', answer: '因为 Pinia 的 store 都是独立的 Hook (<code>useXxxStore()</code>)，在任意 store 的 getter 或 action 中，只需要直接 import 其他的 store Hook 并执行，就可以读取或调用其他 store 的状态和方法。', code: `import { useUserStore } from './user'
+export const useCartStore = defineStore('cart', {
+  actions: {
+    checkout() {
+      const userStore = useUserStore()
+      if (userStore.isLoggedIn) { /*...*/ }
+    }
+  }
+})` },
+    { id: 70, category: '状态管理与路由', version: 'Vue3', title: '如何重置 Pinia 的 State？', answer: '在选项式定义的 Store 中，Pinia 提供了 <code>$reset()</code> 方法。它会创建一个新的初始状态对象，替换当前的状态。<br>但在使用 Composition API (Setup Store) 模式下，<code>$reset()</code> 方法默认不可用。你需要自己编写一个 reset action 或者写一个 Pinia 插件来实现它。' },
+    { id: 71, category: '状态管理与路由', version: 'Vue2/3', title: '如何在路由钩子中处理异步鉴权？', answer: '在全局前置守卫 <code>beforeEach(to, from, next)</code> 中，可以发起异步请求。<br>如果 Token 不存在或者后端验证失败，通过 <code>next(\'/login\')</code> 拦截重定向。<br>注意 Vue Router 4 中，推荐不再使用 <code>next</code> 函数，而是直接在守卫函数中返回 <code>true/false</code> 或路由路径：<code>return \'/login\'</code>。' },
+    { id: 72, category: '状态管理与路由', version: 'Vue2/3', title: '动态路由权限管理 (RBAC) 前端一般怎么做？', answer: '1. 用户登录后，后端返回该用户的权限标识集合或角色集合。<br>2. 前端维护一份完整的异步路由表，路由对象的 <code>meta</code> 中带有 <code>roles</code> 权限要求。<br>3. 在路由拦截器中，根据用户角色过滤路由表，生成用户可访问的最终路由表。<br>4. 使用 <code>router.addRoute()</code> 动态添加到路由实例中。<br>5. 动态渲染菜单栏。' },
+    { id: 73, category: '状态管理与路由', version: 'Vue2/3', title: '如何监听 $route 的参数变化？', answer: '当使用同一组件切换页面（如 `/user/1` 切换到 `/user/2`），组件实例会被复用，生命周期不会重新触发。<br>可以通过 <code>watch</code> 监听 <code>$route</code> 对象。<br><b>Vue3 推荐：</b> <code>watch(() => route.params.id, (newId) => { fetchUser(newId) })</code>，或使用 <code>onBeforeRouteUpdate</code> 组件内守卫。' },
+    { id: 74, category: '状态管理与路由', version: 'Vue2', title: 'Vuex 页面刷新数据丢失怎么办？', answer: 'Vuex 的数据是存在内存中的，页面刷新后内存重置。解决办法：<br>1. 监听 <code>beforeunload</code> 事件，刷新前将 state 存入 <code>sessionStorage</code> 或 <code>localStorage</code>，加载页面时在 <code>created</code> 中读取并使用 <code>replaceState</code> 恢复。<br>2. 直接使用持久化插件如 <code>vuex-persistedstate</code> 或 Pinia 的 <code>pinia-plugin-persistedstate</code>。' },
+    { id: 75, category: '状态管理与路由', version: 'Vue2/3', title: 'router.push() 抛出 Uncaught (in promise) 错误为什么？', answer: '如果在 Vue-Router 3.1.0+ 版本中，调用 push 遇到路由重复导航（即跳转到了当前所在的相同路径），它会返回一个被 reject 的 Promise。如果没有 <code>catch</code> 处理，浏览器会报未捕获异常。<br><b>解决：</b> <code>router.push(path).catch(err => {})</code>，或者重写 Router 实例的 push 方法拦截这个特定错误。' },
+    { id: 76, category: '状态管理与路由', version: 'Vue2/3', title: 'Vue 中如何实现前进刷新，后退缓存？', answer: '结合 <code>keep-alive</code> 和 <code>meta</code> 属性。<br>1. 路由 meta 中设置 <code>keepAlive: true</code>。<br>2. 监听 <code>$route</code>，如果是前进（从 A -> B），在 B 的 <code>activated</code> 里重置数据或不让 B 缓存。<br>另一种更好的是记录页面的层次层级，判断跳转的动作是 forward 还是 back，动态操作 <code>keep-alive</code> 的 <code>include</code> 数组。' },
+    { id: 77, category: '状态管理与路由', version: 'Vue3', title: 'Pinia 是如何改变数据持久化设计的？', answer: 'Pinia 的 State 可以直接作为一个普通的 reactive 对象被解构，结合 <code>watch</code> 监听整个 store 对象，将其自动保存到 LocalStorage。<br>社区广泛使用的 <code>pinia-plugin-persistedstate</code> 插件就是利用了 Pinia 插件系统的 <code>store.$subscribe</code>，订阅所有 mutation 的变化，一旦变化自动落盘，极其方便。' },
+    { id: 78, category: '状态管理与路由', version: 'Vue3', title: 'Vue Router 4 中移除了哪些功能？', answer: '1. 移除了 <code>fallback</code> 选项（现在自动降级）。<br>2. 移除了包含多个路由记录的数组作为 <code>addRoutes</code> API（现替换为一次加一条的 <code>addRoute</code>）。<br>3. 移除了 <code>&lt;router-link&gt;</code> 的 <code>tag</code> 属性和 <code>event</code> 属性（需用作用域插槽自定义渲染）。<br>4. 通配符路由 <code>*</code> 改用正则参数语法 <code>/:pathMatch(.*)*</code>。' },
+    { id: 79, category: '状态管理与路由', version: 'Vue2/3', title: '路由元信息 meta 的作用？', answer: '<code>meta</code> 是路由记录中的一个自定义对象。常用于在其中附加路由的自定义配置，例如：<br><code>requiresAuth: true</code>（是否需要登录鉴权）、<code>title: \'首页\'</code>（用于动态修改页面标题）、<code>keepAlive: true</code>（是否需要组件缓存）、页面所属的父级高亮菜单标识等。' },
+    { id: 80, category: '状态管理与路由', version: 'Vue2/3', title: '什么是 ScrollBehavior (滚动行为)？', answer: '在 Vue Router 中可以自定义路由切换时页面的滚动位置。<br>配置 <code>scrollBehavior(to, from, savedPosition)</code> 函数，如果 <code>savedPosition</code> 存在（说明用户点击了浏览器的后退/前进按钮），就返回它。否则返回 <code>{ top: 0 }</code> 让页面始终滚动到顶部。还可以根据锚点进行平滑滚动。' },
+
+    // 原理与源码 (81-90)
+    { id: 81, category: '原理与源码', version: 'Vue2', title: '简述 Vue2 响应式原理 (Object.defineProperty)', answer: 'Vue 在初始化数据时，使用 <code>Observer</code> 遍历 data 对象的属性，并用 <code>Object.defineProperty</code> 把这些属性全部转为 getter/setter。<br>每个响应式属性都有一个 <code>Dep</code> 实例收集依赖。在模板渲染或 computed 访问这些属性时触发 getter，将当前的 <code>Watcher</code> (订阅者) 收集到 Dep 中。<br>当属性被修改时，触发 setter，由 Dep 通知所有的 Watcher 进行 <code>update()</code>，最终触发 VDOM 重新渲染。' },
+    { id: 82, category: '原理与源码', version: 'Vue3', title: '简述 Vue3 响应式原理 (Proxy)', answer: 'Vue3 核心使用 <code>Proxy</code> 对象对目标对象进行代理拦截。可以拦截对象属性的 get, set, deleteProperty, has, ownKeys 等操作。<br>当访问属性时，通过 <code>track()</code> 收集依赖（将副作用函数 effect 与当前目标及其属性关联到 <code>WeakMap/Map</code> 中）。<br>当修改属性时，通过 <code>trigger()</code> 找到关联的副作用函数并触发执行。<br>相比 Vue2，Proxy 直接代理整个对象而非递归遍历属性，性能好，支持数组操作和属性增删监听。' },
+    { id: 83, category: '原理与源码', version: 'Vue2/3', title: 'Vue 的 Virtual DOM diff 算法原理？', answer: 'Diff 算法是平级比较，不跨级比较。核心原则是深度优先，同层比较。<br>1. 如果节点类型不同，直接销毁旧节点，替换为新节点。<br>2. 节点类型相同，比较其属性差异更新。<br>3. 最复杂的是针对子节点数组的对比。Vue2 采用<b>双端比较</b>算法 (首尾四个指针同时向中间逼近比较)。<br>Vue3 在此基础上增加了最长递增子序列算法，对于乱序的节点，仅移动那些不在序列中的节点，减少 DOM 移动次数。' },
+    { id: 84, category: '原理与源码', version: 'Vue2/3', title: 'Vue 的 nextTick 源码实现原理？', answer: '本质是利用浏览器的<b>异步任务队列 (Event Loop)</b> 延迟执行代码。<br>Vue 内部维护一个回调队列。调用 nextTick 则是把回调推入队列。<br>内部会利用各种降级策略来开启一个异步任务清空这个队列：优先使用微任务 <code>Promise.then</code>，如果不支持则尝试 <code>MutationObserver</code>，再降级到 <code>setImmediate</code>，最后兜底方案是宏任务 <code>setTimeout(fn, 0)</code>。<br>之所以优先微任务，是因为微任务在本次 DOM 渲染刷新之前执行，可以保证拿到最新 DOM 并只渲染一次。' },
+    { id: 85, category: '原理与源码', version: 'Vue2/3', title: 'Vue 模板编译原理 (Compiler)？', answer: '模板编译分为三大阶段：<br>1. <b>Parse (解析)：</b> 使用正则表达式将 template 字符串解析转换成 AST (抽象语法树)。<br>2. <b>Optimize (优化)：</b> 遍历 AST，找出其中的静态节点并打上标记。在 diff 时就可以直接跳过这些静态节点，提升性能。<br>3. <b>Generate (生成)：</b> 将 AST 转换成可执行的 render() 函数代码字符串。如 <code>_c(\'div\', {id:"app"}, [_v(_s(msg))])</code>。' },
+    { id: 86, category: '原理与源码', version: 'Vue3', title: 'Vue3 的静态提升 (Static Hoisting) 是什么？', answer: '在 Vue2 中，即便元素是纯静态的，每次重新渲染时也会重新创建它的 VNode。<br>在 Vue3 的编译器中，会将不参与状态更新的纯静态节点 (文本或 DOM 结构) 提取到 <code>render</code> 函数外部进行缓存。<br>在后续渲染中，这些节点将直接复用上次创建的 VNode，避免内存分配和对象创建。同时静态属性也被提升。' },
+    { id: 87, category: '原理与源码', version: 'Vue3', title: 'Vue3 的 Block Tree 和 PatchFlag (靶向更新) 是什么？', answer: 'Vue2 的 diff 是全量遍历对比。Vue3 编译器会分析模板，给动态节点打上 <code>PatchFlag</code> (例如文本变化为1，class变化为2)。<br>并且使用带有动态节点引用的 <code>Block</code> 将树结构扁平化。当状态改变时，只需遍历 Block 中的动态子节点，并根据 PatchFlag 仅比较发生变化的属性 (靶向更新)。极大提高了更新速度。' },
+    { id: 88, category: '原理与源码', version: 'Vue2/3', title: '计算属性 computed 的源码原理？', answer: '计算属性本质是一个特殊的 <code>Watcher</code> (Vue2) 或 <code>ReactiveEffect</code> (Vue3)。<br>它有一个 <code>dirty</code> 属性来控制缓存。初始计算时 <code>dirty</code> 为 true，计算完毕后设为 false 并缓存值。同时它会收集自身依赖的响应式数据。<br>当依赖的数据变化时，并不会立即重新计算，而是将 <code>dirty</code> 设为 true。当下一次访问该 computed 或者它绑定的组件需要重新渲染时，判断 <code>dirty</code> 为 true 才触发真实的计算逻辑。' },
+    { id: 89, category: '原理与源码', version: 'Vue2', title: 'Vue.set / $set 的实现原理？', answer: '由于 Vue2的 defineProperty 无法拦截对象属性的新增，调用 <code>Vue.set(target, key, val)</code> 时：<br>1. 如果 target 是数组，底层调用 <code>splice(key, 1, val)</code> 触发响应式。<br>2. 如果 target 是对象，且 key 已经存在，则直接赋值。<br>3. 如果 target 不是响应式对象，直接赋值即可。<br>4. 如果是给响应式对象新增属性，内部通过 <code>defineReactive</code> 给该属性添加 getter/setter，然后手动调用它所在依赖管理器 <code>ob.dep.notify()</code> 通知视图更新。' },
+    { id: 90, category: '原理与源码', version: 'Vue2', title: '什么是 keep-alive 原理？LRU 算法？', answer: '<code>keep-alive</code> 是一个内置抽象组件，自身不会渲染成 DOM 元素。它利用自身的实例缓存被包裹的 VNode 节点。<br>内部维护了一个 cache 字典和 keys 数组。如果组件名匹配成功则走缓存。<br>为了避免内存泄露，它提供了 <code>max</code> 属性限制最大缓存实例数。其底层使用 <b>LRU 算法 (最近最少使用算法)</b>。如果缓存超限，会自动剔除最久没有被访问的缓存组件 (删除数组第一项，并触发实例的 destroy)。' },
+
+    // 性能优化 (91-100)
+    { id: 91, category: '性能优化', version: 'Vue2/3', title: 'Vue 项目性能优化方案有哪些？（综合）', answer: '1. <b>代码层面：</b> v-if/v-show 选择，v-for加key，不与v-if混用，Object.freeze / markRaw 冻结长列表数据，路由与组件按需懒加载。<br>2. <b>构建层面：</b> Webpack/Vite 提取公共代码，压缩混淆，Gzip 压缩，图片压缩/雪碧图/WebP。<br>3. <b>架构层面：</b> 使用 SSR (Nuxt.js) 或 SSG 提升首屏加载和 SEO；CDN 引入第三方大库。<br>4. <b>体验层面：</b> 骨架屏、虚拟列表滚动 (Virtual Scroll) 渲染海量数据。' },
+    { id: 92, category: '性能优化', version: 'Vue2/3', title: '如何处理长列表展示？虚拟滚动原理？', answer: '如果长列表有几千条数据，直接渲染会造成 DOM 节点爆炸，页面卡死。解决方式是 <b>虚拟列表 (Virtual Scroll)</b>。<br>原理是只渲染可视区域及其上下缓冲区内的少量 DOM 节点。监听滚动容器的 <code>scroll</code> 事件，根据当前滚动的高度 <code>scrollTop</code> 计算出可视区域应该展示的数据范围，并通过 CSS 的 <code>transform</code> 对列表容器进行偏移定位。常用库如 <code>vue-virtual-scroller</code>。' },
+    { id: 93, category: '性能优化', version: 'Vue2/3', title: 'SSR 服务端渲染和预渲染 (SSG) 的区别？', answer: '<b>SSR (Server-Side Rendering)：</b> 在 Node.js 服务器端动态拼接出首屏对应的 HTML 字符串发送给浏览器，利于首屏速度和 SEO。但增加服务器 CPU 压力。<br><b>SSG (Static Site Generation)：</b> 预渲染。在代码构建打阶段 (build 时)，通过无头浏览器或渲染器直接把路由对应的页面生成静态 HTML 文件。访问时完全就是静态文件服务器。无需服务器动态计算资源，速度极快，适合数据不常变动的官网/博客。' },
+    { id: 94, category: '性能优化', version: 'Vue2', title: '对于不常改变的海量数据如何优化？', answer: 'Vue2 在将 data 转为响应式对象时会深度遍历对象所有属性。如果数据是从接口获取的海量纯展示列表数据，这个递归过程非常耗时。<br>可以使用 <code>Object.freeze(data)</code>。这会阻止修改现有属性的特性和值。Vue 检测到被 freeze 的对象会跳过响应式劫持，大大提升组件初次渲染性能。<br><i>在 Vue3 中可以使用 <code>markRaw</code> 或 <code>shallowRef</code> 实现相同效果。</i>' },
+    { id: 95, category: '性能优化', version: 'Vue2/3', title: 'Vue 项目中定时器造成的内存泄露如何防范？', answer: '如果在组件的生命周期（如 created, mounted）中通过 <code>setInterval</code> 等开启了全局定时器，或者在全局对象（如 <code>window, document</code>）上绑定了自定义事件，当组件被销毁（或路由跳转离开）时，这些并不会自动注销。若不清理，会导致内存泄漏且回调一直在后台执行。<br><b>防范：</b> 必须在组件的 <code>beforeDestroy</code> (Vue2) 或 <code>onBeforeUnmount</code> (Vue3) 钩子中，使用 <code>clearInterval</code> 清理定时器，使用 <code>removeEventListener</code> 解绑事件。' },
+    { id: 96, category: '性能优化', version: 'Vue2/3', title: '如何进行组件级别的懒加载优化？', answer: '除了路由懒加载，对于初始不可见的组件（如弹窗 Modal、抽屉 Drawer、需要滚动才可见的图表），也可以使用异步组件技术。<br><code>defineAsyncComponent(() => import(\'./BigChart.vue\'))</code>。<br>当触发某条件（如点击按钮弹出抽屉），或者使用 <code>IntersectionObserver</code> 监听元素进入视口时，才真正发起网络请求加载该组件的 chunk 包，显著减少首页体积。' },
+    { id: 97, category: '性能优化', version: 'Vue2/3', title: '如何优化图片资源在 Vue 项目中的加载？', answer: '1. <b>图片懒加载：</b> 列表中的图片使用 <code>v-lazy</code> 指令（基于 IntersectionObserver 或 vue-lazyload 库），进入视口再加载。<br>2. <b>WebP格式：</b> 优先使用更小体积的 WebP。<br>3. <b>使用 CDN：</b> 将图片等静态资产放上 CDN 加速。<br>4. <b>雪碧图 / SVG Sprites：</b> 减少细小图标的网络请求数。<br>5. <b>分辨率适配：</b> 根据不同的屏幕 <code>dpr</code> 使用 <code>srcset</code> 加载不同尺寸图。' },
+    { id: 98, category: '性能优化', version: 'Vue2/3', title: '什么是 v-once，它的作用是什么？', answer: '<code>v-once</code> 指令表示元素和组件只渲染一次。当初次渲染结束后，即使绑定的状态改变，该元素及其所有子节点都将被视为静态内容并跳过更新过程。<br><b>作用：</b> 优化页面渲染性能。非常适合用于渲染包含大量静态内容且不需要动态响应变化的页面结构（如完全静态的长文章、免责声明等）。' },
+    { id: 99, category: '性能优化', version: 'Vue3', title: 'Vue3 中如何利用 Web Worker 进行性能优化？', answer: '当遇到密集型的大规模计算（如解析大文件、复杂图表数据运算）时，如果在 Vue 组件主线程中执行，会导致浏览器渲染挂起（卡顿）。<br>可以将这部分纯运算逻辑剥离到 Web Worker 中。Vue 主线程将数据发给 Worker，Worker 计算完后抛回结果，更新 Vue 的响应式状态。<br>Vite 原生支持 Worker：<code>const worker = new Worker(new URL(\'./worker.js\', import.meta.url))</code>。' },
+    { id: 100, category: '性能优化', version: 'Vue2/3', title: '服务端渲染 (Nuxt.js) 有什么坑和注意事项？', answer: '1. <b>生命周期差异：</b> 服务器端只会执行 <code>beforeCreate</code> 和 <code>created</code>。不能在这里做涉及 DOM / BOM 对象的跨端操作（如获取 <code>window, document, localStorage</code>），会报错。<br>2. <b>第三方插件库：</b> 必须确保引入的 UI 库、轮播图等支持 SSR，否则需要配置只在 Client 侧按需加载。<br>3. <b>状态单例污染：</b> SSR 上的 Node 进程是长驻的，导出的 store 或 router 对象必须是每次请求一个新工厂实例，否则用户的私密数据会串门互通，造成严重的安全漏洞。' }
+];
+
+// --- State Management ---
+let activeCategory = 'All';
+let searchQuery = '';
+
+// --- DOM Elements ---
+const container = document.getElementById('questions-container');
+const filterContainer = document.getElementById('category-filters');
+const searchInput = document.getElementById('searchInput');
+const emptyState = document.getElementById('empty-state');
+const resultCount = document.getElementById('result-count');
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const mobileSidebar = document.getElementById('mobileSidebar');
+const mobileSidebarContent = document.getElementById('mobileSidebarContent');
+
+// --- Initialization ---
+function init() {
+    renderFilters();
+    renderQuestions();
+    initChart();
+    setupEventListeners();
+}
+
+// --- Render Methods ---
+function renderQuestions() {
+    container.innerHTML = '';
+    
+    // Filter data
+    const filtered = vueQuestions.filter(q => {
+        const matchCat = activeCategory === 'All' || q.category === activeCategory;
+        const searchLower = searchQuery.toLowerCase();
+        const matchSearch = q.title.toLowerCase().includes(searchLower) || q.answer.toLowerCase().includes(searchLower);
+        return matchCat && matchSearch;
+    });
+
+    resultCount.innerText = `共 ${filtered.length} 题`;
+
+    if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+        emptyState.classList.add('flex');
+    } else {
+        emptyState.classList.add('hidden');
+        emptyState.classList.remove('flex');
+        
+        filtered.forEach((q, index) => {
+            const isVue3 = q.version.includes('Vue3');
+            const versionColor = isVue3 ? 'bg-[#10b981] text-white' : 'bg-gray-200 text-gray-700';
+            
+            const html = `
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-200 hover:shadow-md question-item">
+                    <button class="w-full text-left px-6 py-4 flex items-center justify-between focus:outline-none" onclick="toggleAccordion(${q.id})">
+                        <div class="flex items-center gap-4 pr-4">
+                            <span class="text-sm font-bold text-gray-400 w-8">#${q.id.toString().padStart(3, '0')}</span>
+                            <h3 class="text-lg font-medium text-gray-800">${q.title}</h3>
+                        </div>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <span class="text-xs px-2 py-1 rounded-full ${versionColor} font-medium">${q.version}</span>
+                            <span class="text-[#10b981] transform transition-transform duration-300 accordion-icon" id="icon-${q.id}">&#9660;</span>
+                        </div>
+                    </button>
+                    <div id="content-${q.id}" class="accordion-content bg-gray-50 px-6">
+                        <div class="py-4 border-t border-gray-200">
+                            <p class="text-gray-700 leading-relaxed">${q.answer}</p>
+                            ${q.code ? `
+                                <div class="mt-4">
+                                    <span class="text-xs text-gray-500 mb-1 block uppercase tracking-wider font-semibold">代码解析示例：</span>
+                                    <pre><code>${escapeHTML(q.code)}</code></pre>
+                                </div>
+                            ` : ''}
+                            <div class="mt-4 flex justify-end">
+                                <span class="text-xs text-gray-400 bg-white border border-gray-200 px-2 py-1 rounded">标签: ${q.category}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    }
+}
+
+function renderFilters() {
+    const categories = ['All', ...new Set(vueQuestions.map(q => q.category))];
+    let html = '';
+    categories.forEach(cat => {
+        const count = cat === 'All' ? vueQuestions.length : vueQuestions.filter(q => q.category === cat).length;
+        const name = cat === 'All' ? '全部题目' : cat;
+        html += `
+            <button class="category-btn w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-transparent hover:bg-gray-100 ${activeCategory === cat ? 'active' : 'text-gray-600'}" data-cat="${cat}">
+                ${name} <span class="float-right text-xs bg-gray-100 text-gray-500 py-0.5 px-2 rounded-full ${activeCategory === cat ? 'bg-white/20 text-white' : ''}">${count}</span>
+            </button>
+        `;
+    });
+    filterContainer.innerHTML = html;
+    
+    // Setup event listeners for newly injected buttons
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            activeCategory = e.currentTarget.getAttribute('data-cat');
+            renderFilters(); // Re-render to update active state
+            renderQuestions();
+            // Close mobile menu if open
+            closeMobileMenu();
+        });
+    });
+}
+
+// --- Interaction Logic ---
+window.toggleAccordion = function(id) {
+    const content = document.getElementById(`content-${id}`);
+    const icon = document.getElementById(`icon-${id}`);
+    
+    if (content.classList.contains('open')) {
+        content.classList.remove('open');
+        icon.classList.remove('rotate-180');
+    } else {
+        // Optional: Close others
+        // document.querySelectorAll('.accordion-content.open').forEach(el => el.classList.remove('open'));
+        // document.querySelectorAll('.accordion-icon.rotate-180').forEach(el => el.classList.remove('rotate-180'));
+        
+        content.classList.add('open');
+        icon.classList.add('rotate-180');
+    }
+}
+
+function setupEventListeners() {
+    searchInput.addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        renderQuestions();
+    });
+
+    mobileMenuBtn.addEventListener('click', () => {
+        mobileSidebar.classList.remove('hidden');
+        // Mirror content lazily for mobile view
+        if(mobileSidebarContent.innerHTML.trim() === '') {
+            const sidebarInner = document.querySelector('aside').innerHTML;
+            mobileSidebarContent.innerHTML = `
+                <div class="flex justify-between items-center p-4 border-b">
+                    <h2 class="font-bold text-lg">筛选与导航</h2>
+                    <button id="closeMobileBtn" class="text-2xl text-gray-500">&times;</button>
+                </div>
+                <div class="overflow-y-auto flex-1 p-4">
+                    ${sidebarInner.replace('id="category-filters"', 'id="mobile-category-filters"').replace('<canvas id="statsChart"></canvas>', '')}
+                </div>
+            `;
+            
+            // Re-bind mobile buttons
+            document.querySelectorAll('#mobile-category-filters .category-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    activeCategory = e.currentTarget.getAttribute('data-cat');
+                    renderFilters(); 
+                    renderQuestions();
+                    closeMobileMenu();
+                });
+            });
+
+            document.getElementById('closeMobileBtn').addEventListener('click', closeMobileMenu);
+        }
+        
+        setTimeout(() => {
+            mobileSidebarContent.classList.remove('-translate-x-full');
+        }, 10);
+    });
+
+    // Close mobile menu on outside click
+    mobileSidebar.addEventListener('click', (e) => {
+        if (e.target === mobileSidebar) closeMobileMenu();
+    });
+}
+
+function closeMobileMenu() {
+    mobileSidebarContent.classList.add('-translate-x-full');
+    setTimeout(() => {
+        mobileSidebar.classList.add('hidden');
+    }, 300);
+}
+
+// --- Utility ---
+function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag)
+    );
+}
+
+// --- Chart.js Data Vis ---
+function initChart() {
+    const ctx = document.getElementById('statsChart').getContext('2d');
+    
+    // Aggregate data
+    const categories = [...new Set(vueQuestions.map(q => q.category))];
+    const counts = categories.map(cat => vueQuestions.filter(q => q.category === cat).length);
+    
+    // Palette compatible with Tailwind Emerald/Gray
+    const colors = [
+        '#10b981', '#34d399', '#6ee7b7', 
+        '#64748b', '#94a3b8', '#cbd5e1'
+    ];
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: categories,
+            datasets: [{
+                data: counts,
+                backgroundColor: colors,
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false // Hide legend to save space
+                },
+                tooltip: {
+                    bodyFont: { family: 'sans-serif' },
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.label}: ${context.raw} 题`;
+                        }
+                    }
+                }
+            },
+            cutout: '70%'
+        }
+    });
+}
+
+// Run app
+document.addEventListener('DOMContentLoaded', init);
+
+</script>
+</body>
+</html>
