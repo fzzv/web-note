@@ -47,6 +47,7 @@ export const nav = () => {
         {
           text: 'Java',
           items: [
+            { text: 'JavaSE', link: '/java/javase/匿名对象&继承&抽象类' },
             { text: 'Maven', link: '/java/maven' },
             { text: 'SpringBoot', link: '/java/SpringBoot基础' },
             { text: 'Mybatis Plus', link: '/java/mybatisplus' },

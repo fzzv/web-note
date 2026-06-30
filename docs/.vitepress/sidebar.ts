@@ -3,6 +3,7 @@ export const js = () => {
     {
       text: '重学Js',
       items: [
+        { text: '函数的防抖和节流', link: '/JS/debounce-throttle' },
         { text: '事件', link: '/JS/events' },
         { text: '异步编程', link: '/JS/async-programming' },
         { text: '高阶编程技巧', link: '/JS/advanced-programming' },
@@ -165,6 +166,14 @@ export const nest = () => {
 
 export const java = () => {
   return [
+    {
+      text: 'JavaSE',
+      items: [
+        { text: '匿名对象、继承、抽象类', link: '/java/javase/匿名对象&继承&抽象类' },
+        { text: '关键字、接口、代码块、枚举', link: '/java/javase/关键字&接口&代码块&枚举' },
+        { text: '多态、常用API', link: '/java/javase/多态&常用API' },
+      ]
+    },
     {
       text: 'SpringBoot',
       items: [
