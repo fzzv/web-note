@@ -7,6 +7,19 @@
 - HTTP：超文本(除文本外的富媒体资源，例如：图片、视频等)传输协议
 - HTTPS：HTTP+SSL(加密传输) ，支付类网站基本上都是基于HTTPS传输协议处理的
 - FTP：文件传输协议（现在一般用于客户端和服务器端文件的直接传输）
+- WebSocket (WS / WSS)：**全双工**（Full-duplex）通信。客户端和服务端可以在一条持久化的连接上自由地双向发送数据。
+- SSE (Server-Sent Events)：**单向**（Server to Client）通信。客户端发起一次 HTTP 请求后，连接保持打开状态，服务端可以源源不断地向客户端推送数据流。
+- WebRTC (Web Real-Time Communication)：主要用于浏览器之间的点对点（P2P）双向通信。
+
+## 从输入URL地址到看到页面，中间都经历了啥
+
+1. URL解析
+2. 缓存检查
+3. DNS解析
+4. TCP三次握手
+5. 数据传输
+6. TCP四次挥手
+7. 页面渲染
 
 ## URL 解析
 
@@ -29,19 +42,33 @@ const url = `http://www.fanjs.cn/index.html?from=${escape('星星屿')}`
 console.log(url) // http://www.fanjs.cn/index.html?from=%u661F%u661F%u5C7F
 ```
 
-## 强缓存和协商缓存
+## 缓存检查
+
+缓存位置：
+
+- Memory Cache : 内存缓存
+
+- Disk Cache：硬盘缓存
+
+打开网页：查找 disk cache 中是否有匹配，如有则使用，如没有则发送网络请求
+
+普通刷新 (F5)：因TAB没关闭，因此memory cache是可用的，会被优先使用，其次才是disk cache
+
+强制刷新 (Ctrl + F5)：浏览器不使用缓存，因此发送的请求头部均带有 Cache-control: no-cache，服务器直接返回 200 和最新内容
+
+### 强缓存和协商缓存
 
 客户端缓存处理（强缓存和协商缓存）：都是对**资源文件**的缓存处理，数据的缓存不是这样处理的 
 
-### 强缓存
+#### 强缓存
 
 强缓存策略可以通过两种方式来设置，分别是请求头里的两个属性：
 
 - **Expires**: Wed, 04 Oct 2023 05:12:36 GMT   (HTTP1.0)
 - **Cache-Control**：max-age=14400  (HTTP1.1)
-
 - - `max-age=`：设置缓存的最大有效期，单位为秒
   - `no-cache`：设置了该字段需要先和服务端确认返回的资源是否发生了变化，如果资源未发生变化，则直接使用缓存好的资源；
+- 两者同时存在的话，Cache-Control优先级高于Expires
 
 `Cache-Control` 中的 **no-cache 和 no-store** 对比
 
@@ -57,6 +84,8 @@ console.log(url) // http://www.fanjs.cn/index.html?from=%u661F%u661F%u5C7F
 ![img](http-network.assets/image-20220809182432842.png)![img](http-network.assets/1714032488266-a9fce30d-0ed3-454d-b1fb-ebba7d2a748a.png)
 
 ![img](http-network.assets/1714032519180-d868d6ec-f87b-45b7-9082-ef5549e668f3.png)
+
+![img](http-network.assets/1.png)
 
 **强缓存存在的问题：**
 
@@ -91,7 +120,7 @@ console.log(url) // http://www.fanjs.cn/index.html?from=%u661F%u661F%u5C7F
 -->
 ```
 
-### 协商缓存
+#### 协商缓存
 
 协商缓存也可以通过两种方式来设置(客户端需要和服务器协商)：在强缓存失效的情况下，协商缓存的机制才会触发（**Etag 的优先级更高**）
 
@@ -131,7 +160,9 @@ console.log(url) // http://www.fanjs.cn/index.html?from=%u661F%u661F%u5C7F
 
 ![img](http-network.assets/1714037383550-e6fa8a28-8db5-414c-8476-8e11c2430f1e.png)
 
-## 数据缓存
+![img](http-network.assets/2.png)
+
+### 数据缓存
 
 把从服务器获取的数据缓存下来（不经常更新的数据），可以减少请求的次数
 
@@ -152,6 +183,8 @@ console.log(url) // http://www.fanjs.cn/index.html?from=%u661F%u661F%u5C7F
 
 不论是A还是B方案，都是把信息存储到本地(物理磁盘)，哪怕页面关闭重新打开，缓存的信息也存在（排除：sessionStorage）；但是C方案不是，它是类似于定义了全局变量存储信息，页面关闭或者刷新存储的信息都会消失，这种情况在SPA单页面应用，组件之间来回切换的时候可以用...
 
+![img](http-network.assets/3.png)
+
 本地存储的对比：
 
 - localStorage VS sessionStorage：都是H5新的API（不兼容IE6~8），`localStorage`持久存储，而`sessionStorage`是会话存储，只要页面关闭，则存储的信息就没有了
@@ -161,3 +194,95 @@ console.log(url) // http://www.fanjs.cn/index.html?from=%u661F%u661F%u5C7F
   - 稳定性：`cookie`有过期时间，而且清除浏览器或者电脑记录或者垃圾，都有可能会把他清除掉，并且浏览器的无痕浏览器模式是无法记录`cookie`的，`localStorage`是持久存储，基本上只要不是手动清除会一直存在！！
   - 和服务器关系：`localStorage`和服务器没有任何的关系（当然你可以自己手动把`localStorage`中存储的信息发送给服务器），但是`cookie`不行，只要本地有`cookie`，在向服务器发送请求的时候，浏览器都会把这些信息发送给服务器
   - `cookie`的好处是**兼容**，某些需要在每次请求的时候，把信息传递给服务器的，可以存储到`cookie`中
+
+## DNS解析
+
+递归查询和迭代查询
+
+![img](http-network.assets/4.png)
+
+> 每一次DNS解析时间预计在20~120毫秒
+>
+> - 减少DNS请求次数
+> - DNS预获取（DNS Prefetch）
+
+```html
+<meta http-equiv="x-dns-prefetch-control" content="on">
+<link rel="dns-prefetch" href="//static.360buyimg.com"/>
+<link rel="dns-prefetch" href="//misc.360buyimg.com"/>
+<link rel="dns-prefetch" href="//img10.360buyimg.com"/>
+<link rel="dns-prefetch" href="//d.3.cn"/>
+<link rel="dns-prefetch" href="//d.jd.com"/>
+```
+
+**服务器拆分的优势**
+
+- 资源的合理利用
+- 抗压能力加强
+- 提高HTTP并发
+- ……
+
+![img](http-network.assets/5.png)
+
+## TCP 三次握手
+
+- seq序号，用来标识从TCP源端向目的端发送的字节流，发起方发送数据时对此进行标记
+- ack确认序号，只有ACK标志位为1时，确认序号字段才有效，ack=seq+1
+- 标志位
+  - ACK：确认序号有效
+  - RST：重置连接
+  - SYN：发起一个新连接
+  - FIN：释放一个连接
+  - ……
+
+![img](http-network.assets/6.png)
+
+> 三次握手为什么不用两次，或者四次?
+>
+> TCP作为一种可靠传输控制协议，其核心思想：既要保证数据可靠传输，又要提高传输的效率！
+
+## 数据传输
+
+- HTTP报文
+  - 请求报文
+  - 响应报文
+- 响应状态码
+  - 200 OK
+  - 202 Accepted ：服务器已接受请求，但尚未处理（异步）
+  - 204 No Content：服务器成功处理了请求，但不需要返回任何实体内容
+  - 206 Partial Content：服务器已经成功处理了部分 GET 请求（断点续传 Range/If-Range/Content-Range/Content-Type:”multipart/byteranges”/Content-Length….）
+  - 301 Moved Permanently
+  - 302 Move Temporarily
+  - 304 Not Modified
+  - 305 Use Proxy
+  - 400 Bad Request : 请求参数有误
+  - 401 Unauthorized：权限（Authorization）
+  - 404 Not Found
+  - 405 Method Not Allowed
+  - 408 Request Timeout
+  - 500 Internal Server Error
+  - 503 Service Unavailable
+  - 505 HTTP Version Not Supported
+  - ……
+
+## TCP 四次挥手
+
+![img](http-network.assets/7.png)
+
+为什么连接的时候是三次握手，关闭的时候却是四次握手？
+
+- 服务器端收到客户端的SYN连接请求报文后，可以直接发送SYN+ACK报文
+- 但关闭连接时，当服务器端收到FIN报文时，很可能并不会立即关闭链接，所以只能先回复一个ACK报文，告诉客户端：”你发的FIN报文我收到了”，只有等到服务器端所有的报文都发送完了，我才能发送FIN报文，因此不能一起发送，故需要四步握手。
+
+`Connection: keep-alive`
+
+## 网络层的前端性能优化
+
+**产品性能优化方案**
+
+- HTTP网络层优化
+- 代码编译层优化 webpack、vite
+- 代码运行层优化 html/css + javascript + vue + react
+- 安全优化 xss + csrf
+- 数据埋点及性能监控
+- ……
