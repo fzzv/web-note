@@ -172,6 +172,7 @@ export const java = () => {
         { text: '匿名对象、继承、抽象类', link: '/java/javase/匿名对象&继承&抽象类' },
         { text: '关键字、接口、代码块、枚举', link: '/java/javase/关键字&接口&代码块&枚举' },
         { text: '多态、常用API', link: '/java/javase/多态&常用API' },
+        { text: '集合', link: '/java/javase/集合' },
       ]
     },
     {
