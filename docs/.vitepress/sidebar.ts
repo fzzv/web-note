@@ -174,6 +174,7 @@ export const java = () => {
         { text: '多态、常用API', link: '/java/javase/多态&常用API' },
         { text: '集合', link: '/java/javase/集合' },
         { text: 'Lambda、Stream、File', link: '/java/javase/Lambda&Stream&File' },
+        { text: '异常、多线程', link: '/java/javase/异常&多线程' },
       ]
     },
     {
