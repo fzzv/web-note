@@ -1,5 +1,5 @@
 [project]
-name = "python"
+name = "backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -7,12 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "aiomysql>=0.3.2",
     "fastapi>=0.141.1",
-    "requests>=2.32.5",
     "sqlalchemy>=2.0.51",
-    "uvicorn>=0.52.1",
-]
-
-[tool.uv.workspace]
-members = [
-    "fastapi/project-xwzx-news/backend",
+    "uvicorn[standard]>=0.52.1",
 ]
