@@ -9,6 +9,7 @@ dependencies = [
     "bcrypt==4.0.1",
     "fastapi>=0.141.1",
     "passlib>=1.7.4",
+    "redis>=8.1.0",
     "sqlalchemy>=2.0.51",
     "uvicorn[standard]>=0.52.1",
 ]
