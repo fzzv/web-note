@@ -51,6 +51,7 @@ export const nav = () => {
             { text: 'Maven', link: '/java/maven' },
             { text: 'SpringBoot', link: '/java/SpringBoot基础' },
             { text: 'Mybatis Plus', link: '/java/mybatisplus' },
+            { text: 'RabbitMQ', link: '/java/message-queue/RabbitMQ' },
           ]
         },
         {

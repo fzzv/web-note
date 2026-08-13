@@ -193,9 +193,15 @@ export const java = () => {
       ]
     },
     {
-      text: '其他',
+      text: 'Mybatis',
       items: [
         { text: 'Mybatis Plus 入门', link: '/java/mybatisplus' },
+      ]
+    },
+    {
+      text: 'RabbitMQ',
+      items: [
+        { text: 'RabbitMQ', link: '/java/message-queue/RabbitMQ' },
       ]
     },
   ]
